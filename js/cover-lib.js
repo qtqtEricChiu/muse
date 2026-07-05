@@ -1,10 +1,7 @@
-/**
- * MBolka Player - Cover Library
- * Standalone cover library panel, album detail
+/*
+ * MBolka Player - Cover Library v3.0.1
+ * Album/artist/recent grid views, album detail panel
  */
-
-// === 曲库独立面板 (v2.4.0 静态重构) ===
-let coverLibSortMode = 'album'; // album / artist / recent
 
 function showCoverLibrary() {
     closeAllModals();
@@ -12,7 +9,7 @@ function showCoverLibrary() {
     const modal = document.getElementById('coverLibraryModal');
     if (!modal) return;
     
-    // 核心：像列表弹窗一样，通过添加 open 触发完美的 CSS 渐变与弹性放大动画
+    // 🚀 核心：像列表弹窗一样，通过添加 open 触发完美的 CSS 渐变与弹性放大动画
     modal.classList.add('open');
 
     // 初始化事件监听（只在第一次打开时绑定，防止重复绑定造成的内存泄露）
@@ -64,15 +61,15 @@ function renderCoverLibGrid(filter = '') {
     grid.innerHTML = '';
 
     if (coverLibSortMode === 'artist') {
-        renderArtistGrid(grid, filter);
+        renderArtistGrid(grid, filter, modal);
     } else if (coverLibSortMode === 'recent') {
-        renderRecentGrid(grid, filter);
+        renderRecentGrid(grid, filter, modal);
     } else {
-        renderAlbumGrid(grid, filter);
+        renderAlbumGrid(grid, filter, modal);
     }
 }
 
-// 核心：增量切片渲染引擎（每次只渲染12个，保持曲库展开时60fps丝滑）
+// 🚀 核心：增量切片渲染引擎（每次只渲染12个，保持曲库展开时60fps丝滑）
 function renderGridChunked(grid, entries, createCardFn) {
     let i = 0;
     const chunkSize = 12;
@@ -87,7 +84,7 @@ function renderGridChunked(grid, entries, createCardFn) {
     requestAnimationFrame(renderNextChunk);
 }
 
-function renderAlbumGrid(grid, filter) {
+function renderAlbumGrid(grid, filter, modal) {
     const groups = new Map();
     musicLibrary.forEach((s, i) => {
         const key = s.art || '__noart__';
@@ -101,7 +98,7 @@ function renderAlbumGrid(grid, filter) {
     }
     entries.sort((a, b) => b[1].songs.length - a[1].songs.length);
 
-    // 应用切片渲染
+    // 🚀 应用切片渲染
     renderGridChunked(grid, entries, ([key, group], idx) => {
         const card = createCoverCard(group, idx, 'album');
         card.onclick = () => showAlbumDetail(group, modal);
@@ -109,7 +106,7 @@ function renderAlbumGrid(grid, filter) {
     });
 }
 
-function renderArtistGrid(grid, filter) {
+function renderArtistGrid(grid, filter, modal) {
     const groups = new Map();
     musicLibrary.forEach((s, i) => {
         const key = s.artist;
@@ -123,7 +120,7 @@ function renderArtistGrid(grid, filter) {
     }
     entries.sort((a, b) => b[1].songs.length - a[1].songs.length);
 
-    // 应用切片渲染
+    // 🚀 应用切片渲染
     renderGridChunked(grid, entries, ([key, group], idx) => {
         const card = createCoverCard(group, idx, 'artist');
         card.onclick = () => { playAudio(group.firstIdx); modal.remove(); };
@@ -131,7 +128,7 @@ function renderArtistGrid(grid, filter) {
     });
 }
 
-function renderRecentGrid(grid, filter) {
+function renderRecentGrid(grid, filter, modal) {
     const entries = musicLibrary.map((s, i) => ({
         art: s.art, album: s.album || '未知', artist: s.artist,
         title: s.title, songs: [i], firstIdx: i, isSingle: true
@@ -143,7 +140,7 @@ function renderRecentGrid(grid, filter) {
     }
     filtered = filtered.slice(-50).reverse();
 
-    // 应用切片渲染
+    // 🚀 应用切片渲染
     renderGridChunked(grid, filtered, (group, idx) => {
         const card = document.createElement('div');
         card.className = 'cover-lib-card';
@@ -162,7 +159,7 @@ function renderRecentGrid(grid, filter) {
 
 function createCoverCard(group, idx, type) {
     const card = document.createElement('div');
-    // 核心修改：加上 focusable 类名与 tabIndex，支持手柄/键盘焦点导航
+    // 🚀 核心修改：加上 focusable 类名与 tabIndex，支持手柄/键盘焦点导航
     card.className = 'cover-lib-card focusable';
     card.tabIndex = 0;
     if (type === 'artist') card.classList.add('artist-card');
@@ -183,13 +180,14 @@ function createCoverCard(group, idx, type) {
     return card;
 }
 
-// 专辑详情面板 (v2.3.2 完美手柄适配版)
+// 专辑详情面板 (🚀 v2.3.2 完美手柄适配版)
 function showAlbumDetail(group, parentModal) {
     const detailModal = document.createElement('div');
-    detailModal.className = 'modal-overlay open';
+    // 🔧 v2.8.1 P2: 不立即添加 open 类，使用双重 rAF 确保 CSS 动画触发
+    detailModal.className = 'modal-overlay';
     detailModal.style.zIndex = '1001';
 
-    // 核心改动 1：为操作按钮加上 focusable 类名与 tabindex="0"
+    // 🚀 核心改动 1：为操作按钮加上 focusable 类名与 tabindex="0"
     detailModal.innerHTML = `
         <div class="album-detail-panel">
             <div class="album-detail-header">
@@ -211,7 +209,14 @@ function showAlbumDetail(group, parentModal) {
     `;
     document.body.appendChild(detailModal);
 
-    // 核心改动 2：立即更新焦点上下文，让手柄焦点瞬间"吸附"进入详情弹窗中
+    // 🔧 v2.8.1 P2: 使用双重 requestAnimationFrame 确保浏览器渲染初始状态后再触发动画
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            detailModal.classList.add('open');
+        });
+    });
+
+    // 🚀 核心改动 2：立即更新焦点上下文，让手柄焦点瞬间"吸附"进入详情弹窗中
     updateFocusContext();
 
     // 渲染曲目列表
@@ -220,7 +225,7 @@ function showAlbumDetail(group, parentModal) {
         const s = musicLibrary[songIdx]; // 从全库取数
         const track = document.createElement('div');
         
-        // 核心改动 3：为每一行歌曲注入 focusable 与 tabIndex
+        // 🚀 核心改动 3：为每一行歌曲注入 focusable 与 tabIndex
         track.className = `album-detail-track focusable${songIdx === currentIndex ? ' active' : ''}`;
         track.tabIndex = 0;
         
@@ -232,9 +237,9 @@ function showAlbumDetail(group, parentModal) {
         
         // 鼠标/手柄确认点击播放
         track.onclick = () => {
+            // 🔧 v2.8.4: 使用 closeAllModals 替代直接 remove
             playAudio(songIdx);
-            detailModal.remove();
-            parentModal.remove();
+            closeAllModals();
         };
         tracksEl.appendChild(track);
     });
@@ -248,23 +253,36 @@ function showAlbumDetail(group, parentModal) {
         isRepeatOne = false;
         updateModeUI(); 
         saveSettings();
-        playAudio(0);
-        renderPlaylist();
-        detailModal.remove();
-        parentModal.remove();
+        // 🔧 v2.8.4: 使用 safeTransition 优雅关闭弹窗再播放
+        safeTransition(() => {
+            playAudio(0);
+            renderPlaylist();
+        });
         showToast(`🎵 正在播放专辑: ${group.album || '未知'}`);
     };
 
-    // 关闭详情（核心改动 4：关闭时，必须重新扫描，让焦点优雅退回到曲库面板中）
-    detailModal.querySelector('#btnCloseAlbumDetail').onclick = () => {
-        detailModal.remove();
-        updateFocusContext(); 
+    // 关闭详情（🚀 核心改动 4：关闭时，必须重新扫描，让焦点优雅退回到曲库面板中）
+    const closeDetail = () => {
+        detailModal.classList.remove('open');
+        setTimeout(() => {
+            if (detailModal.parentNode) {
+                detailModal.remove();
+            }
+            // 🔧 v2.8.4: 确保父弹窗恢复焦点上下文
+            if (parentModal && parentModal.classList.contains('open')) {
+                updateFocusContext();
+            }
+        }, 400);
     };
+    detailModal.querySelector('#btnCloseAlbumDetail').onclick = closeDetail;
     
     detailModal.onclick = (e) => { 
-        if (e.target === detailModal) {
-            detailModal.remove();
-            updateFocusContext(); 
-        }
+        if (e.target === detailModal) closeDetail();
     };
 }
+
+// === 全域焦点控制系统 ===
+let focusableElements = [];
+let currentFocusIndex = -1;
+let lastNavTime = 0;
+

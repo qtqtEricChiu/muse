@@ -1,48 +1,117 @@
-/**
- * MBolka Player - Picture-in-Picture & Energy Saving
- * PiP window management, energy saving state machine
+/*
+ * MBolka Player - Picture-in-Picture v3.0.1
+ * Energy saving system (EnergyMode bitfield), PiP window management
  */
 
-// === 画中画 (Document Picture-in-Picture) v2.2 重构 ===
-let pipWindow = null;
-let isEnergySaving = false; // v2.7: 节能模式状态机
+function enterEnergySaving(mode = EnergyMode.PIP_TEMP) {
+    const wasSaving = shouldBeEnergySaving();
+    energyModeFlags |= mode;
 
-// v2.7: 进入节能模式 — 暂停渲染、粒子、歌词降频
-function enterEnergySaving() {
-    if (isEnergySaving) return;
-    isEnergySaving = true;
-    // 清空粒子池
-    particles.length = 0;
-    ripples.length = 0;
-    // 清空流沙背景 Canvas
-    const ctx = el.bgColor.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, el.bgColor.width, el.bgColor.height);
-    // 降低歌词同步频率
-    if (lrcTimer) clearInterval(lrcTimer);
-    lrcTimer = setInterval(() => syncLyrics(true), 500);
-    // CSS 休眠主界面
+    if (!wasSaving && shouldBeEnergySaving()) {
+        // 首次进入节能状态，执行实际节能操作
+        applyEnergySaving(true, mode);
+    }
+
+    // 更新 CSS pip-standby 类：只有 PIP_TEMP 或 VISIBILITY 才添加暗黑类
     const wrapper = document.querySelector('.player-wrapper');
-    if (wrapper) wrapper.classList.add('pip-standby');
+    if (wrapper) {
+        wrapper.classList.toggle('pip-standby',
+            (energyModeFlags & (EnergyMode.PIP_TEMP | EnergyMode.VISIBILITY)) !== 0);
+    }
 }
 
-// v2.7: 退出节能模式
-function exitEnergySaving() {
-    if (!isEnergySaving) return;
-    isEnergySaving = false;
-    // 恢复歌词高频同步
-    if (lrcTimer) { clearInterval(lrcTimer); lrcTimer = null; }
-    // 恢复 CSS
+// 🚀 v2.8.4: 退出指定节能模式
+function exitEnergySaving(mode = EnergyMode.PIP_TEMP) {
+    const wasSaving = shouldBeEnergySaving();
+    energyModeFlags &= ~mode;
+
+    if (wasSaving && !shouldBeEnergySaving()) {
+        // 完全退出节能状态
+        applyEnergySaving(false);
+    }
+
+    // 更新 pip-standby
     const wrapper = document.querySelector('.player-wrapper');
-    if (wrapper) wrapper.classList.remove('pip-standby');
+    if (wrapper) {
+        const hasPipStandby = (energyModeFlags & (EnergyMode.PIP_TEMP | EnergyMode.VISIBILITY)) !== 0;
+        wrapper.classList.toggle('pip-standby', hasPipStandby);
+    }
+
+    // 同步旧标记
+    pipTempEnergySaving = (energyModeFlags & EnergyMode.PIP_TEMP) !== 0;
+    oneClickEnergySaving = (energyModeFlags & EnergyMode.ONE_CLICK) !== 0;
 }
 
-let lrcTimer = null; // v2.7: 歌词降频定时器句柄
+// 🚀 v2.8.4: 实际应用/取消节能效果
+function applyEnergySaving(enable, triggerMode = EnergyMode.NONE) {
+    isEnergySaving = enable;
+
+    if (enable) {
+        // 🚀 v2.7.0: 强制退出沉浸模式 — 停止所有动画特效并释放内存
+        if (isImmersiveMode) {
+            isImmersiveMode = false;
+            el.viewImm.classList.add('hidden'); el.viewMain.classList.remove('hidden');
+            document.body.style.background = 'var(--bg-dark)';
+            immCanvasCleared = true;
+            const immCtx = el.canvasImm.getContext('2d');
+            if (immCtx) immCtx.clearRect(0, 0, el.canvasImm.width, el.canvasImm.height);
+            updateFocusContext();
+        }
+
+        // 清空粒子池
+        particles.length = 0;
+        ripples.length = 0;
+        flowField = [];
+
+        // 清空流沙背景 Canvas
+        const bgCtx = el.bgColor.getContext('2d');
+        if (bgCtx) bgCtx.clearRect(0, 0, el.bgColor.width, el.bgColor.height);
+
+        // 暂停主频谱Canvas渲染
+        if (spectrumCtxMain) {
+            const cvs = el.canvasMain;
+            if (cvs) spectrumCtxMain.clearRect(0, 0, cvs.width || cvs.offsetWidth, cvs.height || cvs.offsetHeight);
+        }
+
+        // 降低歌词同步频率
+        if (lrcTimer) clearInterval(lrcTimer);
+        lrcTimer = setInterval(() => syncLyrics(true), 500);
+
+        // 🔋 一键节能时显示特定提示
+        if (triggerMode === EnergyMode.ONE_CLICK || (triggerMode & EnergyMode.ONE_CLICK)) {
+            showToast("🔋 一键节能已开启", "⚡");
+        }
+    } else {
+        // 恢复歌词高频同步
+        if (lrcTimer) { clearInterval(lrcTimer); lrcTimer = null; }
+
+        // 恢复视觉特效
+        if (analyser && !isImmersiveMode) {
+            requestAnimationFrame(renderVisLoop);
+        }
+
+        // 🚀 v3.0.0: 恢复震动
+        cfg.rumbleEnabled = true;
+
+        pipTempEnergySaving = false;
+        showToast("🔋 节能模式已退出", "⚡");
+    }
+}
+
+let lrcTimer = null; // 🚀 v2.7: 歌词降频定时器句柄
 
 async function togglePip() {
     if (pipWindow) {
+        // 🚀 v2.7-preview2 P1: 关闭 PiP 时彻底清理所有定时器
+        if (pipSyncInterval) { clearInterval(pipSyncInterval); pipSyncInterval = null; }
+        if (pipHealthCheck) { clearInterval(pipHealthCheck); pipHealthCheck = null; }
         pipWindow.close();
         pipWindow = null;
-        exitEnergySaving();
+
+        // 🔧 v2.8.4: 关闭画中画时退出 PiP 临时节能（保留一键节能等其他模式）
+        exitEnergySaving(EnergyMode.PIP_TEMP);
+        pipTempEnergySaving = false;
+        // 如果是用户手动开启的节能模式（非临时），则保持
         updatePipQuickBtn();
         return;
     }
@@ -57,16 +126,18 @@ async function togglePip() {
             width: 400, height: 280
         });
 
-        // v2.7: 仅在用户启用节能开关时，PiP 激活后主窗口进入节电状态
-        if (cfg.energySavingEnabled) {
-            enterEnergySaving();
-            showToast("⚡ 主界面已进入节能模式", "📺");
+        // 🔧 v2.8.4: 根据临时节能开关决定是否进入 PiP 节能（与一键节能叠加）
+        if (cfg.pipEnergyEnabled) {
+            enterEnergySaving(EnergyMode.PIP_TEMP);
+            pipTempEnergySaving = true;
         }
 
         // PiP 窗口关闭监听 — 用户点 × 关闭时也要恢复主窗口
         pipWindow.addEventListener('pagehide', () => {
             pipWindow = null;
-            exitEnergySaving();
+            // 🔧 v2.8.4: 退出 PiP 临时节能
+            exitEnergySaving(EnergyMode.PIP_TEMP);
+            pipTempEnergySaving = false;
             updatePipQuickBtn();
         });
 
@@ -225,42 +296,58 @@ async function togglePip() {
                 if (lyricsWrap) lyricsWrap.style.display = hasLrc ? 'flex' : 'none';
                 if (fallbackWrap) fallbackWrap.style.display = hasLrc ? 'none' : 'flex';
 
-                // 🚀 v2.8.7: PiP歌词 — 当前原文 + 下一句原文（与沉浸舱一致）
+                // 4. 更新文本信息
                 if (hasLrc) {
                     const currEl = pipWindow.document.getElementById('pipCurrLine');
                     const nextEl = pipWindow.document.getElementById('pipNextLine');
-
-                    // 计算当前句和下一句索引
                     const curLrcIdx = parsedLyrics.findIndex(l => l.time > audio.currentTime - lyricsOffset);
-                    const currLrc = curLrcIdx > 0 ? parsedLyrics[curLrcIdx - 1] : (parsedLyrics.length ? parsedLyrics[parsedLyrics.length-1] : null);
-                    const nextLrc = (curLrcIdx > 0 && curLrcIdx < parsedLyrics.length) ? parsedLyrics[curLrcIdx] : null;
+                    let curIdx = curLrcIdx > 0 ? curLrcIdx - 1 : (parsedLyrics.length ? parsedLyrics.length - 1 : -1);
 
-                    // 当前句原文
-                    const currTxt = currLrc ? (currLrc.original || currLrc.text) : '';
-                    // 下一句原文（不是翻译！）
-                    const nextTxt = nextLrc ? (nextLrc.original || nextLrc.text) : '';
+                    // 🔥 v2.8.12: PiP 当前行遇 break/blank 向上查找最后有内容行
+                    let currLrc = '';
+                    if (curIdx >= 0) {
+                        const cl = parsedLyrics[curIdx];
+                        if (cl.isBreak || cl.isBlank || !cl.text) {
+                            for (let j = curIdx - 1; j >= 0; j--) {
+                                const pl = parsedLyrics[j];
+                                if (!pl.isBreak && !pl.isBlank && pl.text) {
+                                    currLrc = pl.text;
+                                    break;
+                                }
+                            }
+                        } else {
+                            currLrc = cl.text;
+                        }
+                    }
 
-                    // 第一行：当前句原文
-                    if (currEl && currTxt !== pipLastCurr) {
+                    // 🔥 v2.8.12: PiP 下一行跳过 break/blank
+                    let nextLrc = '';
+                    let nextIdx = curLrcIdx > 0 ? curLrcIdx : 0;
+                    while (nextIdx < parsedLyrics.length) {
+                        const nl = parsedLyrics[nextIdx];
+                        if (nl.isBreak || nl.isBlank || !nl.text) { nextIdx++; continue; }
+                        nextLrc = nl.text;
+                        break;
+                    }
+
+                    // 添加防闪烁机制
+                    if (currEl && currLrc !== pipLastCurr) {
                         currEl.classList.add('fade-out');
                         setTimeout(() => {
                             if (!pipWindow || pipWindow.closed) return;
-                            currEl.textContent = currTxt || '';
+                            currEl.textContent = currLrc || '';
                             currEl.classList.remove('fade-out');
-                            currEl.style.opacity = '1';
                         }, 200);
-                        pipLastCurr = currTxt;
+                        pipLastCurr = currLrc;
                     }
-                    // 第二行：下一句原文
-                    if (nextEl && nextTxt !== pipLastNext) {
+                    if (nextEl && nextLrc !== pipLastNext) {
                         nextEl.classList.add('fade-out');
                         setTimeout(() => {
                             if (!pipWindow || pipWindow.closed) return;
-                            nextEl.textContent = nextTxt || '';
+                            nextEl.textContent = nextLrc || '';
                             nextEl.classList.remove('fade-out');
-                            nextEl.style.opacity = nextTxt ? '0.6' : '0';
                         }, 200);
-                        pipLastNext = nextTxt;
+                        pipLastNext = nextLrc;
                     }
                 } else {
                     const ftEl = pipWindow.document.getElementById('pipFallbackTitle');
@@ -281,9 +368,12 @@ async function togglePip() {
         };
 
         // 5. 启动定时同步 (每500ms)
-        let pipSyncInterval = setInterval(() => {
+        pipSyncInterval = setInterval(() => {
             if (!pipWindow || pipWindow.closed) {
                 clearInterval(pipSyncInterval);
+                clearInterval(pipHealthCheck);
+                pipSyncInterval = null;
+                pipHealthCheck = null;
                 pipWindow = null;
                 updatePipQuickBtn();
                 return;
@@ -291,11 +381,29 @@ async function togglePip() {
             updatePipUI();
         }, 500);
 
+        // 🚀 v2.7-preview2 P1: 健康检查兜底 — 每10秒检查 PiP 窗口是否被外部关闭
+        pipHealthCheck = setInterval(() => {
+            if (!pipWindow || pipWindow.closed) {
+                clearInterval(pipSyncInterval);
+                clearInterval(pipHealthCheck);
+                pipSyncInterval = null;
+                pipHealthCheck = null;
+                pipWindow = null;
+                // 🔧 v2.8.4: 退出 PiP 临时节能
+                exitEnergySaving(EnergyMode.PIP_TEMP);
+                pipTempEnergySaving = false;
+                updatePipQuickBtn();
+            }
+        }, 10000);
+
         // 初始化一次
         updatePipUI();
 
         pipWindow.addEventListener('pagehide', () => {
             clearInterval(pipSyncInterval);
+            clearInterval(pipHealthCheck);
+            pipSyncInterval = null;
+            pipHealthCheck = null;
             pipWindow = null;
             updatePipQuickBtn();
         });
@@ -307,12 +415,4 @@ async function togglePip() {
         showToast("❌ 画中画启动失败");
         pipWindow = null;
     }
-}
-
-// HTML转义辅助函数
-function escapeHTML(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }

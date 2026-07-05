@@ -23,7 +23,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: 'OPPO Sans 4.0', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', Roboto, sans-serif;
     color: var(--text-main);
     min-height: 100vh;
     display: flex;
@@ -32,6 +32,8 @@ body {
     overflow: hidden;
     background: var(--bg-dark);
     -webkit-font-smoothing: antialiased;
+    /* 🚀 v2.9.0: user-select 仅对按钮和控件禁用，歌词等文本区域可选中 */
+    -webkit-user-select: none;
     user-select: none;
 }
 
@@ -47,6 +49,14 @@ body {
     transform: scale(1.02);
     z-index: 50;
 }
+
+/* 🚀 v2.9.0: 键盘焦点样式 */
+:focus-visible {
+    outline: 2px solid var(--primary) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 12px var(--primary-glow) !important;
+}
+:focus:not(:focus-visible) { outline: none; }
 
 /* ================= 动态背景层 ================= */
 #bg-layer-img, #bg-layer-color {
@@ -133,8 +143,8 @@ body {
     width: 50px !important; height: 50px !important; font-size: 18px !important;
     border-color: rgba(255,107,107,0.3) !important;
 }
-.btn-fav-ctrl:hover { border-color: #ff6b6b !important; background: rgba(255,107,107,0.15) !important; transform: scale(1.08) !important; }
-.btn-fav-ctrl.faved { background: rgba(255,107,107,0.25) !important; border-color: #ff6b6b !important; color: #ff6b6b !important; box-shadow: 0 0 15px rgba(255,107,107,0.3) !important; }
+.btn-fav-ctrl:hover { border-color: #ff6b6b; background: rgba(255,107,107,0.15); transform: scale(1.08); }
+.btn-fav-ctrl.faved { background: rgba(255,107,107,0.25); border-color: #ff6b6b; color: #ff6b6b; box-shadow: 0 0 15px rgba(255,107,107,0.3); }
 .btn-pip-ctrl {
     width: 50px !important; height: 50px !important; font-size: 18px !important;
     border-color: rgba(154,200,226,0.3) !important;
@@ -827,7 +837,7 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
 .stat-top-item .play-count { font-size: 12px; color: var(--text-sub); }
 
 /* ================= 9. 睡眠定时器 ================= */
-.sleep-timer-display { font-size: 14px; color: var(--text-sub); display: flex; align-items: center; gap: 6px; }
+.sleep-timer-display { color: var(--text-sub); display: flex; align-items: center; gap: 6px; }
 .sleep-timer-display.active { color: var(--primary); }
 .sleep-timer-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -858,7 +868,7 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     .btn-group-main { gap: 14px; }
     .btn-ctrl { width: 48px; height: 48px; font-size: 16px; }
     .btn-play { width: 64px; height: 64px; font-size: 26px; }
-    .btn-fav-ctrl, .btn-pip-ctrl { width: 42px !important; height: 42px !important; font-size: 15px !important; }
+    .btn-fav-ctrl, .btn-pip-ctrl { width: 42px; height: 42px; font-size: 15px; }
     .vol-control { margin-left: 12px; padding: 8px 12px; }
     .cover-album-group { width: 110px; padding: 8px; }
     .cover-album-art { width: 75px; height: 75px; }
@@ -876,7 +886,7 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     .btn-group-main { gap: 10px; }
     .btn-ctrl { width: 40px; height: 40px; font-size: 14px; }
     .btn-play { width: 52px; height: 52px; font-size: 22px; }
-    .btn-fav-ctrl, .btn-pip-ctrl { width: 36px !important; height: 36px !important; font-size: 13px !important; }
+    .btn-fav-ctrl, .btn-pip-ctrl { width: 36px; height: 36px; font-size: 13px; }
     .btn-group-sub { flex-wrap: wrap; gap: 8px; }
     .vol-control { margin-left: 0; width: 100%; }
     .cover-album-group { width: 90px; padding: 6px; }
@@ -911,3 +921,14 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     0%, 100% { box-shadow: 0 0 8px var(--primary-glow); }
     50% { box-shadow: 0 0 20px var(--primary-glow), 0 0 40px var(--primary); }
 }
+
+/* 🚀 v3.0.0: 震动面板样式 */
+.settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.settings-row span:first-child { font-size: 13px; color: var(--text-sub); min-width: 80px; flex-shrink: 0; }
+
+/* 🚀 v3.0.2: 手柄按键徽章样式 */
+.gamepad-badge.pad-x  { background: rgba(0,150,255,0.25); color: #4da6ff; }
+.gamepad-badge.pad-y  { background: rgba(255,180,60,0.25);  color: #ffb83c; }
+.gamepad-badge.pad-menu { background: rgba(200,200,200,0.2); color: #ccc; }
+.gamepad-badge.pad-dpad { background: rgba(255,255,255,0.12); color: #aaa; }
+.gamepad-badge.pad-rs { background: rgba(154,200,226,0.2); color: #9ac8e2; }

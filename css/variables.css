@@ -1,29 +1,54 @@
 /* ================= 核心变量与重置 ================= */
 :root {
-    --primary: #9ac8e2;
-    --primary-light: #b4d6ea;
-    --primary-glow: rgba(154, 200, 226, 0.5);
-    --text-on-primary: #0a0a1a;
-    --bg-dark: #0a0a1a;
-    --bg-dark-light: #1a1a2e;
-    --text-main: #f0f8ff;
-    --text-sub: #8a8aa0;
-    --glass-bg: rgba(26, 26, 46, 0.45);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    /* === 主色调：琥珀金 === */
+    --primary: #e8b84b;
+    --primary-rgb: 232, 184, 75;
+    --primary-light: #f0cd78;
+    --primary-glow: rgba(var(--primary-rgb), 0.45);
+
+    /* === 文字色 === */
+    --text-on-primary: #1a1208;
+    --text-main: #f2eee8;
+    --text-sub: #8a857a;
+
+    /* === 背景色 === */
+    --bg-dark: #0e0c16;
+    --bg-dark-light: #1a1625;
+    --bg-darker: #080610;
+
+    /* === 玻璃态 === */
+    --glass-bg: rgba(20, 17, 30, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.6),
+                    0 0 0 1px rgba(var(--primary-rgb), 0.04) inset;
+
+    /* === 动态值 === */
     --bg-blur: 40px;
-    --curve-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --curve-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --curve-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+    --curve-spring: cubic-bezier(0.16, 1, 0.3, 1);
     --lrc-font-size: 18px;
     --lrc-line-height: 2.2;
     --lrc-align: center;
-    --bg-darker: #060612;
+
+    /* === 4pt 间距系统 === */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
+    --section-gap: clamp(16px, 3vh, 32px);
+
+    /* === 字体系统 === */
+    --font-display: 'Newsreader', 'Noto Serif SC', Georgia, serif;
+    --font-body: 'Geist', 'OPPO Sans 4.0', -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: 'OPPO Sans 4.0', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-body);
     color: var(--text-main);
     min-height: 100vh;
     display: flex;
@@ -32,13 +57,15 @@ body {
     overflow: hidden;
     background: var(--bg-dark);
     -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none;
     user-select: none;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 4px; transition: background 0.2s; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); }
+::-webkit-scrollbar-thumb:active { background: var(--primary); }
 
 .gamepad-focus {
     outline: 3px solid var(--primary) !important;
@@ -47,3 +74,10 @@ body {
     transform: scale(1.02);
     z-index: 50;
 }
+
+:focus-visible {
+    outline: 2px solid var(--primary) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 12px var(--primary-glow) !important;
+}
+:focus:not(:focus-visible) { outline: none; }

@@ -1,11 +1,8 @@
-/**
- * MBolka Player - UI Core
- * Modals, button bindings, theme presets, EQ panel, stats
+/*
+ * MBolka Player - UI Core v3.0.2
+ * Modal management, button bindings, settings UI, theme presets, EQ panel, stats, BG settings
  */
 
-// === 模态与 UI 控制 ===
-// 剥离纯同步关闭逻辑，防止视图过渡嵌套崩溃
-// 核心重构：引入 isSwitching 锁，完美恢复回弹动画
 const _closeModalsSync = (isSwitching = false) => {
     // 寻找当前处于打开状态的弹窗
     const openModals = document.querySelectorAll('.modal-overlay.open');
@@ -13,7 +10,7 @@ const _closeModalsSync = (isSwitching = false) => {
     openModals.forEach(m => {
         m.classList.remove('open');
         
-        // 只有当"切换窗口"时，为了防止两个大弹窗重叠，才让旧窗口瞬间消失（禁用 transition）
+        // 🚀 只有当"切换窗口"时，为了防止两个大弹窗重叠，才让旧窗口瞬间消失（禁用 transition）
         if (isSwitching) {
             m.style.transition = 'none';
             const content = m.querySelector('.modal-content');
@@ -36,34 +33,110 @@ const _closeModalsSync = (isSwitching = false) => {
     updateFocusContext();
 };
 
-// 正常关闭弹窗（点击Close、Esc、手柄B）：彻底恢复原本极具动感的 CSS 淡出和回弹缩小动画！
+// 🩹 v2.8.8: 专用关闭函数 — 曲库/帮助/文件信息（手柄B键+Esc退出支持）
+function closeCoverLibrary() {
+    const modal = document.getElementById('coverLibraryModal');
+    if (!modal || !modal.classList.contains('open')) return;
+    modal.classList.remove('open');
+    setTimeout(() => updateFocusContext(), 400);
+}
+function closeHelp() {
+    const modal = el.helpModal;
+    if (!modal || !modal.classList.contains('open')) return;
+    modal.classList.remove('open');
+    setTimeout(() => updateFocusContext(), 400);
+}
+function closeFileInfo() {
+    const modal = el.fileInfoModal;
+    if (!modal || !modal.classList.contains('open')) return;
+    modal.classList.remove('open');
+    setTimeout(() => updateFocusContext(), 400);
+}
+
+// 正常关闭弹窗（点击Close、Esc、手柄B）：🚀 彻底恢复原本极具动感的 CSS 淡出和回弹缩小动画！
 const closeAllModals = () => {
     _closeModalsSync(false); // 传参 false：保留完整的过渡动画
 };
 
-// === 统一弹窗栈关闭管理器 (完美支持 LIFO 后进先出) ===
+// === 🚀 v2.8.4: 统一弹窗栈关闭管理器 (增强版：z-index排序 + 动画感知) ===
 function handleGlobalClose() {
-    // 扫描页面上所有当前处于打开状态的弹窗（包括动态创建和静态隐藏的）
-    const activeModals = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => {
-        return m.classList.contains('open') || (m.style.display !== 'none' && document.body.contains(m));
+    // 扫描所有浮窗，包括动态创建的
+    const allModals = Array.from(document.querySelectorAll('.modal-overlay'));
+    const activeModals = allModals.filter(m => {
+        const isOpen = m.classList.contains('open');
+        const isVisible = m.style.display !== 'none' && m.style.visibility !== 'hidden';
+        const inDom = document.body.contains(m);
+        return (isOpen || isVisible) && inDom;
     });
 
-    if (activeModals.length > 0) {
-        // 永远只关闭位于最上层的那个弹窗（数组的最后一项）
-        const topModal = activeModals[activeModals.length - 1];
-        
-        // 区分静态和动态弹窗进行关闭
-        const staticIds = ['playlistModal', 'settingsModal', 'fileInfoModal', 'helpModal', 'coverLibraryModal'];
-        if (staticIds.includes(topModal.id)) {
-            topModal.classList.remove('open');
-        } else {
-            topModal.remove(); // 动态生成的模态框（如统计、专辑详情）直接从DOM移除
-        }
-        
-        updateFocusContext(); // 刷新焦点
-        return true; // 成功关闭了一个弹窗
+    if (activeModals.length === 0) return false;
+
+    // 按 z-index 排序，关闭最上层的
+    activeModals.sort((a, b) => {
+        const zA = parseInt(getComputedStyle(a).zIndex) || 0;
+        const zB = parseInt(getComputedStyle(b).zIndex) || 0;
+        return zB - zA;
+    });
+
+    const topModal = activeModals[0];
+
+    // 🩹 v2.8.8: 按浮窗类型使用专用关闭函数（确保动画+焦点正确）
+    if (topModal.id === 'coverLibraryModal') {
+        closeCoverLibrary();
+    } else if (topModal.id === 'settingsModal') {
+        closeSettings();
+    } else if (topModal.id === 'playlistModal') {
+        closePlaylist();
+    } else if (topModal.id === 'helpModal') {
+        closeHelp();
+    } else if (topModal.id === 'fileInfoModal') {
+        closeFileInfo();
+    } else if (topModal.querySelector('.album-detail-panel')) {
+        // 专辑详情 → 关闭详情面板
+        const detailPanel = topModal.querySelector('.album-detail-panel');
+        const closeBtn = detailPanel.querySelector('#btnCloseAlbumDetail');
+        if (closeBtn) closeBtn.click();
+    } else {
+        // 兜底：移除 open 触发退出动画，延迟清理
+        topModal.classList.remove('open');
+        setTimeout(() => {
+            if (topModal.parentNode && !topModal.classList.contains('open')) {
+                topModal.remove();
+            }
+            updateFocusContext();
+        }, 400);
     }
-    return false; // 当前没有打开的弹窗
+
+    // 更新焦点
+    setTimeout(() => updateFocusContext(), 50);
+
+    return true; // 成功关闭了一个弹窗
+}
+
+// 🩹 v2.8.8: 专用关闭函数 — 设置浮窗
+function closeSettings() {
+    const modal = el.settingsModal;
+    if (!modal || !modal.classList.contains('open')) return;
+    modal.classList.remove('open');
+    setTimeout(() => {
+        if (!modal.classList.contains('open')) {
+            updateFocusContext();
+            saveSettings();
+            showToast("⚙️ 设置已保存");
+        }
+    }, 400);
+}
+
+// 🩹 v2.8.8: 专用关闭函数 — 播放列表浮窗
+function closePlaylist() {
+    const modal = el.playlistModal;
+    if (!modal || !modal.classList.contains('open')) return;
+    modal.classList.remove('open');
+    setTimeout(() => {
+        if (!modal.classList.contains('open')) {
+            updateFocusContext();
+        }
+    }, 400);
 }
 
 // 切换窗口：旧窗口瞬间消失，新窗口优雅回弹展开
@@ -120,6 +193,7 @@ bindBtn('btnSettings', () => {
         el.settingsModal.classList.add('open');
         renderThemePresets();
         renderEQPanel();
+        initSettingsTabs(); // 🚀 v3.0.0: 初始化设置标签
         updateFocusContext();
     });
 });
@@ -140,7 +214,7 @@ document.getElementById('btnShowAll').onclick = () => {
     currentViewMode = 'list';
     document.getElementById('playlistModalTitle').textContent = '播放列表';
     
-    // 核心改动：如果当前队列少于媒体库（如处于专辑播放中），点击全部一键恢复全库播放
+    // 🚀 核心改动：如果当前队列少于媒体库（如处于专辑播放中），点击全部一键恢复全库播放
     if (playlist.length < musicLibrary.length) {
         // 1. 记住当前正在播放的歌曲的唯一标识 (用文件名)
         const currentPlayingSong = playlist[currentIndex];
@@ -149,7 +223,7 @@ document.getElementById('btnShowAll').onclick = () => {
         // 2. 恢复全库
         playlist = [...musicLibrary];
         
-        // 3. 核心修复：在新列表里重新寻找这首歌的 Index
+        // 3. 🚀 核心修复：在新列表里重新寻找这首歌的 Index
         if (currentFileName) {
             const newIndex = playlist.findIndex(s => s.file.name === currentFileName);
             if (newIndex !== -1) {
@@ -227,9 +301,19 @@ function updateModeUI() {
 }
 function updateSettingsUI() {
     const btn = document.getElementById('btnToggleColorMode');
-    btn.textContent = cfg.colorMode ? '关闭取色模式 (Y/C)' : '开启取色模式 (Y/C)';
-    btn.style.color = cfg.colorMode ? 'var(--primary)' : '';
-    btn.style.borderColor = cfg.colorMode ? 'var(--primary)' : '';
+    if (btn) {
+        btn.textContent = cfg.colorMode ? '🎨 关闭取色模式 (Y / C)' : '🎨 开启取色模式 (Y / C)';
+        btn.style.color = cfg.colorMode ? 'var(--primary)' : '';
+        btn.style.borderColor = cfg.colorMode ? 'var(--primary)' : '';
+    }
+    // 🚀 v2.8: 更新取色模式状态标签与预览条
+    const label = document.getElementById('colorModeLabel');
+    if (label) label.textContent = cfg.colorMode ? '✅ 取色模式已激活 · 专辑封面驱动全域色彩' : '☐ 取色模式未激活 · 使用预设主题色';
+    const preview = document.getElementById('colorModePreview');
+    if (preview) {
+        preview.style.display = cfg.colorMode ? 'block' : 'none';
+        if (cfg.colorMode && currentAlbumColor) preview.style.background = `linear-gradient(90deg, ${currentAlbumColor}, ${cfg.defaultColor})`;
+    }
 }
 
 const cyclePlayMode = () => {
@@ -247,7 +331,7 @@ const cyclePlayMode = () => {
 };
 el.btnMode.onclick = el.immBtnMode.onclick = cyclePlayMode;
 
-const toggleColorMode = () => {
+function toggleColorMode() {
     cfg.colorMode = !cfg.colorMode;
     updateSettingsUI();
     applyThemeLogic();
@@ -277,7 +361,25 @@ document.querySelectorAll('.lrc-align-btn').forEach(btn => {
     };
 });
 
-// === v2.5: 预设主题色统一渲染与多场景同步引擎 ===
+// 🚀 v2.8.5: 歌词垂直对齐模式按钮
+const btnLrcAlignCenter = document.getElementById('btnLrcAlignCenter');
+const btnLrcAlignTop = document.getElementById('btnLrcAlignTop');
+if (btnLrcAlignCenter) btnLrcAlignCenter.onclick = () => {
+    lyricsAlignMode = 'center';
+    updateLrcAlignUI();
+    saveSettings();
+    syncLyrics(true);
+    showToast('歌词垂直居中');
+};
+if (btnLrcAlignTop) btnLrcAlignTop.onclick = () => {
+    lyricsAlignMode = 'top';
+    updateLrcAlignUI();
+    saveSettings();
+    syncLyrics(true);
+    showToast('歌词偏上显示');
+};
+
+// === 🚀 v2.5: 预设主题色统一渲染与多场景同步引擎 ===
 function renderThemePresets() {
     const grid = document.getElementById('themePresetGrid');
     if (!grid) return;
@@ -306,11 +408,11 @@ function applyThemeColorAction(color, name) {
     cfg.defaultColor = color;
     document.documentElement.style.setProperty('--primary', color);
 
-    // 1. 计算并设置氛围发光色 (16进制转带透明度的RGBA)
+    // 🚀 v3.0.1b: 同步设置 RGB 分量 + 发光色
     const rgb = hexToRgb(color);
     if (rgb) {
-        const glowStr = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5)`;
-        document.documentElement.style.setProperty('--primary-glow', glowStr);
+        document.documentElement.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+        document.documentElement.style.setProperty('--primary-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5)`);
         document.documentElement.style.setProperty('--album-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.4)`);
     }
 
@@ -340,7 +442,7 @@ function hexToRgb(hex) {
     } : null;
 }
 
-// v2.5-p2: WCAG 相对亮度计算 (心理学灰度公式)
+// 🚀 v2.5-p2: WCAG 相对亮度计算 (心理学灰度公式)
 function getLuminance(colorStr) {
     if (!colorStr) return 255;
     let r = 255, g = 255, b = 255;
@@ -372,8 +474,9 @@ function renderEQPanel() {
     const presets = ['flat','pop','rock','classical','vocal','bass','electronic','jazz'];
     presets.forEach(p => {
         const btn = document.createElement('button');
-        btn.className = 'eq-preset-btn';
+        btn.className = 'eq-preset-btn focusable'; // 🔧 v2.8.1 P3: 添加 focusable 类用于手柄导航
         btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+        btn.tabIndex = 0; // 🔧 v2.8.1 P3: 添加 tabIndex 用于键盘导航
         btn.onclick = () => {
             setEQPreset(p);
             document.querySelectorAll('.eq-preset-btn').forEach(b => b.classList.remove('active'));
@@ -428,16 +531,17 @@ function renderEQPanel() {
     };
     document.getElementById('btnTogglePitch').onclick = togglePitchPreserve;
 
-    // 淡入淡出
+    // 🔥 v2.8.10: 淡入淡出切歌 (实验性功能)
     const cfDiv = document.createElement('div');
     cfDiv.className = 'drawer-box';
     cfDiv.style.marginTop = '20px';
     cfDiv.innerHTML = `
         <div class="drawer-title">🔄 淡入淡出切歌</div>
+        <div style="font-size:11px;color:var(--warn,#e8a840);margin-bottom:8px;">⚠ 实验性功能，可能无法正常生效，不推荐开启</div>
         <div style="display:flex;align-items:center;gap:12px;">
             <button class="btn-glass focusable" id="btnToggleCrossfade" style="flex:1;justify-content:center;">${crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭'}</button>
             <span style="font-size:13px;color:var(--text-sub);">时长:</span>
-            <input type="range" id="crossfadeSlider" min="1" max="8" step="0.5" value="${crossfadeDuration}" style="width:100px;">
+            <input type="range" id="crossfadeSlider" class="focusable" min="1" max="8" step="0.5" value="${crossfadeDuration}" style="width:100px;">
             <span id="crossfadeVal" style="font-size:13px;color:var(--primary);">${crossfadeDuration}s</span>
         </div>
     `;
@@ -446,8 +550,13 @@ function renderEQPanel() {
     document.getElementById('btnToggleCrossfade').onclick = function() {
         crossfadeEnabled = !crossfadeEnabled;
         this.textContent = crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭';
+        // 🔥 v2.8.10: 开启时立即初始化 AudioContext（确保音频路由正确）
+        if (crossfadeEnabled) {
+            cfEnsureContext();
+            cfPreloadNext();
+        }
         saveSettings();
-        showToast(crossfadeEnabled ? '淡入淡出已开启' : '淡入淡出已关闭');
+        showToast(crossfadeEnabled ? '淡入淡出已开启 ⚠ 实验性功能' : '淡入淡出已关闭');
     };
     document.getElementById('crossfadeSlider').oninput = function() {
         crossfadeDuration = parseFloat(this.value);
@@ -455,21 +564,8 @@ function renderEQPanel() {
         saveSettings();
     };
 
-    // 性能模式
-    const perfDiv = document.createElement('div');
-    perfDiv.className = 'drawer-box';
-    perfDiv.style.marginTop = '20px';
-    perfDiv.innerHTML = `
-        <div class="drawer-title">⚡ 性能模式</div>
-        <button class="btn-glass focusable" id="btnTogglePerf" style="width:100%;justify-content:center;">${performanceMode ? '⚡ 节能模式 (30fps)' : '🚀 全性能模式 (60fps)'}</button>
-    `;
-    eqContainer.appendChild(perfDiv);
-    document.getElementById('btnTogglePerf').onclick = function() {
-        performanceMode = !performanceMode;
-        this.textContent = performanceMode ? '⚡ 节能模式 (30fps)' : '🚀 全性能模式 (60fps)';
-        saveSettings();
-        showToast(performanceMode ? '已切换节能模式 (30fps)' : '已切换全性能模式 (60fps)');
-    };
+    // 🚀 v2.8.2: 性能模式UI已整合到节能板块，此处不再单独显示
+    // (保留兼容映射：旧版 performanceMode 已映射到 cfg.frameEnergyEnabled)
 }
 
 document.getElementById('btnSetBg').onclick = () => document.getElementById('bgInput').click();
@@ -501,7 +597,7 @@ function showStatsPanel() {
         <div class="modal-content" style="width:550px;max-height:85vh;">
             <div class="modal-header">
                 <h2 style="font-size:20px;">📊 音乐统计</h2>
-                <button class="btn-glass" id="btnCloseStats" style="padding:6px 12px;">关闭</button>
+                <button class="btn-glass focusable" id="btnCloseStats" tabindex="0" style="padding:6px 12px;">关闭</button>
             </div>
             <div class="stats-grid">
                 <div class="stat-card">
@@ -540,6 +636,473 @@ function showStatsPanel() {
         listEl.appendChild(item);
     });
 
-    modal.querySelector('#btnCloseStats').onclick = () => modal.remove();
-    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.querySelector('#btnCloseStats').onclick = () => { modal.remove(); modal = null; };
+    modal.onclick = (e) => { if (e.target === modal) { modal.remove(); modal = null; } };
 }
+
+// ===== 音频输出设备选择 (v2.8.13) =====
+
+const initAudioOutputDeviceSelector = () => {
+    const audioEl = document.querySelector('audio');
+    if (!audioEl || typeof audioEl.setSinkId !== 'function') {
+        const box = document.getElementById('audioOutputBox');
+        if (box) box.style.display = 'none';
+        return;
+    }
+    const box = document.getElementById('audioOutputBox');
+    if (box) box.style.display = '';
+    enumerateAudioOutputDevices();
+};
+
+const enumerateAudioOutputDevices = async () => {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const select = document.getElementById('audioOutputSelect');
+        if (!select) return;
+        // 保留默认选项，清除后续动态项
+        while (select.options.length > 1) select.remove(1);
+        for (const d of devices) {
+            if (d.kind === 'audiooutput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications') {
+                const opt = document.createElement('option');
+                opt.value = d.deviceId;
+                opt.textContent = d.label || `音频设备 ${d.deviceId.slice(0, 8)}`;
+                select.appendChild(opt);
+            }
+        }
+    } catch (_) { /* enumerateDevices 需要权限，静默失败 */ }
+};
+
+const handleAudioOutputDeviceChange = (deviceId) => {
+    const audioEl = document.querySelector('audio');
+    if (!audioEl || typeof audioEl.setSinkId !== 'function') return;
+    audioEl.setSinkId(deviceId || '').catch(err => {
+        console.warn('[AudioOutput] setSinkId failed:', err);
+    });
+};
+
+// 音频输出设备选择器事件绑定
+{
+    const select = document.getElementById('audioOutputSelect');
+    if (select) {
+        select.addEventListener('change', () => handleAudioOutputDeviceChange(select.value));
+    }
+    const refreshBtn = document.getElementById('btnRefreshAudioDevices');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', enumerateAudioOutputDevices);
+    }
+}
+
+// 🚀 v3.0.0: 震动配置事件绑定
+{
+    const rumbleToggle = document.getElementById('rumbleToggle');
+    if (rumbleToggle) {
+        rumbleToggle.checked = cfg.rumbleEnabled;
+        // 初始同步指示器可见性
+        const sriInit = document.getElementById('settingsRumbleIndicator');
+        if (sriInit) sriInit.style.display = cfg.rumbleEnabled ? 'block' : 'none';
+        rumbleToggle.addEventListener('change', (e) => {
+            cfg.rumbleEnabled = e.target.checked;
+            const sri = document.getElementById('settingsRumbleIndicator');
+            if (sri) sri.style.display = cfg.rumbleEnabled ? 'block' : 'none';
+            saveSettings();
+        });
+    }
+    // 🚀 v3.0.2: 初始化自定义下拉菜单
+    initCustomDropdowns();
+
+    const rumbleModeSelect = document.getElementById('rumbleModeSelect');
+    if (rumbleModeSelect) {
+        rumbleModeSelect.value = cfg.rumbleMode;
+        rumbleModeSelect.addEventListener('change', (e) => {
+            cfg.rumbleMode = e.target.value;
+            saveSettings();
+        });
+    }
+    const rumbleFloorSlider = document.getElementById('rumbleFloorSlider');
+    if (rumbleFloorSlider) {
+        rumbleFloorSlider.value = cfg.rumbleFloor;
+        document.getElementById('rumbleFloorVal').textContent = cfg.rumbleFloor.toFixed(2);
+        rumbleFloorSlider.addEventListener('input', (e) => {
+            cfg.rumbleFloor = parseFloat(e.target.value);
+            document.getElementById('rumbleFloorVal').textContent = cfg.rumbleFloor.toFixed(2);
+            saveSettings();
+        });
+    }
+    const rumbleAutoFloorToggle = document.getElementById('rumbleAutoFloorToggle');
+    if (rumbleAutoFloorToggle) {
+        rumbleAutoFloorToggle.checked = cfg.rumbleAutoFloor;
+        rumbleAutoFloorToggle.addEventListener('change', (e) => {
+            cfg.rumbleAutoFloor = e.target.checked;
+            saveSettings();
+        });
+    }
+    const rumbleThrottleSelect = document.getElementById('rumbleThrottleSelect');
+    if (rumbleThrottleSelect) {
+        rumbleThrottleSelect.value = String(cfg.rumbleThrottle);
+        rumbleThrottleSelect.addEventListener('change', (e) => {
+            cfg.rumbleThrottle = parseInt(e.target.value);
+            saveSettings();
+        });
+    }
+    const rumbleStrongGainSlider = document.getElementById('rumbleStrongGainSlider');
+    if (rumbleStrongGainSlider) {
+        rumbleStrongGainSlider.value = cfg.rumbleStrongGain;
+        document.getElementById('rumbleStrongGainVal').textContent = Math.round(cfg.rumbleStrongGain * 100) + '%';
+        rumbleStrongGainSlider.addEventListener('input', (e) => {
+            cfg.rumbleStrongGain = parseFloat(e.target.value);
+            document.getElementById('rumbleStrongGainVal').textContent = Math.round(cfg.rumbleStrongGain * 100) + '%';
+            saveSettings();
+        });
+    }
+    const rumbleWeakGainSlider = document.getElementById('rumbleWeakGainSlider');
+    if (rumbleWeakGainSlider) {
+        rumbleWeakGainSlider.value = cfg.rumbleWeakGain;
+        document.getElementById('rumbleWeakGainVal').textContent = Math.round(cfg.rumbleWeakGain * 100) + '%';
+        rumbleWeakGainSlider.addEventListener('input', (e) => {
+            cfg.rumbleWeakGain = parseFloat(e.target.value);
+            document.getElementById('rumbleWeakGainVal').textContent = Math.round(cfg.rumbleWeakGain * 100) + '%';
+            saveSettings();
+        });
+    }
+    const rumbleSwapMotorsToggle = document.getElementById('rumbleSwapMotorsToggle');
+    if (rumbleSwapMotorsToggle) {
+        rumbleSwapMotorsToggle.checked = cfg.rumbleSwapMotors;
+        rumbleSwapMotorsToggle.addEventListener('change', (e) => {
+            cfg.rumbleSwapMotors = e.target.checked;
+            saveSettings();
+        });
+    }
+    const rumbleGainSlider = document.getElementById('rumbleGainSlider');
+    if (rumbleGainSlider) {
+        rumbleGainSlider.value = cfg.rumbleGain;
+        document.getElementById('rumbleGainVal').textContent = Math.round(cfg.rumbleGain * 100) + '%';
+        rumbleGainSlider.addEventListener('input', (e) => {
+            cfg.rumbleGain = parseFloat(e.target.value);
+            document.getElementById('rumbleGainVal').textContent = Math.round(cfg.rumbleGain * 100) + '%';
+            saveSettings();
+        });
+    }
+    // 🚀 v3.0.0: 震动测试按钮
+    const btnTestRumble = document.getElementById('btnTestRumble');
+    if (btnTestRumble) {
+        btnTestRumble.addEventListener('click', () => {
+            const gamepads = navigator.getGamepads();
+            for (let i = 0; i < gamepads.length; i++) {
+                const gp = gamepads[i];
+                if (gp && gp.vibrationActuator) {
+                    gp.vibrationActuator.playEffect('dual-rumble', {
+                        startDelay: 0, duration: 500,
+                        weakMagnitude: 0.5, strongMagnitude: 0.8
+                    });
+                    showToast('💥 震动测试 (500ms)');
+                    return;
+                }
+            }
+            showToast('⚠️ 未检测到支持震动的手柄');
+        });
+    }
+}
+
+// 🚀 v3.0.2: 自定义下拉菜单初始化（替代 native select，手柄友好）
+function initCustomDropdowns() {
+    // 初始：所有选项设 tabindex=-1 避免手柄焦点泄漏到隐藏面板
+    document.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
+
+    // 点击触发器展开/收起
+    document.querySelectorAll('.custom-select-trigger').forEach(trigger => {
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrap = trigger.closest('.custom-select-wrap');
+            const isOpen = wrap.classList.contains('open');
+            // 关闭所有其他下拉
+            document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
+                w.classList.remove('open');
+                w.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
+            });
+            if (!isOpen) {
+                wrap.classList.add('open');
+                // 展开后选项可被手柄聚焦
+                wrap.querySelectorAll('.custom-select-option').forEach(o => o.removeAttribute('tabindex'));
+                setTimeout(() => updateFocusContext(), 50);
+            }
+        });
+    });
+    // 选项点击
+    document.querySelectorAll('.custom-select-option').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = opt.closest('.custom-select-dropdown');
+            const select = document.getElementById(dropdown.dataset.selectId);
+            if (!select) return;
+            select.value = opt.dataset.value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            const wrap = dropdown.closest('.custom-select-wrap');
+            wrap.querySelector('.custom-select-value').textContent = opt.textContent;
+            wrap.classList.remove('open');
+            dropdown.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
+            dropdown.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+        });
+    });
+    // 点击外部关闭
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.custom-select-wrap')) {
+            document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
+                w.classList.remove('open');
+                w.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
+            });
+        }
+    });
+    // 初始同步：从隐藏 select 同步显示值到触发器和 selected 类
+    document.querySelectorAll('.custom-select-wrap').forEach(wrap => {
+        const select = wrap.querySelector('select');
+        const valueEl = wrap.querySelector('.custom-select-value');
+        const options = wrap.querySelectorAll('.custom-select-option');
+        if (select && valueEl) {
+            const selectedOpt = Array.from(select.options).find(o => o.selected);
+            if (selectedOpt) {
+                valueEl.textContent = selectedOpt.textContent;
+                options.forEach(o => {
+                    o.classList.toggle('selected', o.dataset.value === select.value);
+                });
+            }
+        }
+    });
+}
+
+// 🚀 v3.0.1: 设置标签页切换 — 固定高度 + 切换动画（幂等，首次构建面板，后续仅激活）
+let _tabsInited = false;
+
+function initSettingsTabs() {
+    const tabBar = document.querySelector('.settings-tab-bar');
+    if (!tabBar) return;
+    const tabs = tabBar.querySelectorAll('.settings-tab');
+    if (!tabs.length) return;
+
+    // 首次调用：构建面板、绑定事件
+    if (!_tabsInited) {
+        _tabsInited = true;
+
+        const boxes = Array.from(document.querySelectorAll('#settingsModal .drawer-box'));
+        const body = document.querySelector('.settings-body');
+        if (!boxes.length || !body) return;
+
+        // 根据 drawer-title 内容语义匹配标签组
+        const tabKeywords = [
+            ['载入音乐', '音乐'],
+            ['封面取色', '主题色', '背景图片', '显示调节'],
+            ['音频输出', '均衡器', '歌词'],
+            ['睡眠定时', '节能', '震动'],
+            ['播放统计', '调试', '快捷键'],
+        ];
+        boxes.forEach(box => {
+            if (box.dataset.tabGroup) return;
+            const title = box.querySelector('.drawer-title');
+            if (!title) { box.dataset.tabGroup = '4'; return; }
+            const text = title.textContent || '';
+            let assigned = false;
+            tabKeywords.forEach((keywords, groupIdx) => {
+                if (keywords.some(kw => text.includes(kw))) {
+                    box.dataset.tabGroup = String(groupIdx);
+                    assigned = true;
+                }
+            });
+            if (!assigned) box.dataset.tabGroup = '4';
+        });
+
+        // 按标签组将 drawer-box 包装成面板
+        const groups = {};
+        boxes.forEach(box => {
+            const g = box.dataset.tabGroup;
+            if (!groups[g]) groups[g] = [];
+            groups[g].push(box);
+        });
+
+        // 清空 body，重建为流式面板
+        body.innerHTML = '';
+        const panels = {};
+        Object.keys(groups).sort((a, b) => a - b).forEach(g => {
+            const panel = document.createElement('div');
+            panel.className = 'settings-panel';
+            panel.dataset.panelGroup = g;
+            groups[g].forEach(box => panel.appendChild(box));
+            body.appendChild(panel);
+            panels[g] = panel;
+        });
+
+        // 锁定弹窗总高度：测量各面板取最大值 + 头尾固定区，body 内部独立滚动
+        let maxH = 0;
+        Object.values(panels).forEach(p => {
+            p.style.display = 'block';
+            p.style.animation = 'none';
+            maxH = Math.max(maxH, p.scrollHeight);
+            p.style.animation = '';
+            p.style.display = '';
+        });
+        // 固定区：header(~52px) + tab-bar(~48px) + footer(~48px) + body padding(40px) = ~188px
+        const modal = document.querySelector('.settings-modal-content');
+        if (modal) {
+            const totalH = maxH + 188;
+            modal.style.height = Math.min(totalH, window.innerHeight * 0.85) + 'px';
+        }
+
+        // 切换逻辑（含进入动画）
+        tabs.forEach((tab) => {
+            tab.onclick = () => {
+                const group = tab.dataset.tab;
+                if (tab.classList.contains('active')) return;
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                Object.keys(panels).forEach(g => {
+                    panels[g].classList.toggle('active', g === group);
+                });
+                updateFocusContext();
+            };
+        });
+    }
+
+    // 每次打开都激活 Tab 0（重置 HTML 预置的 active，确保面板可见）
+    tabs.forEach(t => t.classList.remove('active'));
+    if (tabs[0]) tabs[0].click();
+}
+
+// 🚀 v3.0.0: 网络状态更新
+function updateNetworkStatus() {
+    const el = document.getElementById('networkStatus');
+    if (!el) return;
+    if (!navigator.onLine) {
+        el.textContent = '📡';
+        el.className = 'network-status offline';
+    } else {
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn && (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g')) {
+            el.textContent = '📶';
+            el.className = 'network-status slow';
+        } else {
+            el.textContent = '⚡';
+            el.className = 'network-status online';
+        }
+    }
+}
+
+// ===== 错误日志导出 =====
+
+const exportErrorLogs = () => {
+    const logs = JSON.parse(localStorage.getItem('MBolka_ErrorLogs') || '[]');
+    if (!logs.length) return showToast("📋 暂无错误日志");
+    const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `MBolka_ErrorLogs_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("📋 错误日志已导出");
+};
+
+// === 曲库独立面板 (v2.4.0 静态重构) ===
+let coverLibSortMode = 'album'; // album / artist / recent
+
+
+
+// === 主题与模式控制 ===
+function applyLrcSettings() {
+    document.documentElement.style.setProperty('--lrc-font-size', `${cfg.lrcFontSize}px`);
+    document.documentElement.style.setProperty('--lrc-line-height', cfg.lrcLineHeight);
+    document.documentElement.style.setProperty('--lrc-align', cfg.lrcAlign);
+    document.getElementById('lrcFontSizeVal').textContent = `${cfg.lrcFontSize}px`;
+    document.getElementById('lrcLineHeightVal').textContent = cfg.lrcLineHeight;
+    document.querySelectorAll('.lrc-align-btn').forEach(b => b.classList.toggle('active', b.dataset.align === cfg.lrcAlign));
+}
+
+// 🚀 v2.8.5: 歌词对齐模式UI更新
+function updateLrcAlignUI() {
+    const btnCenter = document.getElementById('btnLrcAlignCenter');
+    const btnTop = document.getElementById('btnLrcAlignTop');
+    if (btnCenter) btnCenter.classList.toggle('active', lyricsAlignMode === 'center');
+    if (btnTop) btnTop.classList.toggle('active', lyricsAlignMode === 'top');
+    // 切换 CSS 类到歌词视口
+    if (el.lrcView) el.lrcView.classList.toggle('lyrics-align-top', lyricsAlignMode === 'top');
+}
+
+// === 核心视觉与主题逻辑 ===
+const applyThemeLogic = () => {
+    let targetColor = cfg.defaultColor; let showImg = false, showColor = false, bgUrl = '';
+
+    if (cfg.colorMode) targetColor = cfg.customBgImg ? (cfg.customBgColor || targetColor) : (currentAlbumColor || targetColor);
+    document.documentElement.style.setProperty('--primary', targetColor);
+    // 🚀 v3.0.1b: 同步 RGB 分量
+    const rgbP = hexToRgb(targetColor);
+    if (rgbP) document.documentElement.style.setProperty('--primary-rgb', `${rgbP.r}, ${rgbP.g}, ${rgbP.b}`);
+
+    // 🚀 v2.5-p2: WCAG 实时计算亮度，动态决定按钮前景色是反白还是用暗色
+    const luminance = getLuminance(targetColor);
+    const textOnPrimary = luminance < 140 ? '#ffffff' : '#0a0a1a';
+    document.documentElement.style.setProperty('--text-on-primary', textOnPrimary);
+
+    document.documentElement.style.setProperty('--bg-blur', `${cfg.blurAmt}px`);
+    targetHue = getHueFromRgb(targetColor);
+
+    if (cfg.customBgImg) { showImg = true; bgUrl = cfg.customBgImg; }
+    else if (hasCurrentAlbumArt && !cfg.colorMode) { showImg = true; bgUrl = el.mainArt.src; }
+    else showColor = true;
+
+    if (showImg) {
+        el.bgImg.style.backgroundImage = `url(${bgUrl})`;
+        el.bgImg.classList.add('active');
+        el.bgColor.classList.remove('active');
+    } else if (showColor) {
+        // 🚀 v2.5: Canvas 流沙背景只需激活，颜色由 drawFlowingSand 实时渲染
+        el.bgColor.classList.add('active');
+        el.bgImg.classList.remove('active');
+    }
+};
+
+function toggleDarkMode() {
+    cfg.darkMode = !cfg.darkMode;
+    document.body.classList.toggle('dark-mode', cfg.darkMode);
+    updateDarkModeUI();
+    saveSettings();
+    showToast(cfg.darkMode ? "🌙 已开启深色/护眼模式" : "☀️ 已恢复标准模式");
+};
+function updateDarkModeUI() {
+    const btn = document.getElementById('btnToggleDarkMode');
+    if (btn) btn.textContent = cfg.darkMode ? '☀️ 标准模式' : '🌙 深色模式';
+    document.body.classList.toggle('dark-mode', cfg.darkMode);
+}
+
+function toggleImmersiveMode() {
+    isImmersiveMode = !isImmersiveMode;
+
+    // 🚀 v2.9.0: 切换前添加 will-change 让 GPU 准备图层
+    el.viewMain.style.willChange = 'transform, opacity';
+    el.viewImm.style.willChange = 'transform, opacity';
+
+    if (isImmersiveMode) {
+        el.viewMain.classList.add('hidden'); el.viewImm.classList.remove('hidden');
+        document.body.style.background = 'var(--bg-darker)';
+        immCanvasCleared = false;
+        showToast("🚀 已进入沉浸式音乐舱");
+    } else {
+        el.viewImm.classList.add('hidden'); el.viewMain.classList.remove('hidden');
+        document.body.style.background = 'var(--bg-dark)';
+        // 清理沉浸canvas - 修复canvas残留
+        immCanvasCleared = true;
+        const ctx = el.canvasImm.getContext('2d');
+        ctx.clearRect(0, 0, el.canvasImm.width, el.canvasImm.height);
+        particles = [];
+        ripples = [];
+        flowField = []; // 🚀 v2.7-preview2 P1: 释放流场大数组
+    }
+    updateFocusContext();
+
+    // 🚀 v2.9.0: 动画结束后移除 will-change，释放 GPU 层
+    setTimeout(() => {
+        el.viewMain.style.willChange = 'auto';
+        el.viewImm.style.willChange = 'auto';
+    }, 800);
+}
+
+const toggleFullscreen = () => {
+    if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e=>{}); showToast("⛶ 进入全屏"); }
+    else { if (document.exitFullscreen) document.exitFullscreen(); showToast("⛶ 退出全屏"); }
+};

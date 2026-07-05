@@ -1,13 +1,41 @@
-/**
- * MBolka Player - File Loader
- * Metadata parsing, playlist rendering, context menu, drag/drop, CUE
+/*
+ * MBolka Player - File Loader v3.0.1
+ * Metadata parsing, playlist rendering, cover wall, file processing, drag-drop, CUE parsing
  */
 
-// === 文件解析与播放列表 ===
+// v3.0.3: 从 File 中单独提取封面，不存 IDB，按需调用
+const extractArtOnly = (file) => {
+    if (!window.jsmediatags) return Promise.resolve(null);
+    return new Promise(resolve => {
+        jsmediatags.read(file, {
+            onSuccess: tag => {
+                if (tag.tags.picture) {
+                    let b64 = '';
+                    const d = tag.tags.picture.data;
+                    for (let i = 0; i < d.length; i++) b64 += String.fromCharCode(d[i]);
+                    resolve(`data:${tag.tags.picture.format};base64,${window.btoa(b64)}`);
+                } else { resolve(null); }
+            },
+            onError: () => resolve(null)
+        });
+    });
+};
+
 const parseMetadata = async (file) => {
     const key = `${file.name}_${file.size}_${file.lastModified}`;
     const cached = await getCachedMetadata(key);
-    if (cached) return cached;
+    if (cached) {
+        // 缓存命中：用传入 file 重建 blob URL，缓存只存纯文本字段
+        const url = URL.createObjectURL(file);
+        if (!loadedUrls.includes(url)) loadedUrls.push(url);
+        const result = { ...cached, url, file, error: false };
+        if (!result.art && window.jsmediatags) {
+            extractArtOnly(file).then(art => {
+                if (art) result.art = art;
+            }).catch(() => {});
+        }
+        return result;
+    }
 
     return new Promise(resolve => {
         const url = URL.createObjectURL(file);
@@ -18,7 +46,6 @@ const parseMetadata = async (file) => {
                     if(tag.tags.title) meta.title = decodeText(tag.tags.title);
                     if(tag.tags.artist) meta.artist = decodeText(tag.tags.artist);
                     if(tag.tags.album) meta.album = decodeText(tag.tags.album);
-                    // 内嵌歌词 (USLT/SYLT)
                     if(tag.tags.lyrics) {
                         meta.lrcText = decodeText(tag.tags.lyrics.lyrics || tag.tags.lyrics);
                     }
@@ -28,16 +55,20 @@ const parseMetadata = async (file) => {
                         for(let i=0; i<d.length; i++) b64 += String.fromCharCode(d[i]);
                         meta.art = `data:${tag.tags.picture.format};base64,${window.btoa(b64)}`;
                     }
-                    cacheMetadata(key, meta);
+                    // v3.0.3: 缓存仅存纯文本字段，剥离 file/url/art 防止 IDB 存整首歌
+                    const { art: _a, file: _f, url: _u, ...metaForCache } = meta;
+                    cacheMetadata(key, metaForCache);
                     resolve(meta);
                 },
                 onError: () => {
-                    cacheMetadata(key, meta);
+                    const { file: _f, url: _u, ...metaForCache } = meta;
+                    cacheMetadata(key, metaForCache);
                     resolve(meta);
                 }
             });
         } else {
-            cacheMetadata(key, meta);
+            const { file: _f, url: _u, ...metaForCache } = meta;
+            cacheMetadata(key, metaForCache);
             resolve(meta);
         }
     });
@@ -61,13 +92,17 @@ const renderPlaylist = () => {
         div.className = classes;
         div.draggable = true;
         div.dataset.index = i;
-        div.innerHTML = `<span class="pl-title">${s.title}</span><span style="font-size:12px;opacity:0.6;">${s.artist}</span><span class="favorite-btn ${isFav ? 'faved' : ''}" data-idx="${i}" title="收藏">${isFav ? '❤️' : '🤍'}</span>`;
+        div.innerHTML = `<span class="pl-title">${s.title}</span><span style="font-size:12px;opacity:0.6;">${s.artist}</span><span class="favorite-btn ${isFav ? 'faved' : ''}" data-idx="${i}" title="收藏">${isFav ? '❤️' : '🩶'}</span>`;
         div.onclick = (e) => {
             if (e.target.classList.contains('favorite-btn')) {
                 e.stopPropagation();
                 toggleFavorite(i);
                 return;
             }
+            playAudio(i); closeAllModals();
+        };
+        div.ondblclick = (e) => {
+            if (e.target.classList.contains('favorite-btn')) return;
             playAudio(i); closeAllModals();
         };
         div.oncontextmenu = (e) => { e.preventDefault(); ctxMenuTarget = i; showContextMenu(e.clientX, e.clientY); };
@@ -164,7 +199,8 @@ function renderCoverWall() {
         const container = document.createElement('div');
         const firstSong = playlist[group.firstIdx];
         const hasActive = group.songs.includes(currentIndex);
-        container.className = `cover-album-group ${hasActive ? 'active' : ''}`;
+        container.className = `cover-album-group focusable ${hasActive ? 'active' : ''}`;
+        container.tabIndex = 0;
 
         const artDiv = document.createElement('div');
         artDiv.className = 'cover-album-art';
@@ -300,7 +336,7 @@ function clearPlaylist() {
     audio.src = '';
     el.mainTitle.textContent = 'MBolka Player Ultimate';
     el.mainArtist.textContent = '等待载入音乐...';
-    document.title = 'MBolka Player';
+    document.title = 'MBolka Player - Ultimate Nexus v3.0.1';
     renderPlaylist();
     updateEmptyState();
     showToast("🚫 播放列表已清空");
@@ -326,8 +362,10 @@ function updateFavQuickBtn() {
     const song = playlist[currentIndex];
     if (song && favorites.has(song.file.name)) {
         el.btnFavQuick.classList.add('faved');
+        el.btnFavQuick.textContent = '❤️';
     } else {
         el.btnFavQuick.classList.remove('faved');
+        el.btnFavQuick.textContent = '🩶';
     }
 }
 
@@ -341,7 +379,7 @@ function updatePipQuickBtn() {
     }
 }
 
-// === 核心修改：用状态机完美驱动"空态"与"播放态"的物理隔离 ===
+// === 🚀 核心修改：用状态机完美驱动"空态"与"播放态"的物理隔离 ===
 function updateEmptyState() {
     const grid = document.querySelector('.content-grid');
     if (!grid) return;
@@ -351,7 +389,7 @@ function updateEmptyState() {
     if (isEmpty) {
         grid.classList.add('is-empty');
         
-        // 体验金加项：点击空状态区域，直接等同于点击"载入音乐"按钮，极其符合直觉！
+        // 🚀 体验金加项：点击空状态区域，直接等同于点击"载入音乐"按钮，极其符合直觉！
         el.emptyState.onclick = () => {
             if (el.btnLoad) el.btnLoad.click();
         };
@@ -471,6 +509,16 @@ async function processFiles(files) {
     el.loadBar.style.width = '0%';
     const totalCount = audios.length;
 
+    // 🚀 v2.9.0: 加载开始前插入骨架屏占位
+    const skeletonCount = Math.min(10, totalCount);
+    el.plContainer.innerHTML = '';
+    for (let i = 0; i < skeletonCount; i++) {
+        const sk = document.createElement('div');
+        sk.className = 'pl-item skeleton';
+        sk.innerHTML = '<div class="sk-bar"></div><div class="sk-bar"></div>';
+        el.plContainer.appendChild(sk);
+    }
+
     // 使用并发批处理加速首批加载 (同时解析最多6首)
     const initLen = Math.min(20, totalCount);
     const initBatchSize = 6;
@@ -498,12 +546,13 @@ async function processFiles(files) {
         // 后续批次用更小的并发避免卡顿
         let curr = initLen;
         
-        // 曲库增量刷新防抖：每解析完一批后，最多每秒刷新一次曲库面板
+        // 🚀 曲库增量刷新防抖：每解析完一批后，最多每秒刷新一次曲库面板
         let coverLibRefreshTimer = null;
         const debouncedCoverLibRefresh = () => {
             if (coverLibRefreshTimer) clearTimeout(coverLibRefreshTimer);
             coverLibRefreshTimer = setTimeout(() => {
                 // 检查用户是否打开了曲库面板
+                const coverLibModal = document.getElementById('coverLibraryModal');
                 const coverLibPanel = document.querySelector('.cover-library-panel');
                 if (coverLibPanel) {
                     const grid = document.getElementById('coverLibGrid');
@@ -511,11 +560,11 @@ async function processFiles(files) {
                     if (grid) {
                         const filter = searchEl ? searchEl.value : '';
                         if (coverLibSortMode === 'artist') {
-                            renderArtistGrid(grid, filter);
+                            renderArtistGrid(grid, filter, coverLibModal);
                         } else if (coverLibSortMode === 'recent') {
-                            renderRecentGrid(grid, filter);
+                            renderRecentGrid(grid, filter, coverLibModal);
                         } else {
-                            renderAlbumGrid(grid, filter);
+                            renderAlbumGrid(grid, filter, coverLibModal);
                         }
                     }
                 }
@@ -532,7 +581,7 @@ async function processFiles(files) {
                 setTimeout(() => {
                     el.loadWrap.classList.remove('show');
                     
-                    // 核心改动：全库与队列双向初始化
+                    // 🚀 核心改动：全库与队列双向初始化
                     musicLibrary = [...playlist]; 
                     
                     renderPlaylist();
@@ -550,7 +599,7 @@ async function processFiles(files) {
             try {
                 const results = await Promise.all(batchPromises);
                 playlist.push(...results);
-                // 增量同步到 musicLibrary，让曲库在加载过程中就能显示
+                // 🚀 增量同步到 musicLibrary，让曲库在加载过程中就能显示
                 musicLibrary = [...playlist];
             } catch(batchErr) {
                 // 单批次失败不阻塞后续加载
@@ -561,7 +610,7 @@ async function processFiles(files) {
 
             if (curr % 50 === 0) renderPlaylist();
             
-            // 防抖刷新曲库面板（如果用户正开着看）
+            // 🚀 防抖刷新曲库面板（如果用户正开着看）
             debouncedCoverLibRefresh();
 
             // 使用setTimeout让出主线程，避免卡顿
@@ -578,10 +627,18 @@ async function processFiles(files) {
 // 释放所有Blob URL，防止内存泄漏
 let loadedUrls = [];
 function releaseAllBlobUrls() {
+    // 释放 loadedUrls 中记录的 URL
     loadedUrls.forEach(url => {
         try { URL.revokeObjectURL(url); } catch(e) {}
     });
     loadedUrls = [];
+
+    // 🚀 v2.7-preview2 P0: 额外释放 playlist 和 musicLibrary 中可能残留的 URL（防止漏网）
+    [...playlist, ...musicLibrary].forEach(song => {
+        if (song.url && song.url.startsWith('blob:')) {
+            try { URL.revokeObjectURL(song.url); } catch(e) {}
+        }
+    });
 }
 
 // 包装parseMetadata以追踪URL + 超时熔断
@@ -622,6 +679,8 @@ const parseMetadataWrapped = async function(file) {
         };
     }
 };
+// 替换全局引用 - processFiles中直接使用parseMetadataWrapped
+// 因为parseMetadata是const无法重新赋值，我们在processFiles调用处改为parseMetadataWrapped
 
 el.folderIn.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
@@ -681,3 +740,16 @@ async function parseCueFile(cueFile) {
         logError('CUE_PARSE', e.message, cueFile);
     }
 }
+
+// 🔥 v2.8.10-v2.8.12: LRC 解析引擎持续迭代
+// 基于 TME 双语 LRC 真实编码格式：
+//   - 同时间戳双行 → 第一行=上一句翻译，第二行=本句原文
+//   - 独立时间戳行(双语模式) → 单行原文，无翻译
+//   - 空第一行+非空第二行(同时间戳) → 上一句无翻译
+//   - 版权标记(TME享有/文曲大模型/腾讯享有) → 确认双语模式
+//   - v2.8.12: 无版权标记但 pair 占比 >50% → 自启双语（覆盖 DAMIDAMI 等）
+//   - [kana:] → 日语罗马音注音
+//   - 独立时间戳空行(单语) → 有意空置保留
+//   - 独立时间戳空行(双语) → verse break（固定矮高度，不显于沉浸/PiP）
+//   - 末行翻译配对：末尾独立行可能为倒数第二行的翻译
+//   - v2.8.12: 创作信息模式基于TME清单最终版彻底扩充（40+ 标识）

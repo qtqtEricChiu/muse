@@ -21,7 +21,7 @@
     position: absolute; inset: 0; width: 100vw; height: 100vh;
     display: flex; justify-content: center; align-items: center;
     transition: opacity 0.6s var(--curve-smooth), transform 0.6s var(--curve-spring), filter 0.6s;
-    will-change: transform, opacity;
+    /* 🚀 v2.9.0: will-change 通过 JS 在动画前动态添加，避免长期占用 GPU 层 */
 }
 .view-container.hidden { opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px); }
 
@@ -47,16 +47,33 @@
 
 .player-wrapper {
     width: 96vw; max-width: 1400px; height: 92vh;
-    background: var(--glass-bg); backdrop-filter: blur(35px) saturate(180%); -webkit-backdrop-filter: blur(35px) saturate(180%);
+    background: var(--glass-bg); backdrop-filter: blur(var(--bg-blur-dynamic, 12px)) saturate(150%); -webkit-backdrop-filter: blur(var(--bg-blur-dynamic, 12px)) saturate(150%);
     border-radius: 32px; border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
     display: flex; flex-direction: column; animation: appFadeIn 1s var(--curve-spring) both; overflow: hidden;
-    will-change: transform;
+    /* 🚀 v2.9.0: 仅在动画需要时添加 will-change，不长期占用 GPU 层 */
+
+/* 🚀 v3.0.0: 用选择器层级替代 !important — btn-fav-ctrl / btn-pip-ctrl 容器约束 */
+.player-wrapper .btn-fav-ctrl { width: 50px; height: 50px; font-size: 18px; border-color: rgba(255,107,107,0.3); }
+.player-wrapper .btn-fav-ctrl:hover { border-color: #ff6b6b; background: rgba(255,107,107,0.15); transform: scale(1.08); }
+.player-wrapper .btn-fav-ctrl.faved { background: rgba(255,107,107,0.25); border-color: #ff6b6b; color: #ff6b6b; box-shadow: 0 0 15px rgba(255,107,107,0.3); }
+.player-wrapper .btn-pip-ctrl { width: 50px; height: 50px; font-size: 18px; border-color: rgba(154,200,226,0.3); }
+.player-wrapper .btn-pip-ctrl:hover { border-color: var(--primary); background: rgba(154,200,226,0.15); transform: scale(1.08); }
+.player-wrapper .btn-pip-ctrl.pip-active { background: rgba(154,200,226,0.25); border-color: var(--primary); color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
+@media (max-width: 768px) {
+    .player-wrapper .btn-fav-ctrl, .player-wrapper .btn-pip-ctrl { width: 42px; height: 42px; font-size: 15px; }
+}
+@media (max-width: 480px) {
+    .player-wrapper .btn-fav-ctrl, .player-wrapper .btn-pip-ctrl { width: 36px; height: 36px; font-size: 13px; }
+}
+}
+@media (prefers-reduced-motion: reduce) {
+    .player-wrapper { backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%); }
 }
 
 .header { 
-    padding: 24px 36px; border-bottom: 1px solid rgba(255,255,255,0.08); 
+    padding: var(--space-lg) var(--space-xl); border-bottom: 1px solid rgba(255,255,255,0.08); 
     display: flex; justify-content: space-between; align-items: center; 
-    background: rgba(10, 10, 26, 0.2); flex-shrink: 0; 
+    background: rgba(14, 12, 22, 0.3); flex-shrink: 0; 
     position: relative; z-index: 9999;
     pointer-events: auto; 
 }
@@ -73,27 +90,27 @@
 .btn-glass.active { background: var(--primary); color: var(--text-on-primary); border-color: var(--primary); }
 
 .btn-fav-ctrl {
-    width: 50px !important; height: 50px !important; font-size: 18px !important;
-    border-color: rgba(255,107,107,0.3) !important;
+    width: 50px; height: 50px; font-size: 18px;
+    border-color: rgba(255,107,107,0.3);
 }
-.btn-fav-ctrl:hover { border-color: #ff6b6b !important; background: rgba(255,107,107,0.15) !important; transform: scale(1.08) !important; }
-.btn-fav-ctrl.faved { background: rgba(255,107,107,0.25) !important; border-color: #ff6b6b !important; color: #ff6b6b !important; box-shadow: 0 0 15px rgba(255,107,107,0.3) !important; }
+.btn-fav-ctrl:hover { border-color: #ff6b6b; background: rgba(255,107,107,0.15); transform: scale(1.08); }
+.btn-fav-ctrl.faved { background: rgba(255,107,107,0.25); border-color: #ff6b6b; color: #ff6b6b; box-shadow: 0 0 15px rgba(255,107,107,0.3); }
 .btn-pip-ctrl {
-    width: 50px !important; height: 50px !important; font-size: 18px !important;
-    border-color: rgba(154,200,226,0.3) !important;
+    width: 50px; height: 50px; font-size: 18px;
+    border-color: rgba(154,200,226,0.3);
 }
-.btn-pip-ctrl:hover { border-color: var(--primary) !important; background: rgba(154,200,226,0.15) !important; transform: scale(1.08) !important; }
-.btn-pip-ctrl.pip-active { background: rgba(154,200,226,0.25) !important; border-color: var(--primary) !important; color: var(--primary) !important; box-shadow: 0 0 15px var(--primary-glow) !important; }
+.btn-pip-ctrl:hover { border-color: var(--primary); background: rgba(154,200,226,0.15); transform: scale(1.08); }
+.btn-pip-ctrl.pip-active { background: rgba(154,200,226,0.25); border-color: var(--primary); color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
 
 .load-strip-container { height: 5px; background: rgba(255,255,255,0.05); width: 100%; display: none; position: relative; overflow: hidden; flex-shrink: 0; border-radius: 0 0 3px 3px; z-index: 5; }
 .load-strip-container.show { display: block; }
 .load-strip { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), rgba(154,200,226,0.8)); position: relative; transition: width 0.3s ease; border-radius: 0 3px 3px 0; }
 .load-strip::after { content: ''; position: absolute; inset:0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: shimmerBar 1.5s infinite; }
 
-.content-grid { display: flex; flex: 1; padding: 32px 40px; gap: 40px; overflow: hidden; justify-content: center; }
+.content-grid { display: flex; flex: 1; padding: var(--space-xl) var(--space-2xl); gap: var(--space-2xl); overflow: hidden; justify-content: center; }
 .col { display: flex; flex-direction: column; transition: all 0.5s var(--curve-spring); }
 
-.col-album { flex: 0 1 380px; align-items: center; justify-content: center; gap: 30px; }
+.col-album { flex: 0 1 380px; align-items: center; justify-content: center; gap: var(--space-xl); }
 .col-album.no-art .art-box { display: none; }
 .col-album.no-art .track-info { display: flex; flex-direction: column; justify-content: center; height: 100%; transform: scale(1.2); }
 
@@ -102,6 +119,7 @@
     flex: 0 1 450px; background: rgba(0,0,0,0.15); border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); position: relative;
     mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+    mask-type: alpha; /* 🚀 v2.9.0: Firefox 兼容 */
 }
 
 .art-box { width: 340px; height: 340px; border-radius: 28px; overflow: hidden; box-shadow: 0 20px 50px var(--album-color, rgba(0,0,0,0.5)); border: 1px solid rgba(255,255,255,0.1); animation: floatArt 8s ease-in-out infinite, ambientBreathe 4s ease-in-out infinite; flex-shrink: 0; position: relative; touch-action: pan-x; cursor: pointer; transition: box-shadow 1.2s ease; }
@@ -115,8 +133,8 @@
 .art-box.swipe-left .art-img { animation: slideInLeft 0.3s ease-out; }
 .art-box.swipe-right .art-img { animation: slideInRight 0.3s ease-out; }
 .track-info { text-align: center; width: 100%; transition: all 0.5s var(--curve-spring);}
-.track-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; line-height: 1.2; text-shadow: 0 4px 12px rgba(0,0,0,0.3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
-.track-artist { font-size: 18px; color: var(--text-sub); font-weight: 500; }
+.track-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; line-height: 1.2; text-shadow: 0 4px 12px rgba(0,0,0,0.3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; user-select: text; cursor: text;}
+.track-artist { font-size: 18px; color: var(--text-sub); font-weight: 500; user-select: text; cursor: text; }
 
 .vis-canvas-container { width: 100%; height: 70px; background: rgba(0,0,0,0.2); border-radius: 16px; margin-bottom: -10px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden;}
 .vis-canvas-container:hover { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);}
@@ -139,6 +157,12 @@
     border: 1px solid rgba(255,255,255,0.15); z-index: 20; max-width: 320px; text-align: center;
 }
 .prog-hover-tip.show { opacity: 1; }
+
+/* 🚀 v3.0.0: 进度条拖拽高亮反馈 */
+.progress-area.dragging .prog-bg { height: 8px; }
+.progress-area.dragging .prog-fill::after { transform: translateY(-50%) scale(1); box-shadow: 0 0 16px var(--primary-glow); }
+.progress-area.seek-active .prog-bg { height: 8px; background: rgba(var(--primary-rgb),0.25); }
+.progress-area.seek-active .prog-fill::after { transform: translateY(-50%) scale(1.2); box-shadow: 0 0 20px var(--primary-glow); }
 
 .btn-group-main { display: flex; justify-content: center; align-items: center; gap: 24px; }
 .btn-ctrl { width: 60px; height: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 20px; cursor: pointer; transition: all 0.3s var(--curve-spring); display: flex; justify-content: center; align-items: center; position: relative; }
@@ -179,12 +203,21 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     cursor: pointer; 
     filter: blur(2px); 
     opacity: 0.4; 
+}
+/* 🚀 v3.0.2: 手动滚动时清除所有歌词行模糊 */
+.lrc-viewport.scrolling .lrc-line {
+    filter: blur(0px) !important;
+    opacity: 0.65;
+    transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
     transform: scale(0.95); 
     word-wrap: break-word;
     overflow-wrap: break-word;
     word-break: break-word;
     white-space: pre-wrap;
     padding: 0 10px;
+    user-select: text; /* 🚀 v2.9.0: 歌词可选中复制 */
 }
 .lrc-line:hover { filter: blur(0px); color: rgba(255,255,255,0.8); opacity: 0.8; }
 .lrc-line.active { 
@@ -258,8 +291,9 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
 .lrc-line.blank:hover { filter: none; opacity: 0.25; }
 
 /* 🔥 v2.8.10p2: 歌词首尾 spacer — 保证创作信息/末行可居中 */
-.lrc-spacer-top { height: 40vh; flex-shrink: 0; }
-.lrc-spacer-bottom { height: 40vh; flex-shrink: 0; }
+/* 🚀 v2.9.0: 歌词 spacer 改用 clamp 限制最大值，避免小屏占 40% 可视高度 */
+.lrc-spacer-top { height: clamp(120px, 40vh, 320px); flex-shrink: 0; }
+.lrc-spacer-bottom { height: clamp(120px, 40vh, 320px); flex-shrink: 0; }
 
 /* 🔥 v2.8.10: kana 罗马音注音显示 */
 .lrc-kana {
@@ -280,16 +314,16 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
 /* 🔥 v2.8.10p2: 偏上模式下一句也还原为默认非活跃样式 */
 .lyrics-align-top .lrc-line.break { min-height: 14px; max-height: 14px; }
 .lyrics-align-top .lrc-line.blank { min-height: 18px; max-height: 18px; }
-.lyrics-align-top .lrc-spacer-top { height: 20vh; }
-.lyrics-align-top .lrc-spacer-bottom { height: 20vh; }
+.lyrics-align-top .lrc-spacer-top { height: clamp(60px, 20vh, 160px); }
+.lyrics-align-top .lrc-spacer-bottom { height: clamp(60px, 20vh, 160px); }
 
-/* 🔥 v2.8.12p3: 创作信息卡片 — 容器纵向堆叠每行独立，宽度受约束 */
+/* 🔥 v2.8.13p4: 创作信息卡片 — 独立成行、超长文本自动换行、不溢出歌词栏 */
 .lrc-credits {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    text-align: center;
+    align-items: flex-start;
+    gap: 4px;
+    text-align: left;
     margin-bottom: 18px;
     padding: 12px 16px;
     background: rgba(255,255,255,0.04);
@@ -297,25 +331,26 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     border: 1px solid rgba(255,255,255,0.06);
     font-size: 12px;
     color: var(--text-sub);
-    line-height: 1.6;
-    opacity: 0.7;
-    max-width: 100%;
+    line-height: 1.7;
+    opacity: 0.75;
+    width: 100%;
+    max-width: 100%; /* 🔥 p4: 不再硬编码600px，由父容器约束 */
     box-sizing: border-box;
-    overflow-wrap: break-word;
 }
 .lrc-credits .lrc-credits-title {
     font-weight: 600;
     color: var(--text-main);
     margin-bottom: 4px;
     font-size: 13px;
+    width: 100%;
 }
+/* 🔥 p4: 每行独立一行，标签不换行、值允许自然换行 */
 .lrc-credits .lrc-credits-row {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 4px 8px;
+    align-items: flex-start; /* 垂直顶对齐（换行时更好看） */
+    gap: 6px;
     width: 100%;
-    max-width: 100%;
+    flex-wrap: wrap; /* 🔥 p4: 允许换行！超长名单自动折到下一行 */
 }
 .lrc-credits .lrc-credits-tag {
     color: var(--primary);
@@ -323,13 +358,51 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     white-space: nowrap;
     flex-shrink: 0;
 }
+/* 🔥 p4: 值文本可换行 + 可截断兜底 */
 .lrc-credits .lrc-credits-val {
     color: var(--text-sub);
-    word-break: break-word;
+    word-break: break-all; /* 长名字串自动断词 */
     overflow-wrap: break-word;
     min-width: 0;
-    flex: 1;
+    flex: 1 1 auto;
     text-align: left;
+    line-height: inherit;
 }
 
-.footer { padding: 16px 36px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px; color: var(--text-sub); display: flex; justify-content: space-between; flex-shrink: 0; }
+.footer { padding: var(--space-md) var(--space-xl); background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px; color: var(--text-sub); display: flex; justify-content: space-between; flex-shrink: 0; }
+
+/* 🔥 v2.8.13: 移动端优化 - 去除按钮点击高亮 */
+.btn-glass, .btn-ctrl, button, .imm-icon-btn, .ctx-item, [class*="btn-"] {
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+}
+
+/* 🚀 v2.9.0: 加载骨架屏动画 */
+@keyframes skeletonPulse { 0% { opacity: 0.3; } 50% { opacity: 0.6; } 100% { opacity: 0.3; } }
+.skeleton-placeholder {
+    background: rgba(255,255,255,0.08); border-radius: 12px;
+    animation: skeletonPulse 1.5s ease-in-out infinite;
+    min-height: 60px; width: 100%;
+}
+.pl-item.skeleton {
+    pointer-events: none; user-select: none;
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    background: transparent;
+}
+.pl-item.skeleton .sk-bar { height: 14px; border-radius: 7px; background: rgba(255,255,255,0.08); animation: skeletonPulse 1.5s ease-in-out infinite; }
+.pl-item.skeleton .sk-bar:nth-child(1) { width: 60%; }
+.pl-item.skeleton .sk-bar:nth-child(2) { width: 30%; }
+
+/* 🚀 v2.9.0: Toast 避开顶部导航栏 */
+.toast { top: clamp(30px, 5vh, 80px) !important; }
+
+/* 🚀 v2.9.0: 尊重系统无障碍设置 – 关闭所有动画 */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    .player-wrapper { animation: none !important; }
+    .art-box { animation: none !important; }
+    .lrc-line { transition: none !important; }
+    .btn-glass, .btn-ctrl { transition: none !important; }
+    .pip-vinyl { animation: none !important; }
+    .pip-bg { animation: none !important; }
+}

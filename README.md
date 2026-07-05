@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v2.8.10
+# MBolka Player - Ultimate Nexus v3.0.2
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-2.8.10-blue)
+![Version](https://img.shields.io/badge/version-3.0.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -46,6 +46,8 @@
 ### 🎮 全方位操控
 - 完整键盘快捷键（Space、方向键、J/K、WASD 等）
 - Xbox/PlayStation 手柄完全映射（摇杆导航、ABXY、LB/RB、十字键）
+- **全新手柄震动反馈引擎**：基于 Web Gamepad API `dual-rumble` 的音频→震动映射，双模式频谱映射 + 自动地板算法 + 马达独立增益控制，设置面板含测试震动按钮
+- **手柄功能全面补全**：P0 焦点可达性补全（导出按钮、右键菜单项等全覆盖）、P1 快捷组合键状态机接入（长按/双击/组合键共 11 项）、P2 交互范式（Seek 模式、右键菜单手柄化、搜索快速跳转）、P3 画中画手柄支持
 - 2D 空间焦点导航：摇杆/WASD 在曲库网格中智能寻路
 - `?` 键弹出快捷键大全帮助面板
 - 右键上下文菜单（播放列表管理）
@@ -126,6 +128,7 @@
 | 自定义背景 | 上传本地图片作为背景 |
 | 预设主题色 | 10 套配色方案 + 聚焦卡片选择器 + WCAG 自适应对比度 |
 | 深色模式 | 护眼深色主题，快捷键 D |
+| 网络状态指示 | Footer 实时显示在线/离线/慢速网络状态，支持 Network Information API |
 | PWA 支持 | 可作为桌面应用运行，原生体验 |
 | 移动端手势 | 双击快进退、上下滑音量、左右长滑切歌 |
 | 节能模式 | 位标志状态机：一键节能 + 画面节能(30fps) + 画中画临时节能 + 标签页隐藏节能，四模式可叠加 |
@@ -547,17 +550,30 @@
 | 手柄按键 | 功能 |
 |----------|------|
 | `A` | 播放 / 暂停 / 确认 (ⓐ 徽章标识) |
+| `A` (长按) | A-B 重复模式 / 弹出右键菜单 |
 | `B` | 返回 / 关闭弹窗 / 退出沉浸 (ⓑ 徽章) |
-| `X` | 播放模式切换 (ⓧ 徽章) |
-| `Y` | 取色模式开关 (ⓨ 徽章) |
+| `X` | 播放 / 暂停 (ⓧ 徽章) |
+| `X` (双击) | 播放模式切换 |
+| `X` (长按) | 收藏 / 取消收藏当前歌曲 |
+| `Y` | 切换沉浸模式 (ⓨ 徽章) |
+| `Y` (长按) | 深色/护眼模式切换 |
 | `LB` / `RB` | 上一曲 / 下一曲 |
-| `LT` / `RT` | 音量减 / 音量加 |
+| `LB` / `RB` (搜索框) | 首字母/预设词快速跳转轮换 |
+| `LT` / `RT` | 快退 / 快进 5 秒 |
+| `LT` (长按) | 睡眠定时器快速菜单 |
+| `RT` (长按) | 统计面板 |
+| `LT` + `RT` (同时) | 进度条 Seek 模式 |
 | `左摇杆` | 2D 空间焦点导航 |
+| `右摇杆` (上下) | 音量控制 |
 | `十字键 上` | 打开播放列表 |
 | `十字键 下` | 切换沉浸模式 |
 | `十字键 左/右` | 快退 / 快进 |
 | `View` | 全屏开关 |
-| `Menu` | 打开设置 |
+| `View` (长按) | 打开曲库 |
+| `View` + `Start` | 画中画开关 |
+| `View` + `RB` | 帮助面板 |
+| `Start` | 打开设置 |
+| `Start` (长按) | 打开播放列表 |
 
 > 🎮 手柄接入后，按钮上会自动出现 ⓐⓑⓧⓨ 按键徽章，像游戏一样直观！
 
@@ -579,7 +595,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v2.8.10
+MBolka Player v3.0.1
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -589,7 +605,9 @@ MBolka Player v2.8.10
 │   ├── cover-lib.css   - 曲库面板
 │   └── immersive.css   - 沉浸模式+歌词动画
 ├── js/
-│   └── app.js          - 主应用（链式双语LRC + 位标志节能机 + LIFO弹窗栈 + Crossfade双轨 + 60fps色相同步）
+│   ├── app.js          - 主应用（链式双语LRC + 位标志节能机 + LIFO弹窗栈 + Crossfade双轨 + 60fps色相同步）
+│   ├── vibration.js    - 手柄震动反馈引擎（频谱映射 + 自动地板EMA + 双马达独立增益）
+│   └── ...             - 其他辅助模块
 ├── 核心 API
 │   ├── HTML5 Audio API 音频播放
 │   ├── Web Audio API 频谱可视化 + EQ/Crossfade 双轨引擎
@@ -600,7 +618,7 @@ MBolka Player v2.8.10
 │   ├── Web Worker 异步解析
 │   ├── Media Session API 系统集成
 │   ├── Service Worker PWA 支持
-│   ├── Gamepad API 手柄支持 + 2D 空间焦点导航 + 按键指示器
+│   ├── Gamepad API 手柄支持 + 2D 空间焦点导航 + 按键指示器 + **震动反馈 (dual-rumble)**
 │   ├── Fullscreen API 全屏控制
 │   ├── Drag & Drop API 文件拖拽
 │   ├── FileReader API 本地文件读取
@@ -636,9 +654,9 @@ MIT License
 ## 🙏 致谢
 
 - 基于 [jsmediatags](https://github.com/aadsm/jsmediatags) 进行音频元数据解析
-- 字体使用 [Inter](https://rsms.me/inter/) (Google Fonts)
+- 字体使用 [Newsreader](https://fonts.google.com/specimen/Newsreader) (标题衬线) + [Geist](https://vercel.com/font) (正文无衬线)
 - co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, QClaw
 
 ---
 
-**© MocaBolka 2026 | v2.8.10**
+**© MocaBolka 2026 | v3.0.1**

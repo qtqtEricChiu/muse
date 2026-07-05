@@ -1,16 +1,28 @@
-/**
- * MBolka Player - Utilities
- * showToast, formatTime, decodeText, saveSettings, loadSettings
+/*
+ * MBolka Player - Utilities v3.0.2
+ * Toast, formatting, encoding, settings persistence
  */
 
-const showToast = (msg, icon='') => { el.toast.innerHTML = `${icon} ${msg}`; el.toast.classList.add('show'); setTimeout(() => el.toast.classList.remove('show'), 2500); };
+// 🚀 v3.0.2: Toast 即时更新 — 新消息立即替换当前气泡，重置消失计时
+let _toastTimer = null;
+
+const showToast = (msg, icon = '') => {
+    clearTimeout(_toastTimer);
+    el.toast.innerHTML = `${icon} ${msg}`;
+    el.toast.classList.add('show');
+    _toastTimer = setTimeout(() => {
+        el.toast.classList.remove('show');
+        // 触发重排确保 CSS transition 播放退出动画
+        void el.toast.offsetHeight;
+    }, 1800);
+};
 const formatTime = (sec) => { if (!sec || isNaN(sec)) return '0:00'; const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${m}:${s.toString().padStart(2, '0')}`; };
 const decodeText = (str) => { if (!str) return ''; let s = str.replace(/\\u([0-9a-fA-F]{4})/g, (m, g) => String.fromCharCode(parseInt(g, 16))); const txt = document.createElement("textarea"); txt.innerHTML = s; return txt.value; };
 
 const saveSettings = () => {
     try {
         localStorage.setItem('MBolka_Cfg_v3', JSON.stringify({
-            // 核心修复：只保存滑块的物理数值，防止保存淡入淡出时的临时"0"音量
+            // 🚀 核心修复：只保存滑块的物理数值，防止保存淡入淡出时的临时"0"音量
             colorMode: cfg.colorMode, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
             isShuffle: isShuffle, isRepeatOne: isRepeatOne,
             customBgImg: cfg.customBgImg, customBgColor: cfg.customBgColor,
@@ -18,9 +30,28 @@ const saveSettings = () => {
             lrcLineHeight: cfg.lrcLineHeight, lrcAlign: cfg.lrcAlign,
             themePreset: cfg.themePreset, playbackRate: playbackRate,
             preservesPitch: preservesPitch, crossfadeEnabled: crossfadeEnabled,
-            crossfadeDuration: crossfadeDuration, performanceMode: performanceMode,
+            crossfadeDuration: crossfadeDuration, 
+            // 🚀 v2.8.2: 兼容旧版 performanceMode
+            performanceMode: performanceMode,
+            // 🚀 v2.8.2: 新增节能配置
+            oneClickEnergyEnabled: cfg.oneClickEnergyEnabled,
+            frameEnergyEnabled: cfg.frameEnergyEnabled,
+            pipEnergyEnabled: cfg.pipEnergyEnabled,
             eqGains: eqGains, lyricsOffset: lyricsOffset,
-            energySavingEnabled: cfg.energySavingEnabled
+            // 🚀 v2.8.5: 歌词对齐模式持久化
+            lyricsAlignMode: lyricsAlignMode,
+            // 🚀 v2.8.2: 兼容旧版 energySavingEnabled
+            energySavingEnabled: cfg.pipEnergyEnabled,
+            // 🚀 v3.0.1b: 震动配置持久化
+            rumbleEnabled: cfg.rumbleEnabled,
+            rumbleMode: cfg.rumbleMode,
+            rumbleFloor: cfg.rumbleFloor,
+            rumbleAutoFloor: cfg.rumbleAutoFloor,
+            rumbleThrottle: cfg.rumbleThrottle,
+            rumbleStrongGain: cfg.rumbleStrongGain,
+            rumbleWeakGain: cfg.rumbleWeakGain,
+            rumbleSwapMotors: cfg.rumbleSwapMotors,
+            rumbleGain: cfg.rumbleGain
         }));
         localStorage.setItem('MBolka_Favorites_v3', JSON.stringify([...favorites]));
         // Save play stats
@@ -49,14 +80,51 @@ const loadSettings = () => {
             preservesPitch = stored.preservesPitch ?? true;
             crossfadeEnabled = stored.crossfadeEnabled ?? false;
             crossfadeDuration = stored.crossfadeDuration ?? 3;
+            
+            // 🚀 v2.8.2: 兼容旧版 performanceMode，映射到 frameEnergyEnabled
             performanceMode = stored.performanceMode ?? false;
+            cfg.frameEnergyEnabled = stored.frameEnergyEnabled ?? performanceMode;
+            
             eqGains = stored.eqGains ?? new Array(10).fill(0);
             lyricsOffset = stored.lyricsOffset ?? 0;
-            cfg.energySavingEnabled = stored.energySavingEnabled ?? true;
-            // v2.7: 恢复节能开关UI状态
-            const esToggle = document.getElementById('energySavingToggle');
-            if (esToggle) esToggle.checked = cfg.energySavingEnabled;
-            // 同时初始化双端滑块
+            
+            // 🚀 v2.8.5: 恢复歌词对齐模式
+            lyricsAlignMode = stored.lyricsAlignMode ?? 'center';
+            updateLrcAlignUI();
+            
+            // 🚀 v2.8.2: 兼容旧版 energySavingEnabled，映射到 pipEnergyEnabled
+            cfg.pipEnergyEnabled = stored.pipEnergyEnabled ?? stored.energySavingEnabled ?? true;
+            cfg.oneClickEnergyEnabled = stored.oneClickEnergyEnabled ?? false;
+            
+            // 🚀 v3.0.1b: 震动配置恢复
+            cfg.rumbleEnabled = stored.rumbleEnabled ?? true;
+            cfg.rumbleMode = stored.rumbleMode ?? 'basscut';
+            cfg.rumbleFloor = stored.rumbleFloor ?? 0.30;
+            cfg.rumbleAutoFloor = stored.rumbleAutoFloor ?? true;
+            cfg.rumbleThrottle = stored.rumbleThrottle ?? 50;
+            cfg.rumbleStrongGain = stored.rumbleStrongGain ?? 2.0;
+            cfg.rumbleWeakGain = stored.rumbleWeakGain ?? 0.4;
+            cfg.rumbleSwapMotors = stored.rumbleSwapMotors ?? false;
+            cfg.rumbleGain = stored.rumbleGain ?? 1.0;
+            
+            // 🚀 v2.8.2: 同步UI开关状态
+            const oneClickToggle = document.getElementById('oneClickEnergyToggle');
+            if (oneClickToggle) oneClickToggle.checked = cfg.oneClickEnergyEnabled;
+            const frameToggle = document.getElementById('frameEnergyToggle');
+            if (frameToggle) frameToggle.checked = cfg.frameEnergyEnabled;
+            const pipToggle = document.getElementById('pipEnergyToggle');
+            if (pipToggle) pipToggle.checked = cfg.pipEnergyEnabled;
+            // 🚀 v3.0.0: 恢复震动配置
+            cfg.rumbleEnabled = stored.rumbleEnabled ?? true;
+            cfg.rumbleMode = stored.rumbleMode ?? 'spectrum';
+            cfg.rumbleFloor = stored.rumbleFloor ?? 0.30;
+            cfg.rumbleAutoFloor = stored.rumbleAutoFloor ?? true;
+            cfg.rumbleThrottle = stored.rumbleThrottle ?? 50;
+            cfg.rumbleStrongGain = stored.rumbleStrongGain ?? 2.0;
+            cfg.rumbleWeakGain = stored.rumbleWeakGain ?? 0.4;
+            cfg.rumbleSwapMotors = stored.rumbleSwapMotors ?? false;
+            cfg.rumbleGain = stored.rumbleGain ?? 1.0;
+            // 🚀 同时初始化双端滑块
             el.volSlider.value = audio.volume;
             if (el.immVolSlider) el.immVolSlider.value = audio.volume;
             document.getElementById('blurSlider').value = cfg.blurAmt;
@@ -72,6 +140,8 @@ const loadSettings = () => {
             applyThemeLogic();
             if (cfg.themePreset) {
                 document.documentElement.style.setProperty('--primary', cfg.themePreset);
+                const rgbU = hexToRgb(cfg.themePreset);
+                if (rgbU) document.documentElement.style.setProperty('--primary-rgb', `${rgbU.r}, ${rgbU.g}, ${rgbU.b}`);
             }
         }
         const favs = JSON.parse(localStorage.getItem('MBolka_Favorites_v3') || localStorage.getItem('MBolka_Favorites_v2'));
@@ -79,4 +149,38 @@ const loadSettings = () => {
         const stats = JSON.parse(localStorage.getItem('MBolka_Stats') || '{}');
         if (stats) playStats = stats;
     } catch(e) { audio.volume = 0.7; }
+};
+
+// === IndexedDB 初始化 ===
+
+
+// === 颜色提取与辅助 ===
+const extractColor = (imgSrc) => {
+    return new Promise((resolve) => {
+        if (!imgSrc || imgSrc.startsWith('data:image/svg')) return resolve(null);
+        const img = new Image();
+        img.onload = () => {
+            const cvs = document.createElement('canvas'); cvs.width = 32; cvs.height = 32;
+            const ctx = cvs.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, 0, 0, 32, 32);
+            try {
+                const data = ctx.getImageData(0, 0, 32, 32).data; let r=0, g=0, b=0, count=0;
+                for(let i=0; i<data.length; i+=16) { if(data[i]>20 && data[i]<235) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++; } }
+                resolve(count > 0 ? `rgb(${~~(r/count)},${~~(g/count)},${~~(b/count)})` : null);
+            } catch(e) { resolve(null); }
+        }; img.onerror = () => resolve(null); img.src = imgSrc;
+    });
+};
+const getHueFromRgb = (rgbStr) => {
+    if (!rgbStr) return 210; const match = rgbStr.match(/\d+/g); if (!match) return 210;
+    let r = parseInt(match[0])/255, g = parseInt(match[1])/255, b = parseInt(match[2])/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b); let h = 0;
+    if (max !== min) { const d = max - min; switch (max) { case r: h = (g-b)/d + (g<b?6:0); break; case g: h = (b-r)/d + 2; break; case b: h = (r-g)/d + 4; break; } h /= 6; } return h * 360;
+};
+
+// HTML 转义 — 统一入口
+const escapeHTML = (str) => {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 };

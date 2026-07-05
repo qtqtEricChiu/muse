@@ -2,6 +2,388 @@
 
 ---
 
+## v3.0.2 (2026-07-06)
+
+### 🎮 手柄重映射 — 严格单功能
+- **删除长按/双击机制** 🔴：移除 `LONG_PRESS_MS`、`DBL_CLICK_MS`、`_btnTimers`、`_doubleClickPending` 全套长按/双击状态机。每个按键严格单功能，无二义性
+- **D-Pad 重映射**：↑=全屏 / ↓=沉浸舱 / ←=播放列表 / →=曲库
+- **X/Y 重映射**：X=播放暂停 / Y=收藏（单功能）
+- **View/Menu**：View=画中画(PiP) / Menu=设置弹窗
+- **L3/R3**：LS=焦点模式切换 / RS=帮助页面
+- **右摇杆新增**：水平=音量调节(死区0.3/节流150ms) / 垂直=滚动(歌词/浮窗子页面，节流100ms)
+- **LT+RT**：短按快退/快进5秒，同时按保留 Seek 模式
+
+### 🎨 设置页震动实时指示器
+- **设置弹窗嵌入**：控制Tab 的震动面板内新增 `#settingsRumbleIndicator`，显示强震/弱震进度条 + 数值 + 底板值 + 自动地板状态
+- **`_updateRumbleIndicator` 同步**：每帧更新强震/弱震/地板/自动地板显示，仅在设置弹窗打开时渲染
+- **震动开关联动**：`rumbleToggle` 关闭时自动隐藏指示器
+
+### 📜 歌词滚动模糊优化
+- **CSS 类控制**：新增 `.lrc-viewport.scrolling .lrc-line { filter: blur(0px) }`，鼠标滚轮/右摇杆滚动时移除高斯模糊，停止后恢复
+- **`handleUserScroll` 升级**：滚动时添加 `scrolling` 类，2 秒无操作后移除恢复模糊
+
+### 🔧 设置页滚动加固
+- **B1 sticky 加固**：`.settings-tab-bar` 追加 `position: sticky; top: 0; align-self: flex-start; max-height: 100%`
+- **B2 滚轮修复**：`.settings-body` 追加 `overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scroll-behavior: smooth`
+
+### 💬 Toast 即时更新
+- **队列机制移除**：`_toastQueue` + `_dequeueToast` 替换为 `_toastTimer` 即时更新模式。新 Toast 立即替换当前气泡文字，重置 2 秒消失计时，不再排队等待
+
+### 🆕 版本号更新
+- 全局版本统一：`v3.0.1` → `v3.0.2`（11 个 JS 文件 + index.html + sw.js）
+
+## v3.0.1 (2026-07-05)
+
+### 🔧 P0 修复
+- **帮助面板文档纠错**：4 处按键说明修正（X键=播放模式循环、Y键=封面取色、十字键=纯导航、快捷键面板LT/RT=快进快退）
+- **focusable 补全**：8 处按钮补全 `focusable` + `tabindex`（4 个歌词偏移按钮 + 4 个睡眠定时按钮）
+
+### 🎨 P1 视觉改进
+- **SVG 图标系统**：14 处 emoji 替换为 SVG sprite（Lucide 风格），全平台图标一致
+- **4pt 间距对齐**：`.header`/`.footer`/`.content-grid` 使用 `var(--space-*)` 间距令牌
+- **玻璃态进一步减少**：`.drawer-box`/`.modal-content` 改用渐变背景，沉浸模式去除嵌套 blur
+- **文字选择开放**：`.track-title`/`.track-artist` 允许选中复制
+
+### 🛠️ P2 细节优化
+- **滚动条对比度提升**：thumb 从 15% → 25%，hover 45%，active 主题色
+- **音频加载失败状态**：封面显示红色虚线边框 + "无法播放此文件" 提示
+- **删除撤销 Toast**：移除操作后 5 秒内可撤销
+- **设置标签分组增强**：增加 `.settings-panel` 包裹逻辑
+
+### 🔴 P0 紧急修复
+- **style.css 加载缺失**：`index.html` 缺少 `style.css` 引用导致 Toast 无法消失，已修复
+- **CDN integrity hash 错误**：`jsmediatags` 哈希值不匹配导致浏览器拒绝加载脚本、所有元数据解析失败，已替换为正确值 `sha384-JpTt7qxVx1X/pHeYiCfqFdKRu2HF1MBGr1kEXtbNIGwwryGWMbbW78onU3bdkAHZ`
+- **设置标签语义分类**：改用基于标题内容的关键词匹配算法替代顺序自动分配，确保每个 drawer-box 归入正确标签组
+- **sw.js 缓存 URL 修正**：移除未加载的 `/css/style.css`（components.css 已存在无需额外添加）
+
+### 📋 P1 版本号统一
+- 6 处版本号统一更新：`index.html`（title + footer）、`globals.js`、`audio-core.js`、`storage.js`、`loader.js` → `v3.0.1`
+
+### 🗑️ 其他修复
+- **IndexedDB 存储溢出提示**：`initIDB` 初始化失败时显示 Toast 引导用户清理数据
+
+### 🎯 P3 体验优化
+- **Favicon / PWA 图标**：添加内联 SVG favicon + apple-touch-icon
+- **动态页面标题**：播放时显示 `♪ 曲名 - 艺术家 ｜ MBolka`，暂停/清空时恢复
+- **深色模式自动跟随**：首次启动时检测 `prefers-color-scheme` 系统偏好自动设置
+- **音量百分比显示**：vol-control 区域追加实时百分比显示
+- **播放列表双击播放**：列表项支持双击直接切歌
+- **大列表懒加载**：`playlist-items` 和 `.pl-item` 添加 `content-visibility: auto`，500+ 曲目首次打开不再卡顿
+
+### 🧹 外部审计修复
+- **7 个 JS 版本号统一**：ui-core/app/cover-lib/gamepad/pip/utils/vibration → `v3.0.1`
+- **设置标签 SVG 图标**：新增 icon-folder/palette/headphones/gamepad，替换 emoji
+- **设置标签 CSS 重设计**：激活态金色半透明底 + 边框，悬停微弱提亮，`tab-icon` 统一居中
+- **sw.js 缓存 style.css**：补充离线缓存
+- **HTML 注释清理**：删除 6 处过时版本注释
+- **存储管理增强**：启动自动清理 30 天前数据，50MB 阀值自动缩容，手动清理按钮
+
+### 🏗️ v3.0.1b — 设置面板重构与深度优化 (2026-07-06)
+
+#### 🖼️ 设置弹窗 UI 重构
+- **垂直图标导航栏**：左侧 110px 固定 sidebar，5 个卡片式 Tab（26px SVG 图标 + 11px 文字），active 状态琥珀金半透明背景 + 外发光
+- **固定高度 + 可滚动**：各 Tab 内容不再让弹窗高度抖动，且超出时独立滚动
+- **底部版权移入独立行**：`.settings-footer` 置于 sidebar+body 下方
+- **自定义下拉菜单**：`.settings-select` 类，琥珀金箭头 SVG（14px），圆角 10px，玻璃背景。hover 上移 1px + 淡金边框，focus 3px 外发光 + 金色底，active 微缩 0.98，选项暗色毛玻璃
+
+#### 🐛 关键 Bug 修复
+- **CSS 语法错误**：`.drawer-box` 缺少闭合大括号导致 `.settings-tab` 全套样式失效 — 已修复
+- **SW 缓存失效**：`sw.js` 缓存版本号 `mbolka-v3 → mbolka-v3.0.1`，清除旧版缓存
+- **Tab 0 首屏白屏** 🔴：HTML 预置 `active` 类导致 `tabs[0].click()` 被守卫 `if (tab.classList.contains('active')) return;` 拦截，所有面板保持 `display: none`。修复：模拟点击前先移除所有 Tab 的 `active` 类
+- **设置页无法滚动** 🔴：根因同上（面板未激活 → minHeight 测量为 0 → body 无高度 → 无滚动容器）。Tab 0 激活后 `overflow-y: auto` 正常生效
+- **initSettingsTabs 重复调用泄漏** 🔴：每次打开设置都重新创建 `settings-layout-row`，旧的空行不断泄漏。`body.innerHTML = ''` 清空面板后缓存的 `boxes` 引用变为游离态。修复：`_tabsInited` 幂等守卫 + 首次构建/后续仅激活的分离逻辑
+
+#### 🔧 Gamepad 焦点深度修复
+- **隐藏面板焦点泄漏** 🔴：`updateFocusContext` 仅收集当前活跃面板 + 全局控件（tab-bar/header/footer），避免焦点导航到不可见元素
+- **Tab 切换后焦点悬空** 🔴：`switchSettingsTab` 切换后 100ms 自动聚焦新面板第一个控件
+- **Toggle-switch 不可见焦点** 🟡：所有 8 个 `.toggle-switch` 标签添加 `.focusable` + `tabindex="0"`，A 键激活时直接 toggle 内部 checkbox
+- **滑块缺 `.focusable`** 🟡：5 个震动滑块 + `crossfadeSlider` 补全 `.focusable` 类
+- **`audioOutputSelect` 缺类** 🟢：添加 `.settings-select focusable`
+
+#### 🎨 主题色动态兼容
+- **`--primary-rgb` 变量系统**：新增 CSS 变量 `--primary-rgb`（`232, 184, 75`），供 `rgba(var(--primary-rgb), X)` 在任何主题色下自动派生半透明色
+- **全 CSS 硬编码琥珀金清除**：`variables.css` / `base-layout.css` / `modals.css` 中 10 处 `rgba(232,184,75, X)` 全部替换为 `rgba(var(--primary-rgb), X)`，跟随用户选择的预设主题色或封面取色
+- **3 处 JS 同步**：`applyThemeColorAction`、`applyThemeLogic`、`utils.js` 初始化时同步设置 `--primary-rgb`
+
+#### 📊 震动实时指示器
+- **主界面 footer 新增**：手柄连接后显示 Strong/Weak 双进度条（暖橙/冷蓝渐变）实时反映马达输出强度，autoFloor 开启时浮动显示动态阈值
+- **`vibration.js` 新增 `_updateRumbleIndicator()`**：每帧更新进度条宽度 + autoFloor 数值 + 弱信号时自动半透明降显
+- **`gamepad.js` 联动**：手柄连接/断开时自动 show/hide 指示器
+
+#### 💾 震动配置持久化（严重遗漏修复）
+- **`saveSettings()` 补全**：9 个 rumble 字段写入 localStorage（rumbleEnabled/Mode/Floor/AutoFloor/Throttle/StrongGain/WeakGain/SwapMotors/Gain）
+- **`loadSettings()` 补全**：对应读取恢复，默认值与 `globals.js` 对齐
+- **`globals.js` 默认值修正**：`rumbleMode` 从 `'spectrum'` → `'basscut'`，与 HTML 默认选择一致，消除冲突
+
+#### 🔄 默认值调整
+
+## v3.0.0 (2026-07-05)
+
+### 🎮 全新手柄震动反馈引擎
+- **新增 `js/vibration.js`**：独立震动映射模块，基于 Web Gamepad API `dual-rumble` 实现音频→震动反馈
+- **双模式频谱映射**：频谱映射模式（Weak←低频/Strong←中高频）与去低频映射模式（跳过最低 25% 频段）
+- **自动地板算法（EMA）**：~5 秒指数移动平均，高潮段落自动抬升阈值过滤基底噪音，安静段落保留细节
+- **马达独立增益控制**：Strong (200%) / Weak (40%) 独立增益 + 全局振幅 + 反转马达开关
+- **设置面板震动配置区**：震动开关、映射模式选择、地板阈值滑块、自动地板开关、节流间隔选择、马达独立控制
+- **节能模式联动**：帧率限制/标签页隐藏时自动禁用震动
+- **手柄连接检测**：连接时检测 `vibrationActuator` 支持，不支持的浏览器灰色提示
+
+### 🎮 手柄功能全面补全
+- **P0 焦点可达性修复**：为 8 处缺失 `.focusable` 的元素补全（导出按钮、睡眠定时、歌词偏移、统计关闭、右键菜单项、封面墙卡片、曲库搜索框）
+- **P1 快捷组合键映射**：新增 11 项映射（长按 X 收藏、长按 Y 深色模式、View+Start 画中画、长按 View 曲库、长按 Start 播放列表、长按 LT 睡眠定时、长按 RT 统计面板、View+RB 帮助、双击 X 播放模式、长按 A A-B重复/右键菜单、右摇杆音量）
+- **P2 交互范式**：进度条 Seek 模式（LT+RT 双扳机进入）、右键菜单手柄化（长按 A 弹出）、搜索框首字母/预设词快速跳转（LB/RB 轮换）
+- **P3 画中画手柄支持**：主窗口 postMessage 转发 gamepad 状态到 PiP 窗口，映射 5 个操作按钮
+- **Badge 视觉提示补充**：为 8 个按钮补充手柄按键徽章（P 列表、L 歌词、G 曲库、♥ 收藏、PiP 画中画、M 模式、↕ 音量、Ⓨ 沉浸）
+- **help 面板文档纠错**：修正 X 键（切换播放模式→播放/暂停）、Y 键（取色模式开关→切换沉浸模式）、LT/RT（音量加减→快退/快进 5 秒）
+
+### ⚡ v2.9.0 性能优化（合并入 v3.0.0）
+- **TDZ 崩溃修复**：`ui-core.js` 中 `const toggleImmersiveMode/toggleDarkMode/toggleColorMode` 改为 `function` 声明，消除 Temporal Dead Zone
+- **cfSetupScanner rAF 空转修复**：交叉淡变关闭时取消 rAF 循环
+- **mousemove 节流**：粒子生成加 rAF 防抖，降低 CPU 占用
+- **对象池 FIFO 淘汰**：粒子/涟漪池耗尽时用 FIFO 替代无限扩展
+- **IndexedDB 批量写入**：`cacheMetadata` 改为 20 条一批一次性 transaction
+- **backdrop-filter 动态降级**：`prefers-reduced-motion` 时降为 `blur(10px)`
+- **will-change 动态管理**：动画前后 JS 动态添加/移除，释放 GPU 层
+- **CSS 架构优化**：尺寸令牌（clamp 限制）、`!important` 精简、mask-type Firefox 兼容
+- **无障碍增强**：歌词 `user-select: text`、`focus-visible` 键盘焦点、`prefers-reduced-motion` CSS+JS 双层
+- **ARIA 语义标注**：`aria-label`、`role="dialog"`、`role="listbox"`、动态播放/暂停标签
+- **骨架屏加载占位**：processFiles 开始前渲染骨架屏占位
+- **Service Worker 外部化**：创建独立 `sw.js` 文件
+- **CDN 加固**：`jsmediatags` 添加 `integrity` + `crossorigin`
+
+### 🔧 其他优化
+- **Toast 消息队列**：连续快速调用时不会覆盖，顺序显示
+- **字体栈优化**：移除 `OPPO Sans 4.0`，中文字体回退到系统雅黑/苹方
+- **PWA 缓存策略**：`sw.js` 实现 CacheFirst 静态资源缓存
+- **模态弹窗焦点陷阱**：Tab 键在弹窗内焦点循环锁定
+- **backdrop-filter 动态降级**：FPS 持续低于 45 时自动降为 `blur(10px)`
+- **构建脚本**：`build.js` 合并压缩 JS/CSS 的生产构建脚本
+
+### 🎮 手柄功能补全（第二阶段）
+- **P0 焦点可达性补全**：`coverLibSearch`、`btnExportM3U`/`btnExportJSON`、5 个右键菜单项、`.ctx-item` 补全 `.focusable` + `tabindex="0"`
+- **P1 快捷组合键状态机接入**：`_btnTimers` 长按检测逻辑连接、`_doubleClickPending` 双击检测（X 键双击=播放模式循环）、`_comboState` 组合键检测（View+Start=PiP、View+RB=帮助）
+- **P2 Seek 模式**：LT+RT 双扳机进入 Seek 模式，左摇杆控制进度，松开退出
+
+### 🎨 CSS 工程化
+- **间距令牌系统**：在 `css/variables.css` 中新增 `--space-*` 系列变量（xs/sm/md/lg/xl/2xl/3xl）
+- **字体栈统一**：移除 `OPPO Sans 4.0`（绝大多数设备不存在），`Inter` 优先，补充中文系统字体回退
+- **ARIA 语义标注补全**：`player-wrapper` 添加 `role="application"`、进度条 `role="slider"`、歌词容器 `role="contentinfo"`、Toast `role="status" aria-live="polite"`
+- **help 面板纠错**：修正设置快捷键面板中 LT/RT、Y 键、X 键的描述与实际代码不一致
+
+### 🔧 其他修复
+- **震动测试按钮**：设置面板震动区块新增"测试震动"按钮，发送 500ms dual-rumble
+- **版本号更新**：index.html 中 `v2.8.13p4` 更新为 `v3.0.0`
+
+### 🎨 美学系统彻底重构
+- **调色板重构**：从青蓝（`#9ac8e2`）全面更换为琥珀金（`#e8b84b`）+ 深海蓝（`#0e0c16`），建立暖调奢华视觉辨识度
+- **字体系统升级**：Inter → Newsreader（标题衬线字体）+ Geist（正文无衬线字体），CDN 链接更新
+- **玻璃态降级**：`backdrop-filter` 从 `blur(35px)` 降为 `blur(12px)`，减少毛玻璃泛滥
+- **弹窗背景加深**：modal-overlay 背景色改为 `rgba(8, 6, 16, 0.65)`，提升焦点感
+- **进度条拖拽反馈**：拖拽/Seek 模式下进度条高度增加 + 琥珀金光晕
+
+### 🏗 设置面板架构重做
+- **标签页导航**：5 个标签（音乐/外观/音频/控制/其他），替代无限滚动
+- **标签切换 JS**：`initSettingsTabs()` 按标签显示/隐藏抽屉区块
+
+### 🌐 网络状态指示器
+- Footer 新增实时网络状态指示器（在线/离线/慢速网络）
+- `updateNetworkStatus()` 监听 `online`/`offline` 事件 + Network Information API
+
+### 🎞 动画微调
+- **Toast 滑入动画**：从顶部滑入 + 缩放，`toastSlideIn` 关键帧
+- **缓动曲线优化**：`--curve-spring` 改为 `ease-out-expo`，`--curve-smooth` 改为 `ease-out-quint`
+
+---
+
+## v2.8.13 (2026-06-05)
+
+### 🔥 沉浸模式进度条点击修复
+
+**问题**：点击进度条（约0分03秒前后）自动跳转到0分48秒前后，疑似无论点到哪里，进度都会调整到后约45秒出的问题。
+
+**修复方案**：
+- 修改 `handleABSeek()` 函数中使用 `getBoundingClientRect().width` 替代 `container.offsetWidth`，统一计算方式避免偏差
+- 修改 `bindProgressBar()` 函数，添加 `resize` 和视图切换时清除 `cachedRect` 的机制，避免缓存过时导致的点击位置计算错误
+
+### 🔥 歌词创作信息显示优化
+
+**修复方案**：
+- 修复 `.lrc-credits` 容器为左对齐，确保每种创作人独立一行
+- 固定宽度，超出时截断文本（不换行，溢出显示省略号）
+- `.lrc-credits-row` 设置为不换行，确保独立一行
+
+### 🔥 创作信息正则扩充
+
+**修复方案**：
+- 更新 `CREDIT_PAT` 添加 `录音棚` 等新条目
+- 更新 `CREDIT_MULTI_PAT` 支持多角色格式（如 `制作人/作曲/编曲：`）
+
+### 📱 移动端优化
+
+**新增功能**：
+- 添加 CSS 去除按钮点击时的蓝色高亮
+- 添加竖屏自动进入沉浸模式逻辑（仅限移动设备）
+
+### 🔧 IndexedDB/LocalStorage 优化
+
+**优化方案**：
+- 添加 `cleanupOldMetadata()` 函数，清理30天以前的旧元数据缓存
+
+### 🔥 flowField 大数组存储问题检查
+
+**检查结果**：
+- `flowField` 大数组未被存储到 IndexedDB 或 LocalStorage
+- 修复 `flowField` 的重复声明问题
+
+### 🔊 音频输出设备选择（Windows）
+
+**新增功能**：
+- 在设置面板中添加音频输出设备选择下拉菜单（仅 Windows Chrome/Edge 支持）
+- 使用 `navigator.mediaDevices.enumerateDevices()` 枚举音频输出设备
+- 使用 `audio.setSinkId(deviceId)` 切换音频输出设备
+- 支持保存用户选择到 localStorage，下次启动时自动恢复
+- 添加"刷新设备列表"按钮，方便用户更新设备列表
+
+---
+
+## v2.8.13p4 (2026-06-05)
+
+### 🔥 创作信息 CSS 彻底重写 — 允许换行、不再溢出
+
+**问题**（截图确认）：创作信息值文本超长时（如 `Luis Fonsi/Erika Ender/Ramon Ayala/Justin Bieber/...`）仍然溢出歌词栏边界，因为 `white-space: nowrap` + `text-overflow: ellipsis` 在某些布局下无法正确约束宽度。
+
+**修复方案 (v2.8.13p4 CSS 重写)**：
+- `.lrc-credits`: 移除硬编码 `max-width: 600px`，改为 `max-width: 100%` 由父容器约束
+- `.lrc-credits-row`: `flex-wrap: nowrap` → **`flex-wrap: wrap`**（允许长文本自动折行）
+- `.lrc-credits-val`: `white-space: nowrap` → **移除**，新增 `word-break: break-all; overflow-wrap: break-word`
+- `.lrc-credits-row` 垂直对齐从 `center` 改为 **`flex-start`**（换行后视觉更自然）
+- 标签(tag)保持 `flex-shrink: 0; white-space: nowrap` 不参与换行
+
+### 🔥 创作信息正则大幅扩充
+
+**遗漏要素补充到 CREDIT_PAT 和 CREDIT_MULTI_PAT**：
+
+| 新增模式 | 匹配示例 | 来源 |
+|---------|---------|------|
+| `作词` | `作词：Lyla P.` | DAMIDAMI LRC |
+| `作曲` | `曲：` 的完整形式 | 同上 |
+| `演唱制作人` | `演唱制作人：火星电台` | 张杰 - 逆战 |
+| `录音室` | `录音室：香蕉文化录音室 上海` | 同上 |
+| `混音工作室` | `混音工作室：Sick Glue Studios` | 同上 |
+| `混音师` | `混音师：Rusty Santos` | 同上 |
+| `母带工作室` | `母带工作室：Sterling Sound Studio` | 同上 |
+| `合音制作` | `合音制作：拳头游戏音乐团队/Colin Brittain` | Against The Current |
+| `编外合音制作` | `编外合音制作：Alex Goot` | 同上 |
+| `混音及母带后期` | `混音及母带后期：拳头游戏音乐团队` | 同上 |
+
+CREDIT_MULTI_PAT 角色列表同步扩充，支持多身份组合格式。
+
+### 🔧 沉浸模式进度条修复
+
+**根因**：`app.js` 中 `handleABSeek()` 函数使用 `container.offsetWidth` 计算宽度，但用 `getBoundingClientRect().left` 计算位置——两者在不同缩放/滚动场景下不一致导致点击偏移。正确的修复版本存在于未加载的 `audio-core.js` 备份中。
+
+**修复**：
+- `handleABSeek()` 统一使用 `getBoundingClientRect()` 同时获取 left 和 width
+- 沉浸模式 HTML 补充缺失的 `immTimeCur` / `immTimeTot` 时间显示元素
+
+### 🎨 沉浸模式进度条 UI 对齐主界面
+
+**变更**：
+- 沉浸模式底部控制栏新增 `<div class="time-labels">` 时间标签（与主界面对齐）
+- `immTimeCur` 元素存在性验证通过，拖拽/播放时间实时更新正常工作
+
+---
+
+## v2.8.13p3 (2026-06-05)
+
+### 🔍 v2.8.13 补丁完整性检查
+
+**检查范围**：对 v2.8.13 及 v2.8.13p2 所有补丁项进行逐项验证。
+
+**检查结果 — 全部通过**：
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 歌词创作信息 Phase 6b 角色+值分离 | ✅ | `CREDIT_MULTI_PAT` 多角色拆分、`CREDIT_PAT`/`EN_CREDIT_PAT`/`OA_OC_PAT` 单角色分离全部正确 |
+| 创作信息 CSS 独立成行+截断 | ✅ | `.lrc-credits` flex-column + `.lrc-credits-row` nowrap + `.lrc-credits-val` text-overflow:ellipsis |
+| 沉浸模式背景跟随专辑取色 | ✅ | `immHue` 优先使用 `currentAlbumColor`，光晕用 `hsla(immHue,...)` |
+| 音频设备枚举隐私优化 | ✅ | 已移除 `getUserMedia({audio:true})`，直接 `enumerateDevices()` |
+| IndexedDB/LocalStorage 优化 | ✅ | 200条上限、MAX_ERROR_LOGS=200、flowField 退出释放 |
+| 进度条偏移修复 | ✅ | `bindProgressBar()` 统一 `getBoundingClientRect()`，`updateVisuals()` 每次获取 rect |
+
+**版本号**：`index.html` 标题及页脚更新为 `v2.8.13p3`，`changelog.md` 和 `代码功能指导文档.md` 同步更新。
+
+---
+
+## v2.8.13p2 (2026-06-05)
+
+### 🔥 沉浸模式背景跟随专辑封面取色
+
+**问题**：沉浸模式下背景固定使用深灰色调，未像主界面一样跟随专辑封面提取的主题色动态变化。
+
+**修复方案**：
+- 沉浸模式渲染循环中新增 `immHue` 变量，优先使用 `currentAlbumColor` 解析后的色相
+- 沉浸光晕背景渐变从硬编码 `rgba(30,30,40,...)` 改为 `hsla(immHue, ...)`
+- 中心发光核心、频谱弧线颜色同步跟随专辑封面取色
+
+### 🔒 音频输出设备枚举隐私优化
+
+**问题**：`enumerateAudioOutputDevices()` 函数调用了 `getUserMedia({ audio: true })` 请求麦克风权限，造成隐私侵害担忧。
+
+**修复方案**：
+- 移除 `getUserMedia()` 调用，直接使用 `navigator.mediaDevices.enumerateDevices()` 枚举设备
+- 无权限时设备标签显示为 `音频输出设备 (xxxxxx...)`，deviceId 仍可用于 setSinkId 切换
+- 添加无标签检测提示
+
+### 🔥 创作信息「角色 + 值」分离重写
+
+**根本问题**：Phase 6 提取创作信息时，将整行文本（如 `制作人：Sihan`）直接存入 `{label: '制作人：Sihan', value: ''}`，导致：
+- 角色名和实际值混在一起，无法独立显示
+- 多角色合并格式（如 `制作人/作曲/编曲：Sihan`）无法拆分为独立行
+
+**修复方案 (Phase 6b)**：
+- 新增 Phase 6b 后处理步骤，对所有 credits 条目执行角色+值分离
+- 多角色格式自动拆分为独立条目：`制作人/作曲/编曲：Sihan` → 3条独立行
+- 每条创作信息输出为 `<span class="lrc-credits-tag">角色名</span><span class="lrc-credits-val">值</span>` 结构
+- 支持中文单角色、中文多角色、英文格式、OA/OC/OP/SP/ISRC 等全部格式
+
+**示例效果**：
+```
+制作人：Sihan
+作曲：Sihan
+编曲：Sihan
+作词：Lyla P./Sihan/Nellie Fors/SmileL/Nanyan P/Zilan Li
+配唱制作：Victor 刘伟德
+混音：周天澈@Tweak Tone Labs
+母带：周天澈@Tweak Tone Labs
+录音：徐晓宇@狂喜文化录音棚
+```
+
+### 🔥 创作信息正则扩充
+
+**新增要素**：
+- `配唱制作` — 匹配 `配唱制作：Victor 刘伟德`
+- `母带处理` — 匹配 `母带处理：周天澈@Tweak Tone Labs`
+- `录音工作室` — 匹配 `录音工作室：...`
+- CREDIT_MULTI_PAT 角色列表与 CREDIT_PAT 同步扩展
+
+### 🔧 彻底优化 IndexedDB/LocalStorage
+
+**优化方案**：
+- `cleanupOldMetadata()` 增强：新增 200 条目上限，超过时自动清理最旧记录
+- 错误日志缓存限制从 500 条降至 200 条（`MAX_ERROR_LOGS = 200`）
+- `toggleImmersiveMode()` 退出时释放 `flowField` 大数组
+
+### 🩹 进度条偏移二次确认
+
+**验证结果**：
+- v2.8.13 的 `getBoundingClientRect()` 统一计算方案确认生效
+- `bindProgressBar()` 中的 `cachedRect` 仅用于悬停提示，不影响拖拽/点击
+- `updateVisuals()` 每次都重新获取 rect，无缓存干扰
+
+---
+
+
 ## v2.8.12 (2026-06-04)
 
 ### 🔥 双语模式自启检测（免版权标记）

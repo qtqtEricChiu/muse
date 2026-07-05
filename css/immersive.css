@@ -14,8 +14,8 @@
 
 .imm-track-card {
     display: flex; align-items: center; gap: 20px;
-    background: var(--glass-bg); backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
-    padding: 15px 24px; border-radius: 24px; border: var(--glass-border); max-width: 500px;
+    background: rgba(20, 17, 30, 0.75);
+    padding: 15px 24px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.06); max-width: 500px;
 }
 .imm-track-card.no-art { gap: 0; }
 .imm-track-card.no-art .imm-album-art { display: none; }
@@ -64,7 +64,7 @@
 /* 🚀 v2.8.6: 翻译行自动更高透明度由 JS 动态设置（0.85），CSS 不再复制过渡 */
 
 .imm-bottom {
-    background: var(--glass-bg); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
+    background: rgba(20, 17, 30, 0.85);
     border-radius: 28px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.5);
     padding: 24px 40px; max-width: 850px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 30px;
 }

@@ -154,6 +154,12 @@
 .gamepad-badge.pad-lb { border-radius: 4px; width: 22px; }
 .gamepad-badge.pad-rb { border-radius: 4px; width: 22px; }
 
+.gamepad-badge.pad-dpad { background: rgba(255,255,255,0.12); color: #aaa; }
+.gamepad-badge.pad-rs { background: rgba(154,200,226,0.2); color: #9ac8e2; }
+
+/* 🚀 v3.0.2: 频谱容器内的 badge 避免 overflow:hidden 裁切 */
+.vis-canvas-container .gamepad-badge { top: 4px; right: 4px; }
+
 /* === v2.8: 手柄接入时主界面按钮标注 === */
 .gamepad-key-hint {
     display: none; position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
@@ -177,7 +183,7 @@
 .stat-top-item .play-count { font-size: 12px; color: var(--text-sub); }
 
 /* ================= 9. 睡眠定时器 ================= */
-.sleep-timer-display { font-size: 14px; color: var(--text-sub); display: flex; align-items: center; gap: 6px; }
+.sleep-timer-display { color: var(--text-sub); display: flex; align-items: center; gap: 6px; }
 .sleep-timer-display.active { color: var(--primary); }
 .sleep-timer-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -226,7 +232,7 @@
     .btn-group-main { gap: 10px; }
     .btn-ctrl { width: 40px; height: 40px; font-size: 14px; }
     .btn-play { width: 52px; height: 52px; font-size: 22px; }
-    .btn-fav-ctrl, .btn-pip-ctrl { width: 36px !important; height: 36px !important; font-size: 13px !important; }
+    .btn-fav-ctrl, .btn-pip-ctrl { width: 36px; height: 36px; font-size: 13px; }
     .btn-group-sub { flex-wrap: wrap; gap: 8px; }
     .vol-control { margin-left: 0; width: 100%; }
     .cover-album-group { width: 90px; padding: 6px; }
@@ -299,3 +305,46 @@
 .crossfade-indicator.active {
     opacity: 1;
 }
+
+/* 🚀 v3.0.0: 网络状态指示器 */
+.network-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 2px 10px; border-radius: 10px; transition: all 0.3s var(--curve-smooth); }
+.network-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; transition: background 0.3s; }
+.network-status.online { color: rgba(255, 255, 255, 0.5); }
+.network-status.offline { color: #ff6b6b; }
+.network-status.offline::before { background: #ff6b6b; animation: pulseSubtle 1.5s infinite; }
+.network-status.slow { color: var(--primary); }
+.network-status.slow::before { background: var(--primary); animation: pulseSubtle 1.5s infinite; }
+
+/* 🚀 v3.0.1: SVG 图标通用样式 */
+.btn-icon, .brand-icon {
+    width: 18px; height: 18px; flex-shrink: 0; display: inline-block;
+    vertical-align: middle; pointer-events: none;
+}
+.brand-icon { width: 24px; height: 24px; color: var(--primary); }
+.btn-glass .btn-icon { opacity: 0.8; }
+.btn-glass:hover .btn-icon { opacity: 1; color: var(--primary); }
+.btn-ctrl .btn-icon { width: 24px; height: 24px; }
+.btn-play .btn-icon { width: 28px; height: 28px; color: var(--text-on-primary); }
+
+/* 🚀 v3.0.1: 音频加载失败状态 */
+.art-box.load-error { position: relative; }
+.art-box.load-error .art-img { opacity: 0.3; filter: grayscale(100%); }
+.art-box.load-error::before {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(255, 80, 80, 0.08); border: 2px dashed rgba(255, 80, 80, 0.3);
+    border-radius: 28px; z-index: 2; pointer-events: none;
+}
+.art-box.load-error::after {
+    content: '无法播放此文件'; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 3; font-size: 14px; font-weight: 600; color: #ff6b6b; pointer-events: none;
+}
+
+/* 🚀 v3.0.1: 删除撤销 Toast */
+.toast-undo-btn {
+    background: var(--primary); color: var(--text-on-primary);
+    border: none; padding: 2px 10px; border-radius: 8px;
+    cursor: pointer; font-weight: 600; font-size: 13px; margin-left: 8px;
+    transition: filter 0.2s;
+}
+.toast-undo-btn:hover { filter: brightness(1.15); }

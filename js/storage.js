@@ -1,9 +1,9 @@
-/**
- * MBolka Player - Storage & Theme
- * IndexedDB, directory handles, play stats, color extraction, theme logic
+/*
+ * MBolka Player - Storage v3.0.1
+ * IndexedDB, directory handles, metadata cache, play stats, error logging,
+ * theme logic, dark mode, immersive/fullscreen toggle
  */
 
-// === IndexedDB 初始化 ===
 async function initIDB() {
     return new Promise((resolve, reject) => {
         const req = indexedDB.open(IDB_NAME, IDB_VERSION);
@@ -23,16 +23,142 @@ async function initIDB() {
             }
         };
         req.onsuccess = (e) => { idb = e.target.result; resolve(); };
-        req.onerror = () => { idb = null; resolve(); };
+        req.onerror = () => {
+            idb = null; resolve();
+            // 🚀 v3.0.1: 存储空间溢出提示
+            if (typeof showToast === 'function') {
+                showToast('⚠️ 本地存储空间不足，元数据缓存已禁用', '💾');
+            }
+        };
     });
 }
 
-async function cacheMetadata(key, data) {
-    if (!idb) return;
+// === v3.0.2: 存储空间管理 ===
+
+// 估算当前 IDB 存储使用量（MB）
+async function estimateIDBUsage() {
+    if (!idb) return 0;
+    try {
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+            const est = await navigator.storage.estimate();
+            return Math.round((est.usage || 0) / 1024 / 1024);
+        }
+    } catch(e) {}
+    return 0;
+}
+
+// 清理超过 ttlDays 天的 metadata 缓存条目
+async function cleanOldMetadata(ttlDays = 30) {
+    if (!idb) return 0;
+    const cutoff = Date.now() - ttlDays * 86400000;
+    let deleted = 0;
     try {
         const tx = idb.transaction('metadata', 'readwrite');
-        tx.objectStore('metadata').put({ key, data, timestamp: Date.now() });
+        const store = tx.objectStore('metadata');
+        const cursorReq = store.openCursor();
+        await new Promise(resolve => {
+            cursorReq.onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (!cursor) return resolve();
+                if (cursor.value.timestamp && cursor.value.timestamp < cutoff) {
+                    cursor.delete();
+                    deleted++;
+                }
+                cursor.continue();
+            };
+            cursorReq.onerror = () => resolve();
+        });
     } catch(e) {}
+    return deleted;
+}
+
+// 清理错误日志，只保留最近 maxEntries 条
+async function cleanOldErrors(maxEntries = 200) {
+    if (!idb) return 0;
+    let deleted = 0;
+    try {
+        const tx = idb.transaction('errors', 'readwrite');
+        const store = tx.objectStore('errors');
+        const countReq = store.count();
+        const total = await new Promise(resolve => {
+            countReq.onsuccess = () => resolve(countReq.result);
+            countReq.onerror = () => resolve(0);
+        });
+        if (total <= maxEntries) return 0;
+        const toDelete = total - maxEntries;
+        const cursorReq = store.openCursor();
+        await new Promise(resolve => {
+            cursorReq.onsuccess = (e) => {
+                if (deleted >= toDelete) return resolve();
+                const cursor = e.target.result;
+                if (!cursor) return resolve();
+                cursor.delete();
+                deleted++;
+                cursor.continue();
+            };
+            cursorReq.onerror = () => resolve();
+        });
+    } catch(e) {}
+    return deleted;
+}
+
+// 手动清理全部缓存
+async function clearAllCache() {
+    if (!idb) return;
+    try {
+        const tx = idb.transaction(['metadata', 'errors'], 'readwrite');
+        await Promise.all([
+            new Promise(r => { const req = tx.objectStore('metadata').clear(); req.onsuccess = r; req.onerror = r; }),
+            new Promise(r => { const req = tx.objectStore('errors').clear(); req.onsuccess = r; req.onerror = r; })
+        ]);
+    } catch(e) {}
+}
+
+// 写入前检查：超过 50MB 阈值自动触发清理
+async function checkAndCleanIfNeeded() {
+    const usage = await estimateIDBUsage();
+    if (usage > 50) {
+        const deleted = await cleanOldMetadata(14); // 超过 50MB 时只保留 14 天
+        if (deleted > 0 && typeof showToast === 'function') {
+            showToast(`已自动清理 ${deleted} 条过期缓存`, '🧹');
+        }
+        await cleanOldErrors(100);
+    }
+}
+
+// 初始化时自动清理 30 天前的 metadata + 超过 200 条的错误
+async function autoCleanOnStart() {
+    try {
+        const metaDel = await cleanOldMetadata(30);
+        const errDel = await cleanOldErrors(200);
+        if (metaDel > 0 || errDel > 0) {
+            console.log(`[Storage] Auto cleaned: ${metaDel} metadata + ${errDel} error entries`);
+        }
+    } catch(e) {}
+}
+
+// 🚀 v2.9.0: 批量 IDB 写入 — 收集 20 条后一次性 transaction
+let _metaBatchQueue = [];
+let _metaBatchScheduled = false;
+function _flushMetaBatch() {
+    _metaBatchScheduled = false;
+    if (!idb || !_metaBatchQueue.length) return;
+    const batch = _metaBatchQueue.splice(0);
+    try {
+        const tx = idb.transaction('metadata', 'readwrite');
+        const store = tx.objectStore('metadata');
+        for (const { key, data } of batch) store.put({ key, data, timestamp: Date.now() });
+    } catch(e) {}
+}
+async function cacheMetadata(key, data) {
+    if (!idb) return;
+    checkAndCleanIfNeeded(); // v3.0.2: 写入前检查容量
+    _metaBatchQueue.push({ key, data });
+    if (_metaBatchQueue.length >= 20) _flushMetaBatch();
+    else if (!_metaBatchScheduled) {
+        _metaBatchScheduled = true;
+        queueMicrotask(_flushMetaBatch);
+    }
 }
 
 async function getCachedMetadata(key) {
@@ -42,17 +168,9 @@ async function getCachedMetadata(key) {
         const req = tx.objectStore('metadata').get(key);
         return new Promise(resolve => {
             req.onsuccess = () => {
-                if (req.result && req.result.data) {
-                    const cached = req.result.data;
-                    // 核心修复：刷新后旧 Blob 失效，必须为缓存数据重新生成新的 Blob URL
-                    if (cached.file) {
-                        try { URL.revokeObjectURL(cached.url); } catch(e){}
-                        cached.url = URL.createObjectURL(cached.file);
-                    }
-                    resolve(cached);
-                } else {
-                    resolve(null);
-                }
+                // v3.0.3: 缓存仅存纯文本字段(title/artist/album/lrcText)，
+                // file/url/art 由调用方从 File 对象重建，不再从 IDB 读取。
+                resolve(req.result ? req.result.data : null);
             };
             req.onerror = () => resolve(null);
         });
@@ -193,102 +311,4 @@ audio.addEventListener('pause', () => {
     playStartTime = 0;
 });
 
-const extractColor = (imgSrc) => {
-    return new Promise((resolve) => {
-        if (!imgSrc || imgSrc.startsWith('data:image/svg')) return resolve(null);
-        const img = new Image();
-        img.onload = () => {
-            const cvs = document.createElement('canvas'); cvs.width = 32; cvs.height = 32;
-            const ctx = cvs.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, 0, 0, 32, 32);
-            try {
-                const data = ctx.getImageData(0, 0, 32, 32).data; let r=0, g=0, b=0, count=0;
-                for(let i=0; i<data.length; i+=16) { if(data[i]>20 && data[i]<235) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++; } }
-                resolve(count > 0 ? `rgb(${~~(r/count)},${~~(g/count)},${~~(b/count)})` : null);
-            } catch(e) { resolve(null); }
-        }; img.onerror = () => resolve(null); img.src = imgSrc;
-    });
-};
-const getHueFromRgb = (rgbStr) => {
-    if (!rgbStr) return 210; const match = rgbStr.match(/\d+/g); if (!match) return 210;
-    let r = parseInt(match[0])/255, g = parseInt(match[1])/255, b = parseInt(match[2])/255;
-    const max = Math.max(r,g,b), min = Math.min(r,g,b); let h = 0;
-    if (max !== min) { const d = max - min; switch (max) { case r: h = (g-b)/d + (g<b?6:0); break; case g: h = (b-r)/d + 2; break; case b: h = (r-g)/d + 4; break; } h /= 6; } return h * 360;
-};
 
-// === 歌词设置应用 ===
-function applyLrcSettings() {
-    document.documentElement.style.setProperty('--lrc-font-size', `${cfg.lrcFontSize}px`);
-    document.documentElement.style.setProperty('--lrc-line-height', cfg.lrcLineHeight);
-    document.documentElement.style.setProperty('--lrc-align', cfg.lrcAlign);
-    document.getElementById('lrcFontSizeVal').textContent = `${cfg.lrcFontSize}px`;
-    document.getElementById('lrcLineHeightVal').textContent = cfg.lrcLineHeight;
-    document.querySelectorAll('.lrc-align-btn').forEach(b => b.classList.toggle('active', b.dataset.align === cfg.lrcAlign));
-}
-
-// === 核心视觉与主题逻辑 ===
-const applyThemeLogic = () => {
-    let targetColor = cfg.defaultColor; let showImg = false, showColor = false, bgUrl = '';
-
-    if (cfg.colorMode) targetColor = cfg.customBgImg ? (cfg.customBgColor || targetColor) : (currentAlbumColor || targetColor);
-    document.documentElement.style.setProperty('--primary', targetColor);
-
-    // v2.5-p2: WCAG 实时计算亮度，动态决定按钮前景色是反白还是用暗色
-    const luminance = getLuminance(targetColor);
-    const textOnPrimary = luminance < 140 ? '#ffffff' : '#0a0a1a';
-    document.documentElement.style.setProperty('--text-on-primary', textOnPrimary);
-
-    document.documentElement.style.setProperty('--bg-blur', `${cfg.blurAmt}px`);
-    targetHue = getHueFromRgb(targetColor);
-
-    if (cfg.customBgImg) { showImg = true; bgUrl = cfg.customBgImg; }
-    else if (hasCurrentAlbumArt && !cfg.colorMode) { showImg = true; bgUrl = el.mainArt.src; }
-    else showColor = true;
-
-    if (showImg) {
-        el.bgImg.style.backgroundImage = `url(${bgUrl})`;
-        el.bgImg.classList.add('active');
-        el.bgColor.classList.remove('active');
-    } else if (showColor) {
-        // v2.5: Canvas 流沙背景只需激活，颜色由 drawFlowingSand 实时渲染
-        el.bgColor.classList.add('active');
-        el.bgImg.classList.remove('active');
-    }
-};
-
-const toggleDarkMode = () => {
-    cfg.darkMode = !cfg.darkMode;
-    document.body.classList.toggle('dark-mode', cfg.darkMode);
-    updateDarkModeUI();
-    saveSettings();
-    showToast(cfg.darkMode ? "🌙 已开启深色/护眼模式" : "☀️ 已恢复标准模式");
-};
-function updateDarkModeUI() {
-    const btn = document.getElementById('btnToggleDarkMode');
-    if (btn) btn.textContent = cfg.darkMode ? '☀️ 标准模式' : '🌙 深色模式';
-    document.body.classList.toggle('dark-mode', cfg.darkMode);
-}
-
-const toggleImmersiveMode = () => {
-    isImmersiveMode = !isImmersiveMode;
-    if (isImmersiveMode) {
-        el.viewMain.classList.add('hidden'); el.viewImm.classList.remove('hidden');
-        document.body.style.background = 'var(--bg-darker)';
-        immCanvasCleared = false;
-        showToast("🚀 已进入沉浸式音乐舱");
-    } else {
-        el.viewImm.classList.add('hidden'); el.viewMain.classList.remove('hidden');
-        document.body.style.background = 'var(--bg-dark)';
-        // 清理沉浸canvas - 修复canvas残留
-        immCanvasCleared = true;
-        const ctx = el.canvasImm.getContext('2d');
-        ctx.clearRect(0, 0, el.canvasImm.width, el.canvasImm.height);
-        particles = [];
-        ripples = [];
-    }
-    updateFocusContext();
-};
-
-const toggleFullscreen = () => {
-    if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e=>{}); showToast("⛶ 进入全屏"); }
-    else { if (document.exitFullscreen) document.exitFullscreen(); showToast("⛶ 退出全屏"); }
-};

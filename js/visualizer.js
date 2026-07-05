@@ -1,9 +1,14 @@
-/**
- * MBolka Player - Visualizer
- * Particle system, object pooling, flowing sand, renderVisLoop
- */
+// 🚀 v2.9.0: 用户无障碍偏好检测 — 关闭所有动画和粒子
+let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (e) => {
+    reducedMotion = e.matches;
+    if (reducedMotion) {
+        particles = []; ripples = [];
+        flowField = [];
+    }
+});
 
-// === 可视化引擎 (增强版，灰阶频谱) v2.5-p2: 对象池化零GC ===
+// === 可视化引擎 (增强版，灰阶频谱) 🚀 v2.5-p2: 对象池化零GC ===
 // 粒子对象池
 const particlePool = [];
 const MAX_POOL = 150;
@@ -17,18 +22,16 @@ class Particle {
     draw(ctx) { if(!this.active) return; const prevAlpha = ctx.globalAlpha; ctx.globalAlpha = this.life; ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = prevAlpha; }
     kill() { this.active = false; }
 }
-// 🚀 v2.8.2+: 根据硬件动态调整池大小
-const HARDWARE_CONCURRENCY = navigator.hardwareConcurrency || 4;
-const ADJUSTED_MAX_POOL = HARDWARE_CONCURRENCY <= 4 ? 80 : 150;
 // 预分配池
-for (let i = 0; i < ADJUSTED_MAX_POOL; i++) particlePool.push(new Particle());
+for (let i = 0; i < MAX_POOL; i++) particlePool.push(new Particle());
 
 function acquireParticle(x, y, vx, vy, color, size) {
     for (let p of particlePool) if (!p.active) return p.init(x, y, vx, vy, color, size);
-    // 池耗尽兜底：扩展池
-    const p = new Particle().init(x, y, vx, vy, color, size);
-    particlePool.push(p);
-    return p;
+    // 🚀 v2.9.0: 池耗尽时采用 FIFO 淘汰策略，避免无限扩展
+    const oldest = particlePool[0];
+    particlePool.shift();
+    particlePool.push(oldest);
+    return oldest.init(x, y, vx, vy, color, size);
 }
 
 // Ripple 对象池
@@ -41,16 +44,18 @@ class Ripple {
         this.x = x; this.y = y; this.radius = 5; this.color = color; this.life = 1; this.active = true; return this;
     }
     update() { this.radius += 10; this.life -= 0.04; return this.life > 0; }
-    draw(ctx) { if(!this.active) return; const prevAlpha = ctx.globalAlpha; ctx.globalAlpha = this.life; ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha = prevAlpha; }
+    draw(ctx) { if(!this.active) return; ctx.save(); ctx.globalAlpha = this.life; ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.stroke(); ctx.restore(); }
     kill() { this.active = false; }
 }
 for (let i = 0; i < MAX_RIPPLE_POOL; i++) ripplePool.push(new Ripple());
 
 function acquireRipple(x, y, color) {
     for (let r of ripplePool) if (!r.active) return r.init(x, y, color);
-    const r = new Ripple().init(x, y, color);
-    ripplePool.push(r);
-    return r;
+    // 🚀 v2.9.0: 涟漪池耗尽时 FIFO 淘汰
+    const oldest = ripplePool[0];
+    ripplePool.shift();
+    ripplePool.push(oldest);
+    return oldest.init(x, y, color);
 }
 
 const createExplosion = (x, y, intensity) => {
@@ -73,17 +78,23 @@ const createRipple = (x, y) => {
     }
 };
 
+// 🚀 v2.9.0: mousemove 粒子生成加 rAF 节流防抖
+let particleThrottleTimer = null;
 document.addEventListener('mousemove', (e) => {
-    if (isEnergySaving) return; // v2.7: 节能模式不产生粒子
+    if (isEnergySaving || reducedMotion) return;
     mouseX = e.clientX; mouseY = e.clientY;
-    if (isImmersiveMode && isPlaying && Math.random() < 0.25) {
-        const gray = 160 + Math.floor(Math.random() * 95);
-        particles.push(acquireParticle(mouseX, mouseY, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5, `rgb(${gray},${gray},${gray})`, 1+Math.random()*3.5));
-    }
+    if (particleThrottleTimer) return;
+    particleThrottleTimer = requestAnimationFrame(() => {
+        particleThrottleTimer = null;
+        if (isImmersiveMode && isPlaying && Math.random() < 0.25) {
+            const gray = 160 + Math.floor(Math.random() * 95);
+            particles.push(acquireParticle(mouseX, mouseY, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5, `rgb(${gray},${gray},${gray})`, 1+Math.random()*3.5));
+        }
+    });
 });
 
 document.addEventListener('touchmove', (e) => {
-    if (isEnergySaving) return; // v2.7: 节能模式不产生粒子
+    if (isEnergySaving || reducedMotion) return;
     if (isImmersiveMode && isPlaying) {
         const touch = e.touches[0];
         mouseX = touch.clientX; mouseY = touch.clientY;
@@ -95,7 +106,7 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: true });
 
 document.addEventListener('click', (e) => {
-    if (isEnergySaving) return; // v2.7: 节能模式跳过涟漪
+    if (isEnergySaving || reducedMotion) return;
     if (isImmersiveMode) {
         const ct = e.target && e.target.closest ? e.target : null;
         if (!ct || (!ct.closest('button') && !ct.closest('.progress-area'))) {
@@ -118,7 +129,7 @@ const initVis = () => {
 
 let lastFrameTime = 0;
 
-// v2.5: 流沙流动渲染 - 极低分辨率 Canvas + CSS 强力模糊实现流体质感
+// 🚀 v2.5: 流沙流动渲染 - 极低分辨率 Canvas + CSS 强力模糊实现流体质感
 function drawFlowingSand() {
     const cvs = el.bgColor;
     if (!cvs || !cvs.classList.contains('active')) return;
@@ -181,8 +192,14 @@ function drawFlowingSand() {
     ctx.fill();
 }
 
-// === 核心重构：全域 60FPS 色音同步视觉主循环 ===
+// === 🚀 核心重构：全域 60FPS 色音同步视觉主循环 ===
+// 🚀 v2.8.2+: 集成 Page Visibility API 优化
 const renderVisLoop = (timestamp) => {
+    if (visLoopPaused) {
+        // 页面不可见时，大幅降低渲染频率
+        setTimeout(() => requestAnimationFrame(renderVisLoop), 500);
+        return;
+    }
     requestAnimationFrame(renderVisLoop);
 
     // 1. FPS 监测与性能自适应
@@ -197,27 +214,36 @@ const renderVisLoop = (timestamp) => {
         } else if (currentFPS > 55 && particleCount < MAX_PARTICLES) {
             particleCount = Math.min(MAX_PARTICLES, particleCount + 5);
         }
+
+        // 🚀 v3.0.0: backdrop-filter 动态降级 — FPS 持续低于 45 时降低模糊
+        if (currentFPS < 45) {
+            document.documentElement.style.setProperty('--bg-blur-dynamic', '10px');
+        } else {
+            document.documentElement.style.setProperty('--bg-blur-dynamic', '');
+        }
     }
 
-    const frameInterval = performanceMode ? 1000 / 30 : 1000 / targetFPS;
+    // 🚀 v2.8.2: 画面节能模式（30fps）或原性能模式
+    const isFrameLimited = frameEnergySaving || performanceMode;
+    const frameInterval = isFrameLimited ? 1000 / 30 : 1000 / targetFPS;
     if (timestamp - lastFrameTime < frameInterval) return;
     lastFrameTime = timestamp;
 
     if (!analyser) return;
     analyser.getByteFrequencyData(dataArray);
 
-    // v2.7: 节能模式 — isEnergySaving 激活且非沉浸时跳过全部绘制保持 rAF
-    if (isEnergySaving && !isImmersiveMode) {
-        return;
-    }
-    // 兼容 v2.6: PiP 激活但节能开关未开时仍保持渲染
-    if (pipWindow && !pipWindow.closed && !isImmersiveMode) {
+    // 🚀 v3.0.0: 震动反馈引擎
+    if (cfg.rumbleEnabled) updateVibrationRumble(dataArray);
+
+    // 🚀 v2.8: 节能模式 — 激活时跳过全部绘制（含沉浸舱），仅保持 rAF 心跳
+    if (isEnergySaving) {
+        requestAnimationFrame(renderVisLoop);
         return;
     }
 
     visTime += 0.008;
 
-    // 2. 核心同步：不论在哪个界面，统一执行 60 帧无缝色相（Hue）过渡计算
+    // 2. 🚀 核心同步：不论在哪个界面，统一执行 60 帧无缝色相（Hue）过渡计算
     if (isPlaying) {
         if (cfg.colorMode) {
             let diff = targetHue - currentHue;
@@ -397,7 +423,7 @@ const renderVisLoop = (timestamp) => {
             spectrumCtxMain.fillRect(x, cvs.height - h, w-1.5, h); x += w;
         }
 
-        // 核心修改：在主界面也激活 60 帧取色流沙渲染，实现绝对一致的取色效率！
+        // 🚀 核心修改：在主界面也激活 60 帧取色流沙渲染，实现绝对一致的取色效率！
         if (cfg.colorMode) {
             drawFlowingSand();
         } else {
