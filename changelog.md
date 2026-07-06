@@ -2,6 +2,29 @@
 
 ---
 
+## v3.4.1 (2026-07-07)
+
+### 🪟 PWA / WCO 标题栏调整（Windows Chrome）
+
+#### 1｜WCO 标题随切歌实时更新
+- **`js/audio-core.js` `loadSong()`**：每次切歌调用 `WCO.setTrack(song.title, song.artist)`，标题栏当前曲目随播放进度即时更新（此前 `setTrack` 为死代码，仅在 WCO 激活时同步一次）。
+- **`js/wco.js` `_enable()`**：新增 `_syncCurrentTrack()`，从 `playlist[currentIndex]` 兜底同步当前正在播放的曲目，切到 WCO 模式不再空白。
+
+#### 2｜标题居中
+- **`css/wco.css`**：`.wco-titlebar` 与 `.wco-drag-region` 均改为 `justify-content: center`，标题置于顶部正中（受 `env(titlebar-area-width)` 约束，自动避开右侧系统金刚键安全区）。
+
+#### 3｜标题栏变色逻辑按 WCO 状态分流
+- **`js/theme-color.js`** 新增 WCO 状态感知与 `refresh()`：
+  - **隐藏标题栏（WCO active）** → 全局固定 `#180219`（忽略封面色与深色模式）。
+  - **显示标题栏** → 专辑封面色；无封面 / 取色失败 → 主题默认色 `cfg.defaultColor`。
+- **`js/wco.js` `geometrychange`**：用户在菜单切换「显示 / 隐藏标题栏」时触发 `ThemeColor.refresh()` 重新套色；`body.wco-active .wco-titlebar` 背景同步为 `#180219`，整条顶部视觉统一。
+
+#### 4｜修复无封面残留上一张封面色
+- **`js/audio-core.js` `loadSong()`**：原「无专辑封面」分支漏调 `ThemeColor.update()`，导致残留上一张封面颜色。改为 if/else 之后统一调用 `ThemeColor.update(currentAlbumColor)`，两种分支均正确刷新。
+
+### 🆕 版本号更新
+- `v3.4.0` → `v3.4.1`
+
 ## v3.4.0 (2026-07-07)
 
 ### 🎮 曲库 coverflow 交互与手柄返回修复

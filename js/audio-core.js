@@ -959,8 +959,6 @@ const playAudio = async (idx) => {
     if (hasCurrentAlbumArt) {
         el.mainArt.src = el.immArt.src = song.art;
         currentAlbumColor = await extractColor(song.art);
-        // 🚀 v3.2.1: 同步到 WCO 标题栏 theme-color
-        if (typeof ThemeColor !== 'undefined') ThemeColor.update(currentAlbumColor);
         // 设置专辑环境光阴影CSS变量
         if (currentAlbumColor) {
             document.documentElement.style.setProperty('--album-color', currentAlbumColor + '80');
@@ -972,6 +970,12 @@ const playAudio = async (idx) => {
         document.documentElement.style.setProperty('--album-color', 'rgba(0,0,0,0.5)');
         el.mainColAlbum.classList.add('no-art'); el.immTrackCard.classList.add('no-art');
     }
+    // 🚀 v3.2.2: 标题栏配色统一处理——有封面取色，无封面/取色失败回调默认色
+    //           （隐藏标题栏时 ThemeColor 内部强制 #180219）
+    if (typeof ThemeColor !== 'undefined') ThemeColor.update(currentAlbumColor);
+
+    // 🚀 v3.2.2: 实时同步 WCO 标题栏曲目标题（随切歌即时更新）
+    if (typeof WCO !== 'undefined' && WCO.setTrack) WCO.setTrack(song.title, song.artist);
 
     applyThemeLogic(); await loadLrc(song); renderPlaylist();
     recordPlay(song);

@@ -1,6 +1,7 @@
 /*
- * MBolka Player — Window Controls Overlay Manager v3.2.0
+ * MBolka Player — Window Controls Overlay Manager v3.2.2
  * WCO 标题栏：显示当前曲目 + 拖拽窗口
+ * 🚀 v3.2.2: 显隐切换时刷新 PWA theme-color；enable 时同步当前曲目
  */
 
 const WCO = (() => {
@@ -22,6 +23,8 @@ const WCO = (() => {
         wco.addEventListener('geometrychange', () => {
             if (wco.visible) _enable();
             else _disable();
+            // 🚀 v3.2.2: 显隐切换后刷新 PWA 标题栏配色
+            if (typeof ThemeColor !== 'undefined') ThemeColor.refresh();
         });
     }
 
@@ -31,6 +34,8 @@ const WCO = (() => {
         _titlebar.style.display = 'flex';
         document.body.classList.add('wco-active');
         _syncTrackTitle();
+        // 🚀 v3.2.2: 启用时立即同步当前正在播放的曲目
+        _syncCurrentTrack();
     }
 
     function _disable() {
@@ -38,6 +43,17 @@ const WCO = (() => {
         _enabled = false;
         _titlebar.style.display = 'none';
         document.body.classList.remove('wco-active');
+    }
+
+    // 🚀 v3.2.2: 从全局播放状态同步当前曲目标题（切到 WCO 模式时兜底）
+    function _syncCurrentTrack() {
+        try {
+            if (typeof playlist !== 'undefined' && typeof currentIndex !== 'undefined'
+                && currentIndex >= 0 && playlist[currentIndex]) {
+                const s = playlist[currentIndex];
+                setTrack(s.title, s.artist);
+            }
+        } catch (_) {}
     }
 
     function setTrack(title, artist) {

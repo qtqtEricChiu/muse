@@ -1,0 +1,12 @@
+{
+  "name": "mbolka-player",
+  "version": "3.4.1",
+  "private": true,
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "clean-css": "^5.3.3",
+    "terser": "^5.48.0"
+  }
+}

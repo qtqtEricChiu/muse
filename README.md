@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.4.0
+# MBolka Player - Ultimate Nexus v3.4.1
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.4.0-blue)
+![Version](https://img.shields.io/badge/version-3.4.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -46,7 +46,7 @@
 - 淡入淡出无缝切歌 (Crossfade)
 - 睡眠定时器 (15/30/60分钟)
 - **自动播放策略优雅降级**：`NotAllowedError` 捕获后监听用户手势自动恢复，引导 Toast 15 秒安全过期（v3.2.3）
-- **PWA Window Controls Overlay**：桌面端标题栏随主题色/封面取色自适应（v3.2.0）
+- **PWA Window Controls Overlay**：Windows Chrome 标题栏随切歌实时刷新曲目名、居中对齐，并按 WCO 状态分流变色——隐藏标题栏时固定品牌色 `#180219`，显示时跟随专辑封面色 / 主题默认色（v3.4.1）
 
 ### 🎮 全方位操控
 - 完整键盘快捷键（Space、方向键、J/K、WASD 等）
@@ -62,7 +62,7 @@
 ### 🎨 预设主题色 + WCAG 无障碍
 - 10 套预设配色方案：赛博朋克、暖阳、极光、星夜、樱花、深海、日落、薄荷、玫瑰金
 - 聚焦卡片式选择器，手柄/键盘完美导航
-- **封面取色 → PWA 标题栏联动**：专辑封面主色调经 `ThemeColor.update()` 实时驱动 `<meta name="theme-color">` 与 WCO 标题栏（v3.2.0）
+- **封面取色 → PWA 标题栏联动**：专辑封面主色调经 `ThemeColor.update()` 实时驱动 `<meta name="theme-color">` 与 WCO 标题栏；`loadSong()` 切歌即刷新标题曲目、无封面 / 取色失败时回落主题默认色，修复残留上一张封面色（v3.4.1）
 - **WCAG 2.2 对比度合规**：`getLuminance` 改用标准 sRGB 相对亮度公式 + 对比度择优前景色；`player-wrapper` 由 `role="application"` 改为 `role="group"` + `aria-label`
 - **视口缩放放开**：移除 `maximum-scale`/`user-scalable=no`，低视力用户可自由缩放（WCAG 1.4.4 / 1.4.10）
 - **焦点可见性**：`:focus-visible` 轮廓与手柄 `.gamepad-focus` 视觉对齐，键盘/鼠标用户清晰定位
@@ -159,8 +159,8 @@
 | VTT 字幕 | 自动发现同名 `.vtt` 文件，复用 LRC 渲染管线显示时间轴字幕 |
 | 长音频续播 | 时长 > 15 分钟每 10 秒存进度，切歌自动续播（最后 5 秒重置） |
 | 自动播放降级 | `NotAllowedError` 捕获后监听用户手势自动恢复，引导 Toast 15 秒过期 |
-| WCO 标题栏 | PWA Window Controls Overlay，标题栏随主题色/封面取色自适应 |
-| 标题栏取色 | 专辑封面主色调实时驱动 `<meta name="theme-color">` 与 WCO 标题栏 |
+| WCO 标题栏 | PWA Window Controls Overlay：标题随切歌实时更新、居中对齐；隐藏标题栏时固定品牌色 `#180219`，显示时跟随封面色 / 主题默认色（v3.4.1） |
+| 标题栏取色 | 专辑封面主色调实时驱动 `<meta name="theme-color">` 与 WCO 标题栏；`loadSong()` 切歌刷新、`geometrychange` 切换显示 / 隐藏时重新套色，无封面回落主题默认色，修复残留上一张封面色 |
 | 离线运行时缓存 | Service Worker 对字体/jsmediatags 运行时缓存，离线可达 |
 | SW 更新提示 | 监听 `updatefound`/`controllerchange`，新版本提示刷新 |
 | iOS 兼容回退 | 不支持画中画时隐藏对应按钮，核心播放/手势保持可用 |
@@ -178,6 +178,13 @@
 
 - **手柄 B 键逐级返回修复**：`handleGlobalClose()` 改为始终关闭实际最上层（z-index 最高）打开浮窗；播放列表（键盘 `p` / 手柄 ←）打开时补推 Modal 栈，B 键 / Esc 逐级返回一致，不再"卡在浮窗回不去主界面"
 - **曲库-按专辑（coverflow）滚轮失效修复**：coverflow 网格带 `scroll-snap` + `smooth`，连续滚轮被吸附 / 平滑动画互相抵消导致封面不切；`enterCoverflowFlat()` 进入时关闭 snap/smooth、`setCoverLibCenter` 平坦分支改用 `behavior:'auto'`，滚轮连续切换跟手，停止 350ms 后自动恢复 3D 景深与吸附
+
+### v3.4.1 (2026-07-07) — PWA / WCO 标题栏调整（Windows Chrome）
+
+- **WCO 标题随切歌实时更新**：`audio-core.js` `loadSong()` 每次切歌调用 `WCO.setTrack(title, artist)`，标题栏当前曲目即时刷新；`wco.js` `_enable()` 新增 `_syncCurrentTrack()` 从 `playlist[currentIndex]` 兜底同步，切到 WCO 模式不再空白
+- **标题居中**：`wco.css` 的 `.wco-titlebar` / `.wco-drag-region` 改为 `justify-content: center`，标题置于顶部正中，并自动避开右侧系统金刚键安全区
+- **标题栏变色按 WCO 状态分流**：`theme-color.js` 新增 WCO 状态感知与 `refresh()`——隐藏标题栏（WCO active）时全局固定 `#180219`（忽略封面色与深色模式）；显示时跟随专辑封面色，无封面 / 取色失败回落主题默认色 `cfg.defaultColor`；`wco.js` `geometrychange` 切换显示 / 隐藏时触发 `ThemeColor.refresh()` 重新套色
+- **修复无封面残留上一张封面色**：`loadSong()` 原「无封面」分支漏调 `ThemeColor.update()`，改为 if/else 两分支统一调用，彻底修复残留
 
 ### v3.3.0 (2026-07-06) — 性能 / 可维护性 / 无障碍 / PWA 全面优化
 
@@ -655,7 +662,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.4.0
+MBolka Player v3.4.1
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -715,8 +722,8 @@ MIT License
 
 - 基于 [jsmediatags](https://github.com/aadsm/jsmediatags) 进行音频元数据解析
 - 字体使用 [Newsreader](https://fonts.google.com/specimen/Newsreader) (标题衬线) + [Geist](https://vercel.com/font) (正文无衬线)
-- co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, QClaw
+- co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
 
 ---
 
-**© MocaBolka 2026 | v3.4.0**
+**© MocaBolka 2026 | v3.4.1**
