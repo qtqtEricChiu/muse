@@ -1,0 +1,14 @@
+# 构建产物：由 GitHub Actions 从源码构建并部署，不入库
+dist/
+
+# 依赖
+node_modules/
+
+# 锁文件（保持仓库轻量，CI 用 npm install 重新解析）
+package-lock.json
+
+# 本地开发服务脚本（非项目源码）
+_serve_cf.js
+
+# 本地开发资料/备份（原 .gitignore 目录改名而来，含旧备份与指导文档）
+.dev-docs/
