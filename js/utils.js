@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Utilities v3.0.2
+ * MBolka Player - Utilities v3.2.0
  * Toast, formatting, encoding, settings persistence
  */
 
@@ -8,12 +8,11 @@ let _toastTimer = null;
 
 const showToast = (msg, icon = '') => {
     clearTimeout(_toastTimer);
-    el.toast.innerHTML = `${icon} ${msg}`;
+    el.toast.innerHTML = `${icon} ${escapeHTML(msg)}`;
     el.toast.classList.add('show');
     _toastTimer = setTimeout(() => {
         el.toast.classList.remove('show');
-        // 触发重排确保 CSS transition 播放退出动画
-        void el.toast.offsetHeight;
+        // 🩹 v3.2.3: CSS transition 自然处理进出双向，无需强制重排
     }, 1800);
 };
 const formatTime = (sec) => { if (!sec || isNaN(sec)) return '0:00'; const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${m}:${s.toString().padStart(2, '0')}`; };
@@ -114,16 +113,6 @@ const loadSettings = () => {
             if (frameToggle) frameToggle.checked = cfg.frameEnergyEnabled;
             const pipToggle = document.getElementById('pipEnergyToggle');
             if (pipToggle) pipToggle.checked = cfg.pipEnergyEnabled;
-            // 🚀 v3.0.0: 恢复震动配置
-            cfg.rumbleEnabled = stored.rumbleEnabled ?? true;
-            cfg.rumbleMode = stored.rumbleMode ?? 'spectrum';
-            cfg.rumbleFloor = stored.rumbleFloor ?? 0.30;
-            cfg.rumbleAutoFloor = stored.rumbleAutoFloor ?? true;
-            cfg.rumbleThrottle = stored.rumbleThrottle ?? 50;
-            cfg.rumbleStrongGain = stored.rumbleStrongGain ?? 2.0;
-            cfg.rumbleWeakGain = stored.rumbleWeakGain ?? 0.4;
-            cfg.rumbleSwapMotors = stored.rumbleSwapMotors ?? false;
-            cfg.rumbleGain = stored.rumbleGain ?? 1.0;
             // 🚀 同时初始化双端滑块
             el.volSlider.value = audio.volume;
             if (el.immVolSlider) el.immVolSlider.value = audio.volume;

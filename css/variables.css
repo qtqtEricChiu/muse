@@ -1,8 +1,8 @@
 /* ================= 核心变量与重置 ================= */
 :root {
-    /* === 主色调：琥珀金 === */
-    --primary: #e8b84b;
-    --primary-rgb: 232, 184, 75;
+    /* === 主色调：玫瑰金 === */
+    --primary: #e8b4b8;
+    --primary-rgb: 232, 180, 184;
     --primary-light: #f0cd78;
     --primary-glow: rgba(var(--primary-rgb), 0.45);
 
@@ -76,8 +76,8 @@ body {
 }
 
 :focus-visible {
-    outline: 2px solid var(--primary) !important;
-    outline-offset: 2px !important;
-    box-shadow: 0 0 12px var(--primary-glow) !important;
+    outline: 3px solid var(--primary) !important;
+    outline-offset: 4px !important;
+    box-shadow: 0 0 16px var(--primary-glow) !important;
 }
 :focus:not(:focus-visible) { outline: none; }

@@ -1,98 +1,626 @@
-/* ================= 5. 封面库独立面板 (v2.2 增强) ================= */
-.cover-library-panel {
-    background: rgba(20,25,40,0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 28px;
-    padding: 24px; width: 750px; max-width: 95vw; max-height: 88vh; overflow-y: auto;
-    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-}
-.cover-lib-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
-.cover-lib-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-.cover-lib-tab {
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: var(--text-sub);
-    padding: 8px 18px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 500;
-    transition: all 0.3s;
-}
-.cover-lib-tab:hover { border-color: var(--primary); color: var(--text-main); }
-.cover-lib-tab.active { background: var(--primary); color: var(--text-on-primary); border-color: var(--primary); font-weight: 600; }
-.cover-lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
-.cover-lib-card {
-    background: rgba(255,255,255,0.03); border-radius: 18px; padding: 14px;
-    border: 1px solid transparent; cursor: pointer; transition: all 0.35s var(--curve-spring);
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    position: relative; overflow: hidden;
-}
-.cover-lib-card:hover {
-    background: rgba(255,255,255,0.08); border-color: var(--primary);
-    transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.4);
-}
-.cover-lib-card .art-wrap {
-    width: 120px; height: 120px; border-radius: 14px; overflow: hidden; position: relative;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35); flex-shrink: 0;
-}
-.cover-lib-card .art-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s var(--curve-smooth); }
-.cover-lib-card:hover .art-wrap img { transform: scale(1.08); }
-.cover-lib-card .vinyl-slip {
-    position: absolute; top: 4px; left: 50%; transform: translateX(-50%) translateX(100px);
-    width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 30%, #111 50%, #333 70%, #1a1a1a 100%);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5); z-index: -1; opacity: 0;
-    transition: all 0.5s var(--curve-spring);
-    display: flex; align-items: center; justify-content: center;
-}
-.cover-lib-card .vinyl-slip::after {
-    content: ''; width: 22px; height: 22px; border-radius: 50%;
-    background: radial-gradient(circle, #fff 0%, #ccc 40%, #e8b4b8 60%, #999 100%);
-    box-shadow: 0 0 6px rgba(0,0,0,0.3);
-}
-.cover-lib-card:hover .vinyl-slip {
-    transform: translateX(-50%) translateX(0);
-    opacity: 1;
-}
-.cover-lib-card .album-name { font-size: 13px; font-weight: 600; text-align: center; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cover-lib-card .album-meta { font-size: 11px; color: var(--text-sub); text-align: center; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cover-lib-card .song-count-badge {
-    position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.8); color: #fff;
-    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; z-index: 2;
-}
-.cover-lib-card .play-all-btn {
-    display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.55);
-    align-items: center; justify-content: center; font-size: 32px; color: #fff;
-    border-radius: 14px; cursor: pointer; z-index: 3;
-}
-.cover-lib-card .art-wrap:hover .play-all-btn { display: flex; }
-.cover-lib-card.artist-card .art-wrap { border-radius: 50%; }
-.cover-lib-card.artist-card .vinyl-slip { display: none; }
+/* ============================================================
+   Muse v3.3 — 唱片库面板 · 沉浸式唱片档案库
+   设计方向：Analog Vinyl Archive（模拟黑胶档案）
+   关键词：温暖、质感、翻阅感、触手可及
+   ============================================================ */
 
-/* 专辑详情面板 */
+/* ============================================================
+   1. 弹窗容器
+   ============================================================ */
+
+.cover-library-panel {
+    background: linear-gradient(175deg, #1e1b2e 0%, #161322 40%, #12101c 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 0;
+    width: min(80vw, 1400px);
+    max-width: 1400px;
+    max-height: 92vh;
+    overflow: hidden;
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04),
+        0 4px 60px rgba(0,0,0,0.7),
+        0 2px 8px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+.cover-lib-modal-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    padding: 28px 32px 0 !important;
+    height: 100%;
+}
+
+/* ============================================================
+   2. 头部区域
+   ============================================================ */
+
+.cover-lib-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    margin-bottom: 20px;
+}
+
+.cover-lib-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #e8e4f0;
+    letter-spacing: -0.3px;
+    margin: 0;
+}
+
+/* ============================================================
+   3. 搜索栏
+   ============================================================ */
+
+.cover-lib-modal-content .search-container {
+    flex-shrink: 0;
+    margin-bottom: 20px;
+}
+
+#coverLibSearch {
+    width: 100%;
+    padding: 12px 18px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    color: #d0cce0;
+    font-size: 14px;
+    transition:
+        border-color 0.25s ease,
+        background 0.25s ease,
+        box-shadow 0.25s ease;
+    outline: none;
+}
+
+#coverLibSearch::placeholder {
+    color: rgba(255,255,255,0.25);
+}
+
+#coverLibSearch:focus {
+    border-color: rgba(154,200,226,0.4);
+    background: rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 4px rgba(154,200,226,0.08);
+}
+
+/* ============================================================
+   4. Tab 栏
+   ============================================================ */
+
+.cover-lib-tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 0;
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.cover-lib-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.cover-lib-tab {
+    padding: 12px 20px;
+    border-radius: 10px 10px 0 0;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.35);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.25s ease, background 0.25s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.cover-lib-tab:hover {
+    color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.03);
+}
+
+.cover-lib-tab.active {
+    color: var(--primary, #9ac8e2);
+    background: rgba(154,200,226,0.06);
+}
+
+/* 激活态下划线 */
+.cover-lib-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--primary, #9ac8e2);
+    border-radius: 2px 2px 0 0;
+}
+
+/* ============================================================
+   5. 书架容器（原网格容器）
+   ============================================================ */
+
+/* 🚀 v3.3.3: 曲库轨道容器 —— 两种模式共用基础，细节由 is-coverflow / is-grid 决定 */
+.cover-lib-grid {
+    flex: 1;
+    min-height: 0;
+    contain: style paint;
+}
+
+/* 🚀 v3.3.3: 单行 coverflow 轨道（绝区零·影像档案架风格） */
+.cover-lib-grid.is-coverflow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* 3D透视：中点正对，两侧向后倾斜 */
+    perspective: 1600px;
+    perspective-origin: 50% 50%;
+    /* 首/尾卡片可滚到正中：左右内边距 = 容器半宽 - 卡片半宽 */
+    padding: 50px max(0px, calc(50% - 100px));
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 每张卡片都是 snap 锚点（仅 coverflow 生效） */
+.cover-lib-grid.is-coverflow > .cover-lib-card {
+    scroll-snap-align: center;
+}
+
+/* 🚀 v3.3.4: 旧版网格布局（按艺术家 / 最近添加）—— 回溯 early 版本样式 */
+.cover-lib-grid.is-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 20px 4px;
+    perspective: none;
+    scroll-behavior: smooth;
+}
+
+/* 网格滚动条 */
+.cover-lib-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.cover-lib-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.cover-lib-grid::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+}
+
+.cover-lib-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.18);
+}
+
+/* ============================================================
+   6. 卡片 — 书架上的黑胶唱片
+   ============================================================ */
+
+/* 🚀 v3.3.3: coverflow 卡片 — 基础变换由 JS 按「距中心偏移」注入 */
+.cover-lib-card {
+    position: relative;
+    flex: 0 0 auto;
+    width: 200px;   /* 🚀 v3.3.4: 收窄以加密 coverflow 密度 */
+    cursor: pointer;
+    transform-origin: center center;
+    transform-style: preserve-3d;
+    border-radius: 6px;
+    background: #1e1c2a;
+    z-index: 1;
+    transition:
+        transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        box-shadow 0.5s ease,
+        opacity 0.4s ease,
+        filter 0.3s ease;
+    box-shadow:
+        0 10px 25px rgba(0,0,0,0.45),
+        0 2px 6px rgba(0,0,0,0.5);
+    will-change: transform;
+}
+
+/* 居中（active）卡片：光晕 + 高亮；变换由 JS 注入，这里只管视觉 */
+.cover-lib-card.cl-center {
+    z-index: 200;
+    box-shadow:
+        0 0 0 2px rgba(154,200,226,0.55),
+        0 0 50px rgba(154,200,226,0.28),
+        0 24px 60px rgba(0,0,0,0.6);
+    filter: brightness(1.04);
+}
+
+.cover-lib-card:hover {
+    filter: brightness(1.06);
+}
+
+/* ============================================================
+   7. 封面图片区（art-wrap）
+   ============================================================ */
+
+.cover-lib-card .art-wrap {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #16141f;
+    position: relative;
+    overflow: hidden;
+}
+
+.cover-lib-card .art-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    filter: brightness(0.95);
+}
+
+.cover-lib-card:hover .art-wrap img {
+    transform: scale(1.08);
+    filter: brightness(1.05);
+}
+
+/* 无封面占位符 */
+.cover-lib-card .art-wrap .placeholder-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    background: linear-gradient(135deg, #1e1c2a 0%, #2a2540 100%);
+    color: rgba(255,255,255,0.15);
+}
+
+/* ============================================================
+   8. 卡片内元素：播放按钮、计数角标
+   ============================================================ */
+
+.cover-lib-card .play-all-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    transition:
+        opacity 0.2s ease,
+        transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    font-size: 18px;
+    color: #fff;
+    pointer-events: none;
+}
+
+.cover-lib-card:hover .play-all-btn {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.cover-lib-card .song-count-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #c8c0d8;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 11px;
+    letter-spacing: 0.3px;
+    z-index: 2;
+}
+
+/* ============================================================
+   9. 文字信息
+   ============================================================ */
+
+.cover-lib-card .album-name {
+    padding: 10px 14px 2px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #e0dcec;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.35;
+    letter-spacing: -0.2px;
+}
+
+.cover-lib-card .album-meta {
+    padding: 0 14px 10px;
+    font-size: 12.5px;
+    color: #726e82;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+    font-weight: 400;
+}
+
+/* ============================================================
+   10. 手柄焦点
+   ============================================================ */
+
+.cover-lib-card.gamepad-focus {
+    outline: none;
+    z-index: 200;
+    box-shadow:
+        0 0 0 2px rgba(154,200,226,0.6),
+        0 0 50px rgba(154,200,226,0.25),
+        0 24px 60px rgba(0,0,0,0.6);
+    background: #262338;
+}
+
+/* ============================================================
+   10.5 🚀 v3.3.4: 网格模式卡片样式（回溯旧版，适配手柄 2D 导航）
+   ============================================================ */
+
+.cover-lib-grid.is-grid .cover-lib-card {
+    width: auto;
+    flex: initial;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid transparent;
+    border-radius: 18px;
+    padding: 14px;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.3s ease, border-color 0.3s ease, transform 0.35s var(--curve-spring), box-shadow 0.35s ease;
+}
+.cover-lib-grid.is-grid .cover-lib-card:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: var(--primary);
+    transform: translateY(-4px) !important;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+    filter: none !important;
+}
+.cover-lib-grid.is-grid .cover-lib-card.gamepad-focus {
+    outline: none;
+    background: rgba(154,200,226,0.12);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(154,200,226,0.55), 0 12px 28px rgba(0,0,0,0.4);
+    transform: translateY(-4px) !important;
+}
+.cover-lib-grid.is-grid .cover-lib-card .art-wrap {
+    width: 120px;
+    height: 120px;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    flex-shrink: 0;
+}
+.cover-lib-grid.is-grid .cover-lib-card .art-wrap img {
+    transition: transform 0.6s var(--curve-smooth);
+}
+.cover-lib-grid.is-grid .cover-lib-card:hover .art-wrap img {
+    transform: scale(1.08);
+}
+.cover-lib-grid.is-grid .cover-lib-card .vinyl-slip { display: none; }
+.cover-lib-grid.is-grid .cover-lib-card .play-all-btn {
+    display: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.55);
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #fff;
+    border-radius: 14px;
+    z-index: 3;
+    opacity: 1;
+    transform: none;
+    pointer-events: none;
+}
+.cover-lib-grid.is-grid .cover-lib-card.artist-card .play-all-btn { border-radius: 50%; }
+.cover-lib-grid.is-grid .cover-lib-card .art-wrap:hover .play-all-btn { display: flex; }
+.cover-lib-grid.is-grid .cover-lib-card.artist-card .art-wrap {
+    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    margin: 0;
+}
+.cover-lib-grid.is-grid .cover-lib-card .album-name {
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    max-width: 130px;
+    padding: 0;
+}
+.cover-lib-grid.is-grid .cover-lib-card .album-meta {
+    font-size: 11px;
+    color: var(--text-sub);
+    text-align: center;
+    max-width: 130px;
+    padding: 0;
+}
+.cover-lib-grid.is-grid .cover-lib-card .song-count-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    z-index: 2;
+}
+
+/* ============================================================
+   11. 艺术家卡片 — 圆形头像变体
+   ============================================================ */
+
+.cover-lib-card.artist-card .art-wrap {
+    border-radius: 50%;
+    width: 70%;
+    margin: 15% auto 0;
+    aspect-ratio: 1;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+}
+
+.cover-lib-card.artist-card .art-wrap img {
+    border-radius: 50%;
+}
+
+/* ============================================================
+   12. 专辑详情面板
+   ============================================================ */
+
 .album-detail-panel {
-    background: rgba(20,25,40,0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 28px;
-    padding: 28px; width: 700px; max-width: 95vw; max-height: 88vh; overflow-y: auto;
+    background: rgba(20,25,40,0.95);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 28px;
+    padding: 28px;
+    width: 700px;
+    max-width: 95vw;
+    max-height: 88vh;
+    overflow-y: auto;
     box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-    /* 🚀 v2.8: 弹入动画同步 modal-content */
-    transform: scale(0.9); opacity: 0;
-    transition: transform 0.4s var(--curve-spring), opacity 0.35s var(--curve-smooth);
+    transform: scale(0.9);
+    opacity: 0;
+    transition:
+        transform 0.4s var(--curve-spring),
+        opacity 0.35s var(--curve-smooth);
     will-change: transform, opacity;
 }
+
 .modal-overlay.open .album-detail-panel {
-    transform: scale(1); opacity: 1;
+    transform: scale(1);
+    opacity: 1;
 }
-.album-detail-header { display: flex; gap: 24px; align-items: flex-start; margin-bottom: 24px; }
+
+.album-detail-header {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
 .album-detail-cover {
-    width: 200px; height: 200px; border-radius: 18px; overflow: hidden;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.4); flex-shrink: 0; position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+    position: relative;
 }
-.album-detail-cover img { width: 100%; height: 100%; object-fit: cover; }
-.album-detail-info { flex: 1; min-width: 0; }
-.album-detail-name { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
-.album-detail-artist { font-size: 16px; color: var(--primary); margin-bottom: 12px; }
-.album-detail-meta { font-size: 13px; color: var(--text-sub); margin-bottom: 16px; }
-.album-detail-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.album-detail-tracks { margin-top: 16px; }
+
+.album-detail-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.album-detail-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.album-detail-name {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.album-detail-artist {
+    font-size: 16px;
+    color: var(--primary);
+    margin-bottom: 12px;
+}
+
+.album-detail-meta {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 16px;
+}
+
+.album-detail-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.album-detail-tracks {
+    margin-top: 16px;
+}
+
 .album-detail-track {
-    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-    background: rgba(255,255,255,0.03); border-radius: 10px; cursor: pointer;
-    transition: all 0.2s; margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    margin-bottom: 6px;
 }
-.album-detail-track:hover { background: rgba(255,255,255,0.08); }
-.album-detail-track.active { background: rgba(154,200,226,0.15); border: 1px solid var(--primary); }
-.album-detail-track .track-num { width: 28px; text-align: center; font-size: 12px; color: var(--text-sub); flex-shrink: 0; }
-.album-detail-track .track-title { flex: 1; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.album-detail-track .track-dur { font-size: 12px; color: var(--text-sub); flex-shrink: 0; }
+
+.album-detail-track:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.album-detail-track.active {
+    background: rgba(154,200,226,0.15);
+    border: 1px solid var(--primary);
+}
+
+.album-detail-track .track-num {
+    width: 28px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-sub);
+    flex-shrink: 0;
+}
+
+.album-detail-track .track-title {
+    flex: 1;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.album-detail-track .track-dur {
+    font-size: 12px;
+    color: var(--text-sub);
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   13. 响应式断点
+   ============================================================ */
+
+/* 窄屏：仅需收紧内边距；列数已由上方 auto-fill 自适应，无需按视口写死列数 */
+@media (max-width: 859px) {
+    .cover-lib-modal-content {
+        padding: 16px 16px 0 !important;
+    }
+}

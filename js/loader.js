@@ -74,6 +74,17 @@ const parseMetadata = async (file) => {
     });
 };
 
+// 🩹 v3.2.3 P8: 复用单个拖拽插入线元素，避免每帧 create/remove
+let _dragInsertLine = null;
+function _getInsertLine() {
+    if (!_dragInsertLine) {
+        _dragInsertLine = document.createElement('div');
+        _dragInsertLine.className = 'drag-insert-line';
+        el.plContainer.appendChild(_dragInsertLine);
+    }
+    return _dragInsertLine;
+}
+
 const renderPlaylist = () => {
     if (currentViewMode === 'coverwall') {
         renderCoverWall();
@@ -82,7 +93,10 @@ const renderPlaylist = () => {
     document.getElementById('playlistModalTitle').textContent = '播放列表';
     el.coverWallContainer.style.display = 'none';
     el.plContainer.style.display = 'flex';
+
+    // 🩹 v3.2.3 P2: DocumentFragment 批量插入，100 首从 100 次 reflow 变 1 次
     el.plContainer.innerHTML = '';
+    const fragment = document.createDocumentFragment();
     playlist.forEach((s, i) => {
         const div = document.createElement('div');
         const isFav = favorites.has(s.file.name);
@@ -92,65 +106,67 @@ const renderPlaylist = () => {
         div.className = classes;
         div.draggable = true;
         div.dataset.index = i;
-        div.innerHTML = `<span class="pl-title">${s.title}</span><span style="font-size:12px;opacity:0.6;">${s.artist}</span><span class="favorite-btn ${isFav ? 'faved' : ''}" data-idx="${i}" title="收藏">${isFav ? '❤️' : '🩶'}</span>`;
-        div.onclick = (e) => {
-            if (e.target.classList.contains('favorite-btn')) {
-                e.stopPropagation();
-                toggleFavorite(i);
-                return;
-            }
-            playAudio(i); closeAllModals();
-        };
-        div.ondblclick = (e) => {
-            if (e.target.classList.contains('favorite-btn')) return;
-            playAudio(i); closeAllModals();
-        };
-        div.oncontextmenu = (e) => { e.preventDefault(); ctxMenuTarget = i; showContextMenu(e.clientX, e.clientY); };
 
+        // textContent 替代 innerHTML，避免 HTML parser 开销
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'pl-title';
+        titleSpan.textContent = s.title;
+        div.appendChild(titleSpan);
+
+        const artistSpan = document.createElement('span');
+        artistSpan.style.cssText = 'font-size:12px;opacity:0.6;';
+        artistSpan.textContent = s.artist;
+        div.appendChild(artistSpan);
+
+        const favBtn = document.createElement('span');
+        favBtn.className = `favorite-btn ${isFav ? 'faved' : ''}`;
+        favBtn.dataset.idx = i;
+        favBtn.title = '收藏';
+        favBtn.textContent = isFav ? '❤️' : '🩶';
+        div.appendChild(favBtn);
+
+        // 🩹 v3.2.3 P3: onclick/oncontextmenu 已移至事件委托，此处只保留拖拽事件
         // 拖拽排序 - 带插入线视觉反馈
         div.ondragstart = (e) => {
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', i.toString());
             div.classList.add('dragging');
-            // 移除所有已有的插入线
-            document.querySelectorAll('.drag-insert-line').forEach(l => l.remove());
+            const line = _getInsertLine();
+            line.classList.remove('show');
         };
         div.ondragend = () => {
             div.classList.remove('dragging');
             document.querySelectorAll('.pl-item').forEach(d => d.classList.remove('drag-over'));
-            document.querySelectorAll('.drag-insert-line').forEach(l => l.remove());
+            const line = _getInsertLine();
+            line.classList.remove('show');
         };
         div.ondragover = (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            // 移除旧插入线
-            document.querySelectorAll('.drag-insert-line').forEach(l => l.remove());
-            // 判断插入位置（上半部=前，下半部=后）
             const rect = div.getBoundingClientRect();
             const midY = rect.top + rect.height / 2;
-            const insertLine = document.createElement('div');
-            insertLine.className = 'drag-insert-line show';
+            const line = _getInsertLine();
+            const containerRect = el.plContainer.getBoundingClientRect();
             if (e.clientY < midY) {
-                // 插入到当前项之前
-                insertLine.style.top = (rect.top - el.plContainer.getBoundingClientRect().top + el.plContainer.scrollTop - 2) + 'px';
+                line.style.top = (rect.top - containerRect.top + el.plContainer.scrollTop - 2) + 'px';
             } else {
-                // 插入到当前项之后
-                insertLine.style.top = (rect.bottom - el.plContainer.getBoundingClientRect().top + el.plContainer.scrollTop - 1) + 'px';
+                line.style.top = (rect.bottom - containerRect.top + el.plContainer.scrollTop - 1) + 'px';
             }
-            insertLine.style.left = '10px';
-            insertLine.style.right = '10px';
+            line.style.left = '10px';
+            line.style.right = '10px';
             el.plContainer.style.position = 'relative';
-            el.plContainer.appendChild(insertLine);
+            line.classList.add('show');
         };
         div.ondragleave = (e) => {
-            // 只在真正离开时移除
             if (!div.contains(e.relatedTarget)) {
-                document.querySelectorAll('.drag-insert-line').forEach(l => l.remove());
+                const line = _getInsertLine();
+                line.classList.remove('show');
             }
         };
         div.ondrop = (e) => {
             e.preventDefault();
-            document.querySelectorAll('.drag-insert-line').forEach(l => l.remove());
+            const line = _getInsertLine();
+            line.classList.remove('show');
             const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
             const rect = div.getBoundingClientRect();
             const midY = rect.top + rect.height / 2;
@@ -170,8 +186,10 @@ const renderPlaylist = () => {
             div.classList.remove('drag-over');
         };
 
-        el.plContainer.appendChild(div);
+        fragment.appendChild(div);
     });
+    el.plContainer.appendChild(fragment); // 一次性插入，仅触发 1 次 layout
+
     updateFocusContext();
     const activeItem = el.plContainer.querySelector('.active');
     if(activeItem && el.playlistModal.classList.contains('open')) activeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -311,6 +329,7 @@ function showFileInfo(idx) {
     `;
     el.fileInfoContent.innerHTML = info;
     el.fileInfoModal.classList.add('open');
+    if (typeof _pushModal === 'function') _pushModal('fileInfoModal', null);
     updateFocusContext();
 }
 
@@ -372,6 +391,11 @@ function updateFavQuickBtn() {
 // 更新首页画中画快捷按钮
 function updatePipQuickBtn() {
     if (!el.btnPipQuick) return;
+    // 🚀 iOS/不支持的浏览器：隐藏画中画按钮（已在 togglePip 内兜底提示）
+    if (!('documentPictureInPicture' in window)) {
+        el.btnPipQuick.style.display = 'none';
+        return;
+    }
     if (pipWindow && !pipWindow.closed) {
         el.btnPipQuick.classList.add('pip-active');
     } else {
@@ -498,6 +522,7 @@ async function processFiles(files) {
         const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
         if (['.mp3','.flac','.wav','.m4a','.ogg','.aac','.wma','.opus'].includes(ext)) audios.push(f);
         else if (ext === '.lrc') lrcMap.set(f.name.replace('.lrc','').toLowerCase(), f);
+        else if (ext === '.vtt') lrcMap.set(f.name.replace('.vtt','').toLowerCase(), f);
         else if (ext === '.cue') parseCueFile(f);
     });
     if (!audios.length) {
@@ -559,13 +584,8 @@ async function processFiles(files) {
                     const searchEl = document.getElementById('coverLibSearch');
                     if (grid) {
                         const filter = searchEl ? searchEl.value : '';
-                        if (coverLibSortMode === 'artist') {
-                            renderArtistGrid(grid, filter, coverLibModal);
-                        } else if (coverLibSortMode === 'recent') {
-                            renderRecentGrid(grid, filter, coverLibModal);
-                        } else {
-                            renderAlbumGrid(grid, filter, coverLibModal);
-                        }
+                        // 🚀 v3.3.1: 统一走窗口化渲染入口（内部按 coverLibSortMode 分发）
+                        if (typeof renderCoverLibGrid === 'function') renderCoverLibGrid(filter);
                     }
                 }
                 // 同时刷新封面墙（播放列表内的封面视图）
@@ -582,7 +602,9 @@ async function processFiles(files) {
                     el.loadWrap.classList.remove('show');
                     
                     // 🚀 核心改动：全库与队列双向初始化
-                    musicLibrary = [...playlist]; 
+                    musicLibrary = [...playlist];
+                    // 🩹 v3.2.3 P5: 库变动时失效化 TB 缓存
+                    if (typeof invalidateGridCache === 'function') invalidateGridCache();
                     
                     renderPlaylist();
                     debouncedCoverLibRefresh(); // 最后一次完整刷新
@@ -601,6 +623,7 @@ async function processFiles(files) {
                 playlist.push(...results);
                 // 🚀 增量同步到 musicLibrary，让曲库在加载过程中就能显示
                 musicLibrary = [...playlist];
+                if (typeof invalidateGridCache === 'function') invalidateGridCache();
             } catch(batchErr) {
                 // 单批次失败不阻塞后续加载
                 logError('BATCH_REMAINING', `剩余批次解析失败: ${batchErr.message}`, null);
@@ -620,6 +643,7 @@ async function processFiles(files) {
     } else {
         setTimeout(() => el.loadWrap.classList.remove('show'), 500);
         musicLibrary = [...playlist];
+        if (typeof invalidateGridCache === 'function') invalidateGridCache();
         isLoadingFiles = false;
     }
 }
@@ -740,6 +764,29 @@ async function parseCueFile(cueFile) {
         logError('CUE_PARSE', e.message, cueFile);
     }
 }
+
+// 🩹 v3.2.3 P3: 播放列表事件委托 — 替代逐项 onclick 闭包（600 闭包 → 2 个监听器）
+el.plContainer.addEventListener('click', (e) => {
+    const plItem = e.target.closest('.pl-item');
+    if (!plItem) return;
+    const idx = parseInt(plItem.dataset.index);
+    if (isNaN(idx)) return;
+
+    if (e.target.classList.contains('favorite-btn')) {
+        toggleFavorite(idx);
+        return;
+    }
+    playAudio(idx);
+    closeAllModals();
+});
+
+el.plContainer.addEventListener('contextmenu', (e) => {
+    const plItem = e.target.closest('.pl-item');
+    if (!plItem) return;
+    e.preventDefault();
+    ctxMenuTarget = parseInt(plItem.dataset.index);
+    showContextMenu(e.clientX, e.clientY);
+});
 
 // 🔥 v2.8.10-v2.8.12: LRC 解析引擎持续迭代
 // 基于 TME 双语 LRC 真实编码格式：

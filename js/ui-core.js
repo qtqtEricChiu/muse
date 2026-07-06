@@ -1,7 +1,19 @@
 /*
- * MBolka Player - UI Core v3.0.2
+ * MBolka Player - UI Core v3.2.0
  * Modal management, button bindings, settings UI, theme presets, EQ panel, stats, BG settings
  */
+
+// 🚀 v3.2.0: Modal 访问栈 — B 键/Esc 逐级返回
+let _modalVisitStack = [];
+function _pushModal(id, restore) { _modalVisitStack.push({ id, restore }); }
+function _popModal() {
+    if (!_modalVisitStack.length) return false;
+    const entry = _modalVisitStack.pop();
+    if (entry.restore) entry.restore();
+    else setTimeout(() => updateFocusContext(), 100);
+    return true;
+}
+function _clearModalStack() { _modalVisitStack = []; }
 
 const _closeModalsSync = (isSwitching = false) => {
     // 寻找当前处于打开状态的弹窗
@@ -55,61 +67,72 @@ function closeFileInfo() {
 
 // 正常关闭弹窗（点击Close、Esc、手柄B）：🚀 彻底恢复原本极具动感的 CSS 淡出和回弹缩小动画！
 const closeAllModals = () => {
-    _closeModalsSync(false); // 传参 false：保留完整的过渡动画
+    _clearModalStack();       // 🚀 v3.2.0: 清空返回栈
+    _closeModalsSync(false);
 };
 
-// === 🚀 v2.8.4: 统一弹窗栈关闭管理器 (增强版：z-index排序 + 动画感知) ===
+// === 🚀 v3.2.0: 栈驱动的全局返回（B 键/Esc 逐级返回） ===
 function handleGlobalClose() {
-    // 扫描所有浮窗，包括动态创建的
+    // 🩹 v3.3.4: 始终优先关闭"当前实际最上层(z-index 最高)的打开浮窗"。
+    //   根因：播放列表等浮窗若叠在曲库上层打开却未推栈，旧逻辑按栈顶(曲库)关闭，
+    //        导致最上层播放列表仍开着 → 手柄 B 看似"无法返回主界面"。现改为关闭真实最上层。
     const allModals = Array.from(document.querySelectorAll('.modal-overlay'));
-    const activeModals = allModals.filter(m => {
-        const isOpen = m.classList.contains('open');
-        const isVisible = m.style.display !== 'none' && m.style.visibility !== 'hidden';
-        const inDom = document.body.contains(m);
-        return (isOpen || isVisible) && inDom;
+    const openModals = allModals.filter(m => m.classList.contains('open') && document.body.contains(m));
+    if (openModals.length === 0) {
+        if (_modalVisitStack.length) _modalVisitStack.length = 0; // 清理可能残留的陈旧栈条目
+        return false;
+    }
+    openModals.sort((a, b) => {
+        const za = parseInt(getComputedStyle(a).zIndex) || 0;
+        const zb = parseInt(getComputedStyle(b).zIndex) || 0;
+        if (za !== zb) return zb - za;                 // z-index 高者在上
+        // 同 z-index：DOM 中靠后(后绘制)的视为上层（如播放列表叠在曲库之上且同为 1000）
+        return allModals.indexOf(b) - allModals.indexOf(a);
     });
+    const realTop = openModals[0];
 
-    if (activeModals.length === 0) return false;
-
-    // 按 z-index 排序，关闭最上层的
-    activeModals.sort((a, b) => {
-        const zA = parseInt(getComputedStyle(a).zIndex) || 0;
-        const zB = parseInt(getComputedStyle(b).zIndex) || 0;
-        return zB - zA;
-    });
-
-    const topModal = activeModals[0];
+    // 弹掉与 realTop 不匹配的陈旧栈顶（这些条目指向被上层浮窗盖住、未推栈的浮窗）
+    while (_modalVisitStack.length) {
+        const s = _modalVisitStack[_modalVisitStack.length - 1];
+        const sEl = document.getElementById(s.id) || document.querySelector(`[data-modal-id="${s.id}"]`);
+        if (sEl === realTop) break; // 栈顶就是实际最上层 → 正常逐级返回
+        _modalVisitStack.pop();      // 陈旧条目，丢弃
+    }
 
     // 🩹 v2.8.8: 按浮窗类型使用专用关闭函数（确保动画+焦点正确）
-    if (topModal.id === 'coverLibraryModal') {
+    if (realTop.id === 'coverLibraryModal') {
         closeCoverLibrary();
-    } else if (topModal.id === 'settingsModal') {
+    } else if (realTop.id === 'settingsModal') {
         closeSettings();
-    } else if (topModal.id === 'playlistModal') {
+    } else if (realTop.id === 'playlistModal') {
         closePlaylist();
-    } else if (topModal.id === 'helpModal') {
+    } else if (realTop.id === 'helpModal') {
         closeHelp();
-    } else if (topModal.id === 'fileInfoModal') {
+    } else if (realTop.id === 'fileInfoModal') {
         closeFileInfo();
-    } else if (topModal.querySelector('.album-detail-panel')) {
+    } else if (realTop.querySelector('.album-detail-panel')) {
         // 专辑详情 → 关闭详情面板
-        const detailPanel = topModal.querySelector('.album-detail-panel');
-        const closeBtn = detailPanel.querySelector('#btnCloseAlbumDetail');
+        const closeBtn = realTop.querySelector('#btnCloseAlbumDetail');
         if (closeBtn) closeBtn.click();
     } else {
         // 兜底：移除 open 触发退出动画，延迟清理
-        topModal.classList.remove('open');
+        realTop.classList.remove('open');
         setTimeout(() => {
-            if (topModal.parentNode && !topModal.classList.contains('open')) {
-                topModal.remove();
+            if (realTop.parentNode && !realTop.classList.contains('open')) {
+                realTop.remove();
             }
             updateFocusContext();
         }, 400);
     }
 
-    // 更新焦点
-    setTimeout(() => updateFocusContext(), 50);
+    // 与实际最上层匹配的栈顶出栈（若有 restore 回调则执行）
+    if (_modalVisitStack.length) {
+        const top = _modalVisitStack[_modalVisitStack.length - 1];
+        const topEl = document.getElementById(top.id) || document.querySelector(`[data-modal-id="${top.id}"]`);
+        if (topEl === realTop) _popModal();
+    }
 
+    setTimeout(() => updateFocusContext(), 50); // 更新焦点到下层浮窗/主界面
     return true; // 成功关闭了一个弹窗
 }
 
@@ -180,9 +203,11 @@ bindBtn('btnToggleLrc', () => {
 
 bindBtn('btnToggleList', () => {
     safeTransition(() => {
+        _pushModal('playlistModal', null);
         el.playlistModal.classList.add('open');
         currentViewMode = 'list';
         renderPlaylist();
+        initPlaylistTabBar(); // 🩹 v3.2.3: 初始化 tab-bar
         const searchInput = document.getElementById('searchInput');
         if (searchInput) searchInput.value = '';
     });
@@ -190,6 +215,7 @@ bindBtn('btnToggleList', () => {
 
 bindBtn('btnSettings', () => {
     safeTransition(() => {
+        _pushModal('settingsModal', null);
         el.settingsModal.classList.add('open');
         renderThemePresets();
         renderEQPanel();
@@ -202,6 +228,12 @@ bindBtn('btnCoverLibrary', () => safeTransition(showCoverLibrary));
 bindBtn('btnShowStats', () => safeTransition(showStatsPanel));
 bindBtn('btnFavQuick', () => { if (currentIndex >= 0) toggleFavorite(currentIndex); });
 bindBtn('btnPipQuick', togglePip);
+bindBtn('btnOpenHelpShortcuts', () => {
+    closeAllModals();
+    el.helpModal.classList.add('open');
+    if (typeof _pushModal === 'function') _pushModal('helpModal', null);
+    updateFocusContext();
+});
 
 // 绑定关闭按钮
 document.getElementById('btnCloseList').onclick = closeAllModals;
@@ -249,7 +281,7 @@ document.getElementById('btnShowFavorites').onclick = () => {
         const div = document.createElement('div');
         div.className = `pl-item focusable ${i === currentIndex ? 'active' : ''}`;
         div.dataset.index = i;
-        div.innerHTML = `<span class="pl-title">${s.title}</span><span style="font-size:12px;opacity:0.6;">${s.artist}</span><span class="favorite-btn faved" data-idx="${i}">❤️</span>`;
+        div.innerHTML = `<span class="pl-title">${escapeHTML(s.title)}</span><span style="font-size:12px;opacity:0.6;">${escapeHTML(s.artist)}</span><span class="favorite-btn faved" data-idx="${i}">❤️</span>`;
         div.onclick = (e) => {
             if (e.target.classList.contains('favorite-btn')) { e.stopPropagation(); toggleFavorite(i); return; }
             playAudio(i); closeAllModals();
@@ -259,10 +291,22 @@ document.getElementById('btnShowFavorites').onclick = () => {
     if (!el.plContainer.children.length) el.plContainer.innerHTML = '<div style="color:var(--text-sub); text-align:center; padding:20px;">还没有收藏任何歌曲</div>';
 };
 
-document.getElementById('btnShowCoverWall').onclick = () => {
-    currentViewMode = 'coverwall';
-    renderCoverWall();
-};
+// 🩹 v3.2.3: 初始化播放列表 tab-bar 点击切换（与 gamepad.js 中的 switchPlaylistTab 配合）
+function initPlaylistTabBar() {
+    const bar = document.querySelector('#playlistModal .playlist-tab-bar');
+    if (!bar || bar.dataset.inited) return;
+    bar.dataset.inited = 'true';
+    bar.querySelectorAll('.playlist-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const filter = tab.dataset.filter;
+            bar.querySelectorAll('.playlist-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            if (filter === 'all') document.getElementById('btnShowAll')?.click();
+            else if (filter === 'favorites') document.getElementById('btnShowFavorites')?.click();
+        });
+    });
+}
+// 在 btnShowAll 和 btnShowFavorites 的 onclick 中也会自动调用渲染，所以只需绑定一次点击事件
 
 document.getElementById('btnEnterImmersive').onclick = toggleImmersiveMode;
 document.getElementById('btnExitImmersive').onclick = toggleImmersiveMode;
@@ -442,24 +486,27 @@ function hexToRgb(hex) {
     } : null;
 }
 
-// 🚀 v2.5-p2: WCAG 相对亮度计算 (心理学灰度公式)
+// 🚀 v2.5-p2: 标准 WCAG 相对亮度计算（sRGB 线性化 + 正确权重）
 function getLuminance(colorStr) {
-    if (!colorStr) return 255;
-    let r = 255, g = 255, b = 255;
+    if (!colorStr) return 1; // 视为白色（亮度 1）
+    let r = 1, g = 1, b = 1;
 
     if (colorStr.startsWith('#')) {
         const rgb = hexToRgb(colorStr);
-        if (rgb) { r = rgb.r; g = rgb.g; b = rgb.b; }
+        if (rgb) { r = rgb.r / 255; g = rgb.g / 255; b = rgb.b / 255; }
     } else if (colorStr.startsWith('rgb')) {
         const match = colorStr.match(/\d+/g);
         if (match) {
-            r = parseInt(match[0]);
-            g = parseInt(match[1]);
-            b = parseInt(match[2]);
+            r = parseInt(match[0]) / 255;
+            g = parseInt(match[1]) / 255;
+            b = parseInt(match[2]) / 255;
         }
     }
-    // 心理学灰度公式: L = 0.299R + 0.587G + 0.114B
-    return (0.299 * r + 0.587 * g + 0.114 * b);
+    // sRGB → 线性光
+    const lin = (c) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    const R = lin(r), G = lin(g), B = lin(b);
+    // WCAG 相对亮度（0..1）
+    return 0.2126 * R + 0.7152 * G + 0.0722 * B;
 }
 
 // 均衡器UI渲染
@@ -511,58 +558,41 @@ function renderEQPanel() {
         };
     }
 
-    // 播放速度/音调
-    const spDiv = document.createElement('div');
-    spDiv.className = 'drawer-box';
-    spDiv.style.marginTop = '20px';
-    spDiv.innerHTML = `
-        <div class="drawer-title">⏩ 播放速度与音调</div>
-        <div class="speed-pitch-row">
-            <label>速度</label>
-            <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.05" value="${playbackRate}" class="focusable">
-            <span class="val" id="speedVal">${playbackRate.toFixed(2)}x</span>
-        </div>
-        <button class="btn-glass focusable" id="btnTogglePitch" style="width:100%;justify-content:center;margin-top:8px;">${preservesPitch ? '🔒 保持音调' : '🎵 允许变调'}</button>
-    `;
-    eqContainer.appendChild(spDiv);
+    // 🩹 v3.2.3: 播放速度/音调/Crossfade 已在 HTML 中定义独立 drawer-box，此处仅绑定事件
+    // 速度/音调
+    const _speedSlider = document.getElementById('speedSlider');
+    const _pitchBtn = document.getElementById('btnTogglePitch');
+    if (_speedSlider) {
+        _speedSlider.value = playbackRate;
+        _speedSlider.oninput = function() { setPlaybackRate(parseFloat(this.value)); };
+    }
+    if (_pitchBtn) {
+        _pitchBtn.textContent = preservesPitch ? '🔒 保持音调' : '🎵 允许变调';
+        _pitchBtn.onclick = togglePitchPreserve;
+    }
 
-    document.getElementById('speedSlider').oninput = function() {
-        setPlaybackRate(parseFloat(this.value));
-    };
-    document.getElementById('btnTogglePitch').onclick = togglePitchPreserve;
-
-    // 🔥 v2.8.10: 淡入淡出切歌 (实验性功能)
-    const cfDiv = document.createElement('div');
-    cfDiv.className = 'drawer-box';
-    cfDiv.style.marginTop = '20px';
-    cfDiv.innerHTML = `
-        <div class="drawer-title">🔄 淡入淡出切歌</div>
-        <div style="font-size:11px;color:var(--warn,#e8a840);margin-bottom:8px;">⚠ 实验性功能，可能无法正常生效，不推荐开启</div>
-        <div style="display:flex;align-items:center;gap:12px;">
-            <button class="btn-glass focusable" id="btnToggleCrossfade" style="flex:1;justify-content:center;">${crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭'}</button>
-            <span style="font-size:13px;color:var(--text-sub);">时长:</span>
-            <input type="range" id="crossfadeSlider" class="focusable" min="1" max="8" step="0.5" value="${crossfadeDuration}" style="width:100px;">
-            <span id="crossfadeVal" style="font-size:13px;color:var(--primary);">${crossfadeDuration}s</span>
-        </div>
-    `;
-    eqContainer.appendChild(cfDiv);
-
-    document.getElementById('btnToggleCrossfade').onclick = function() {
-        crossfadeEnabled = !crossfadeEnabled;
-        this.textContent = crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭';
-        // 🔥 v2.8.10: 开启时立即初始化 AudioContext（确保音频路由正确）
-        if (crossfadeEnabled) {
-            cfEnsureContext();
-            cfPreloadNext();
-        }
-        saveSettings();
-        showToast(crossfadeEnabled ? '淡入淡出已开启 ⚠ 实验性功能' : '淡入淡出已关闭');
-    };
-    document.getElementById('crossfadeSlider').oninput = function() {
-        crossfadeDuration = parseFloat(this.value);
-        document.getElementById('crossfadeVal').textContent = `${crossfadeDuration}s`;
-        saveSettings();
-    };
+    // Crossfade
+    const _cfBtn = document.getElementById('btnToggleCrossfade');
+    const _cfSlider = document.getElementById('crossfadeSlider');
+    if (_cfBtn) {
+        _cfBtn.textContent = crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭';
+        _cfBtn.onclick = function() {
+            crossfadeEnabled = !crossfadeEnabled;
+            this.textContent = crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭';
+            if (crossfadeEnabled) { cfEnsureContext(); cfPreloadNext(); }
+            saveSettings();
+            showToast(crossfadeEnabled ? '淡入淡出已开启 ⚠ 实验性功能' : '淡入淡出已关闭');
+        };
+    }
+    if (_cfSlider) {
+        _cfSlider.value = crossfadeDuration;
+        document.getElementById('crossfadeVal').textContent = crossfadeDuration.toFixed(1) + 's';
+        _cfSlider.oninput = function() {
+            crossfadeDuration = parseFloat(this.value);
+            document.getElementById('crossfadeVal').textContent = crossfadeDuration.toFixed(1) + 's';
+            saveSettings();
+        };
+    }
 
     // 🚀 v2.8.2: 性能模式UI已整合到节能板块，此处不再单独显示
     // (保留兼容映射：旧版 performanceMode 已映射到 cfg.frameEnergyEnabled)
@@ -591,6 +621,7 @@ document.getElementById('btnClearBg').onclick = () => {
 // === 统计面板 ===
 function showStatsPanel() {
     closeAllModals();
+    _pushModal('statsPanel', null);
     const modal = document.createElement('div');
     modal.className = 'modal-overlay open';
     modal.innerHTML = `
@@ -630,7 +661,7 @@ function showStatsPanel() {
         item.className = 'stat-top-item';
         item.innerHTML = `
             <span class="rank">${i + 1}</span>
-            <span class="song-name">${s.title} - ${s.artist}</span>
+            <span class="song-name">${escapeHTML(s.title)} - ${escapeHTML(s.artist)}</span>
             <span class="play-count">${s.count}次</span>
         `;
         listEl.appendChild(item);
@@ -887,12 +918,12 @@ function initSettingsTabs() {
         const body = document.querySelector('.settings-body');
         if (!boxes.length || !body) return;
 
-        // 根据 drawer-title 内容语义匹配标签组
+        // 🚀 v3.1.0: 标签组重新组织：音频-外观-触觉-性能-高级
         const tabKeywords = [
-            ['载入音乐', '音乐'],
-            ['封面取色', '主题色', '背景图片', '显示调节'],
-            ['音频输出', '均衡器', '歌词'],
-            ['睡眠定时', '节能', '震动'],
+            ['载入音乐', '均衡器', '播放速度', '音调', 'Crossfade', '睡眠定时', '音频输出'],
+            ['封面取色', '主题色', '背景图片', '显示调节', '歌词'],
+            ['震动'],
+            ['节能'],
             ['播放统计', '调试', '快捷键'],
         ];
         boxes.forEach(box => {
@@ -1034,9 +1065,11 @@ const applyThemeLogic = () => {
     const rgbP = hexToRgb(targetColor);
     if (rgbP) document.documentElement.style.setProperty('--primary-rgb', `${rgbP.r}, ${rgbP.g}, ${rgbP.b}`);
 
-    // 🚀 v2.5-p2: WCAG 实时计算亮度，动态决定按钮前景色是反白还是用暗色
-    const luminance = getLuminance(targetColor);
-    const textOnPrimary = luminance < 140 ? '#ffffff' : '#0a0a1a';
+    // 🚀 v2.5-p2: 基于 WCAG 相对亮度选择可读前景色（对比白与近黑，取对比度高者）
+    const lum = getLuminance(targetColor);
+    const crWhite = (1 + 0.05) / (lum + 0.05);
+    const crBlack = (lum + 0.05) / (0.011 + 0.05);
+    const textOnPrimary = crWhite >= crBlack ? '#ffffff' : '#0a0a1a';
     document.documentElement.style.setProperty('--text-on-primary', textOnPrimary);
 
     document.documentElement.style.setProperty('--bg-blur', `${cfg.blurAmt}px`);

@@ -2,6 +2,251 @@
 
 ---
 
+## v3.4.0 (2026-07-07)
+
+### 🎮 曲库 coverflow 交互与手柄返回修复
+
+#### 修复1｜手柄 B 键逐级返回（播放列表等浮窗）
+- **`js/ui-core.js` `handleGlobalClose()` 重写**：改为**始终关闭当前实际最上层（z-index 最高）的打开浮窗**，不再仅依赖 `_modalVisitStack` 栈顶。
+- **根因**：播放列表等浮窗若叠在曲库上层打开却未推栈，旧逻辑按栈顶（下层浮窗）关闭，导致最上层浮窗仍开着 → 手柄 B 看似"无法返回主界面"。
+- **播放列表打开补推栈**：键盘 `p` 与手柄 `btns[14]`（← 播放列表）打开播放列表时显式 `_pushModal('playlistModal', null)`，确保 B 键逐级返回逻辑一致。
+- 同 z-index 时以 DOM 顺序兜底（后绘制者为上层），并清理与最上层不匹配的陈旧栈条目。
+
+#### 修复2｜曲库-按专辑（coverflow）鼠标滚轮滚动失效
+- **现象**：coverflow 模式下快速连续滚轮时封面不切；手柄左摇杆不失效（摇杆路径已临时关闭 snap/smooth，滚轮路径漏改）。
+- **根因**：`.cover-lib-grid.is-coverflow` 同时带 `scroll-snap-type: x proximity` + `scroll-behavior: smooth`；连续 `coverLibMoveCenter → setCoverLibCenter → grid.scrollTo({behavior:'smooth'})` 被 snap 吸附 + 平滑动画互相抵消。
+- **`js/cover-lib.js` 修复**：
+  - 新增 `restoreCoverflowScrollMode()`。
+  - 重写 `enterCoverflowFlat()`：进入平坦模式即关闭 grid 的 `scrollSnapType='none'` / `scrollBehavior='auto'`；350ms 恢复回调统一恢复 snap/smooth 再 `updateCoverflow()`。
+  - `setCoverLibCenter()` 平坦分支 `scrollTo` 由 `behavior:'smooth'` 改为 `'auto'`（因 `scrollTo` 的 behavior 选项优先级高于内联样式，写 smooth 会抵消修复）。
+
+### 🆕 版本号更新
+- `v3.3.0` → `v3.4.0`
+
+## v3.3.0 (2026-07-06)
+
+### ⚡ 性能 / 可维护性 / 无障碍 / PWA 全面优化（基于 OPTIMIZATION_REPORT）
+
+> 本轮以 `OPTIMIZATION_REPORT.md` 为基准，对性能、代码结构、UI/UX、PWA 离线、无障碍五大方向共 20+ 项进行系统整改（用户明确"暂缓"的 3 项除外：A-B 长按耦合 / manifest 字段补全 / 浅粉对比度审计）。
+
+#### 🔴 性能 (P0-P1)
+- **`syncLyrics` 增量更新 + 节点缓存**：原每 tick（~4Hz）对 `.lrc-line` 全量 `querySelectorAll` + `void line.offsetHeight` 强制重排 + `getBoundingClientRect`。改为仅当 `activeIdx` 变化时更新高亮，缓存 `.lrc-line` 列表（`getLrcLines()` 懒初始化）。**修复由此引入的 TDZ 崩溃**（`const syncLyrics` 声明前访问自身 → 首页不渲染、加载文件夹失效），首页恢复。
+- **可视化画布尺寸 ResizeObserver 化**：主画布 `cvs.width/height` 从每帧读 `offsetWidth` 改由 `ResizeObserver` 在容器尺寸变化时更新，rAF 内只读缓存值，消除每帧强制重排。
+- **暂停不重绘**：暂停且非沉浸模式时跳过逐帧重绘，仅保留末帧，空闲/暂停功耗显著下降。
+- **`setPositionState` 节流**：Media Session 位置状态从每 `timeupdate` 降频至 ~4Hz（250ms）。
+- **睡眠定时器 interval 按需**：`startSleepTimerInterval` / `stopSleepTimerInterval` 替代进程级常驻 `setInterval`，无定时任务时不空跑。
+- **metaWorker 死代码删除**：移除 `globals.js` 内联 `workerCode`/`workerBlob`/`workerUrl` + 永不 `revokeObjectURL` 的无用 Blob URL 泄漏。
+- **jsmediatags `defer`**：CDN 解析脚本改为 `defer`，首屏不再被渲染阻塞。
+
+#### 🟡 代码结构与可维护性 (P2)
+- **生产构建补全**：`build.js` 的 `JS_FILES`/`CSS_FILES` 补列 `theme-color.js`/`wco.js`/`wco.css`，`node build.js` 产出完整 `dist/`（不再缺主题色/WCO 文件）。
+- **节能双体系合并**：删除冗余 `isEnergySaving` 布尔与兼容字段，统一 `EnergyMode` 位标志，`shouldBeEnergySaving()` 单入口。
+- **rumble 重复赋值移除**：`loadSettings` 中重复 rumble 块合并，默认回落 `'basscut'`。
+- **CREDIT_PAT 角色名单抽常量**：抽出共享 `EN_ROLES` 数组，消除两处重复超长正则、避免不同步。
+
+#### 🟡 UI/UX / 安全
+- **XSS 防护**：搜索结果 / 收藏列表 / 统计面板的 `title·artist` 全部经 `escapeHTML` 转义；`showToast` 的 `msg` 经 `escapeHTML`。
+- **内联 `onclick` 迁移**：`index.html` 内联 `onclick` 迁移为 `ui-core.js` 事件绑定（利于后续 CSP）。
+- **沉浸画布 ctx 缓存**：`immCtx`/`bgColorCtx` 一次性 `getContext` 常量化，不再每帧重复取上下文。
+
+#### 🟡 PWA / 离线 / 跨平台
+- **CDN 运行时缓存**：`sw.js` 增加 stale-while-revalidate 运行时缓存，覆盖 Google Fonts 与 jsmediatags（离线可达）。
+- **`cache.addAll` 可观测**：逐条缓存 + `console.warn` 记录失败项，不再静默吞错。
+- **SW 更新提示**：注册处监听 `updatefound`/`controllerchange`，新版本提示用户刷新。
+- **iOS 兼容性回退**：不支持画中画时隐藏对应快捷按钮，核心播放/手势保持可用。
+
+#### 🟢 无障碍 (WCAG 2.2)
+- **视口缩放放开**：移除 `maximum-scale=1.0, user-scalable=no`，允许缩放（WCAG 1.4.4 / 1.4.10）。
+- **进度条 aria 同步**：`timeupdate` 同步 `aria-valuenow`/`aria-valuemax`/`aria-valuetext`。
+- **焦点可见性**：两处 `:focus-visible` 轮廓与 `.gamepad-focus` 视觉对齐。
+- **WCAG 亮度公式**：`getLuminance` 改用标准 sRGB 相对亮度公式 + 对比度择优前景色。
+- **`player-wrapper` role**：`role="application"` → `role="group"` + `aria-label`。
+
+### 🆕 版本号更新
+- `v3.2.4` → `v3.3.0`
+
+## v3.2.4 (2026-07-06)
+
+### 🐛 曲库缓存崩溃修复（4 个 Bug 全量修复）
+
+#### Bug 1: 空缓存陷阱（致命）
+- **`cover-lib.js`**：`renderGridChunked` 中 `grid.appendChild(fragment)` 先于 `allFragments.push(fragment)`，导致缓存收集器存入的是空 fragment。修复为在 `appendChild` **之前** `cloneNode` 克隆卡片节点到缓存收集器，确保缓存内容完整
+
+#### Bug 2: 竞态条件
+- **`cover-lib.js`**：新增 `_gridGeneration` 递增 ID，`renderNextChunk` 每轮检查 gen 是否匹配，快速切换 Tab 时旧 chunk 自动中止
+
+#### Bug 3: 缓存有效性检查
+- **`cover-lib.js`**：`renderCoverLibGrid` 中缓存命中条件增加 `childNodes.length > 0` 校验，空 fragment 不命中，改用 `cloneNode(true)` 深拷贝避免污染
+
+#### Bug 4: Tab 点击防抖
+- **`cover-lib.js`**：Tab onclick 增加 80ms `_tabSwitchTimer` 防抖，避免快速点击触发多次全量渲染
+
+### 🎨 唱片库尺寸与视觉全面升级
+- **弹窗放大**：`width: min(92vw, 1400px)` 替代 `750px`，1920屏下 ~1766px 占 92%，不再是数据表格
+- **高度增加**：`max-height: 92vh` 替代 `88vh`，多 4% 可用垂直空间
+- **卡片最小宽**：`minmax(200px, 1fr)` 替代 `180px`，5 列时每卡 ~340px
+- **网格间距**：`gap: 24px` 替代 `20px`
+- **卡片背景**：`#1e1c2a` 替代 `#1a1a1e`，与面板背景 `#1e1b2e` 分层明显
+- **专辑名**：`15px` 替代 `13px`，元信息 `12.5px` 替代 `11px`，对比度提升
+- **自定义滚动条**：6px 细条，hover 亮显
+- **搜索框**：focus 发光环交互反馈
+- **响应式断点**：1600/1200/860/859px，移动端 padding 收窄
+- **`index.html`**：移除了 cover lib modal-content 的内联 `width: 750px` 避免覆盖 CSS
+
+### 🆕 版本号更新
+- `v3.2.3` → `v3.2.4`
+
+## v3.2.3 (2026-07-06)
+
+### ⚡ 性能优化（P0-P8 全量实施）
+
+#### P0 🔴 右摇杆滚动帧内 reflow 消除
+- **`gamepad.js`**：新增 `getActiveScrollable()` / `invalidateScrollableCache()`，惰性缓存 modal scrollable 引用（500ms TTL），右摇杆帧耗时降低 ~50%
+- `updateFocusContext` 入口自动失效化缓存，确保 modal 开关后立即重建
+
+#### P1 🟡 焦点吸附候选数限制
+- **`gamepad.js`**：`_rsFocusTimer` 回调限制扫描前 50 个候选 / 找到 5 个即停，`getBoundingClientRect` 调用量降 90%
+
+#### P2 🔴 renderPlaylist DocumentFragment
+- **`loader.js`**：逐项 `appendChild` 改为 `DocumentFragment` 批量插入 + `textContent` 替代 `innerHTML`，100 首从 100 次 reflow 变 1 次
+
+#### P3 🟡 播放列表事件委托
+- **`loader.js`**：移除逐项 `onclick`/`oncontextmenu` 闭包（100 首 ≈ 200 闭包），改用 `el.plContainer` 事件委托（click + contextmenu）
+
+#### P4 🟡 renderGridChunked DocumentFragment
+- **`cover-lib.js`**：每 chunk 内逐项 `appendChild` → Fragment 累积后一次插入，reflow 减 90%
+
+#### P5 🟡 曲库 Tab 缓存
+- **`cover-lib.js`**：`_gridCache` 缓存三个 Tab（album/artist/recent）已渲染的 Fragment，无搜索时切换直接复用，<1ms
+- 库变更时自动失效（`invalidateGridCache()` 在 3 处 `musicLibrary = ...` 后调用）
+
+#### P6 🟢 CSS transition 精确化
+- **`cover-lib.css`**：`.cover-lib-card` / `.cover-lib-tab` / `.album-detail-track` / `.vinyl-slip` 从 `transition: all` 改为精确属性名
+- **`modals.css`**：`.pl-item` / `.playlist-tab` / `.pl-item .favorite-btn` 同样精确化
+
+#### P7 🟢 contain: strict
+- **`modals.css`**：`.playlist-items` 追加 `contain: strict`，完全隔离布局/绘制计算
+
+#### P8 🟢 拖拽辅助线复用
+- **`loader.js`**：`_dragInsertLine` 单元素替换 `createElement`/`querySelectorAll().remove()` 模式，`ondragover` 帧耗时 -50%
+
+### 🧹 设置页嵌套清理
+- **`index.html`**：淡入淡出切歌从 `renderEQPanel` 动态嵌套移出为独立 `drawer-box`（HTML 平坦化）
+- **`ui-core.js`**：`renderEQPanel()` 删除 Crossfade drawer-box 动态创建，改为纯事件绑定
+
+### 🩹 自动播放策略优雅降级
+- **`audio-core.js`**：`playAudio()` 捕获 `NotAllowedError` 后监听用户手势自动恢复播放，显示"🖱 点击页面任意位置开始播放"引导 Toast，15 秒自动过期清理监听器
+
+### 🔧 Toast 退出动画修复
+- **`modals.css`**：移除 `@keyframes toastSlideIn` + `animation` 覆盖规则，改用 `transition` 自然驱动进出双向动画
+- **`utils.js`**：移除无用的 `void el.toast.offsetHeight` 强制重排
+
+### 🆕 版本号更新
+- `v3.2.2` → `v3.2.3`
+
+### 🧹 设置页优化
+- **快捷键指南改为按钮**：内联 20 行快捷键网格替换为"查看快捷键大全"按钮，点击弹出帮助面板
+- **触觉 → 门槛统一**："底板/地板阈值" → "门槛阈值"，"自动地板" → "自动门槛"，新增描述文本
+- **格式支持补充**：载入音乐底部文案添加 +VTT
+- **Tab 栏滚动条隐藏**：`scrollbar-width: none` + `::-webkit-scrollbar { display:none }`，LB/RB 切换
+
+### 🎮 手柄焦点与导航重写
+- **`moveFocus2D` 同容器奖励**：垂直导航时优先留在列表/网格容器内，上翻到顶后才跳出到 header
+- **焦点顺序重排**：`updateFocusContext` 中播放列表/曲库改为列表项在前、header 在后
+- **右摇杆滚动重写**：450ms 防抖焦点吸附，智能滚动容器识别（settings-body / playlist / coverLibGrid / albumDetailTracks），动态速度
+- **专辑详情手柄兼容**：`updateFocusContext` 增加专辑详情检测，`showAlbumDetail` 推入 Modal 栈，`closeDetail` 弹出
+- **LB/RB 全局切换**：设置/播放列表/曲库内循环切换 Tab，覆盖全部子浮窗
+- **`switchPlaylistTab` / `switchCoverLibTab`**：新增辅助函数，支持 Tab 循环
+
+### 📋 播放列表重构
+- **曲库按钮移除**：播放列表标题栏改为"全部"+"收藏"胶囊 Tab 栏（与设置页统一风格）
+- **`coverLibModal` 变量修正**：确保 `el.coverLibModal` 在 gamepad 中可访问
+
+### 🎨 UI 统一
+- **曲库 Tab 栏**：`.cover-lib-tab` 改为胶囊风格（与设置 .settings-tab 一致）
+- **按钮文本清理**：移除 `(Esc)` / `(B)` 等冗余快捷键文本，手柄已通过浮动 `.gamepad-badge` 提示
+
+### 🆕 版本号更新
+- `v3.2.1` → `v3.2.2`
+
+## v3.2.1 (2026-07-06)
+
+### 🧹 设置页重构与优化
+- **方框嵌套精简**：节能模式/震动面板的冗余外层 div 移除，布局扁平化
+- **快捷键指南改为按钮**：内联 20 行快捷键网格替换为"查看快捷键大全"按钮，点击弹出帮助面板
+- **触觉 → 门槛统一**："底板/地板阈值" → "门槛阈值"，"自动地板" → "自动门槛"，新增描述文本
+- **格式支持补充**：载入音乐底部文案添加 +VTT
+- **播放速度/音调去重**：确认无重复，保持唯一
+
+### 🔧 Gamepad 焦点导航增强
+- **`moveFocus2D` 最近行优先**：垂直导航时先按行过滤（1.5x 容差），避免跳过中间按钮直接跳到远处滑块
+- **`updateFocusContext` 污染清理**：过滤 toggle-switch 内部隐藏 checkbox、未展开的自定义下拉选项
+- **EQ 预设按钮 nowrap**：强制单行 + 横向滚动，消除 flex-wrap 换行导致的导航断裂
+
+### 🎨 默认蓝 → 水母蓝 + 全系玫瑰金统一
+- **`globals.js`**：`defaultColor` 初始值从 `#9ac8e2`（默认蓝）改为 `#e8b4b8`（玫瑰金）
+- **主题预设**：「默认蓝」更名为「水母蓝」，保留原色值
+- **`css/style.css` / `css/components.css`**：3 处 `#9ac8e2` 回退值更新为 `#e8b4b8`
+- **`gamepad-badge.pad-rs`**：从硬编码 `#9ac8e2` 改为 `var(--primary)` + `rgba(var(--primary-rgb),0.2)`，跟随主题色
+- **`pip.js`**：PiP 窗口内联样式备选色更新为 `#e8b4b8`
+
+### 🪟 WCO 封面取色适配
+- **`audio-core.js`**：`extractColor()` 成功后调用 `ThemeColor.update(currentAlbumColor)`，使 PWA 标题栏颜色跟随专辑封面主色调
+
+### 🆕 版本号更新
+- `v3.2.0` → `v3.2.1`
+
+## v3.2.0 (2026-07-06)
+
+### 🎨 全系主题色：玫瑰金
+- 所有 `#e8b84b`（琥珀金）引用替换为 `#e8b4b8`（玫瑰金）：CSS 变量、SVG 箭头、manifest theme_color
+- 注释中"琥珀金"统一改为"主题色自适应"或"玫瑰金"
+
+### 🪟 PWA Window Controls Overlay
+- **`manifest.json`**：追加 `display_override: ["window-controls-overlay"]`
+- **`css/wco.css`**（新建）：WCO 标题栏样式 + 拖拽区域 + 响应式
+- **`js/theme-color.js`**（新建）：动态管理 `<meta name="theme-color">`，跟随取色/深色模式
+- **`js/wco.js`**（新建）：WCO 几何监听 + 标题栏曲目更新 + 拖拽区域管理
+- **`index.html`**：添加 `meta theme-color`、WCO 标题栏 DOM、新文件引用
+- **`manifest.json`**：追加 display_override 声明
+- **`sw.js`**：缓存列表追加 `wco.css`、`theme-color.js`、`wco.js`
+
+### 🔙 Modal 访问栈 — B 键/Esc 逐级返回
+- **新数据结构** `_modalVisitStack`：记录弹窗打开顺序
+- **`handleGlobalClose()` 重写**：栈驱动版本，优先检查栈顶弹窗，关闭后 `_popModal` 恢复父层焦点
+- **7 处 `_pushModal` 入栈**：设置、播放列表、曲库、专辑详情、文件信息、统计、帮助
+- **`closeAllModals()` 追加 `_clearModalStack()`**：用户主动全关时清空栈
+- **`showAlbumDetail` 修复**：closeDetail 主动从栈中 pop 专辑详情条目，避免残留
+
+### 🆕 版本号更新
+- 全局版本统一：`v3.1.0` → `v3.2.0`（8 个 JS 文件 + index.html + sw.js + 新文件）
+
+## v3.1.0 (2026-07-06)
+
+### 🏗️ 设置页全面重构
+- **Tab 重新组织**：音频-外观-触觉-性能-高级，内容按功能域重新分布（音频=载入+EQ+速度+Crossfade+睡眠；外观=主题+背景+歌词；触觉=震动；性能=节能；高级=统计+调试+快捷键）
+- **快捷键指南改为按钮**：快捷键列表从内联表格改为"查看快捷键"按钮，点击调出帮助窗口
+- **Tab 栏手柄适配**：留足水平滚动空间，`scrollbar-width: thin` + 尾部留白 16px
+
+### 🎨 默认主题色：玫瑰金
+- CSS 变量 `--primary` 从 `#e8b84b`（琥珀金）改为 `#e8b4b8`（玫瑰金）
+- 主题预设列表中"玫瑰金"移至首位
+
+### ⏯ 长音频播放进度持久化
+- **记忆条件**：音频时长 > 15 分钟（900 秒）
+- **保存频率**：每 10 秒存一次 `localStorage`（键名 `MBolka_PlayPos_` + 文件名）
+- **恢复逻辑**：切歌时自动检测已保存进度，如进度在歌曲最后 5 秒内则从头播放
+- **自动清理**：无手动清理机制，由浏览器自然回收
+
+### 📜 VTT 字幕支持
+- **VTT 解析器** `parseVttText()`：提取时间轴 + 文本，输出与 LRC 一致的 `{time, text}` 结构
+- **自动发现**：`loader.js` 中 `.vtt` 文件与 `.lrc` 一同归入 `lrcMap`
+- **自动检测**：`loadLrc` 中检测 `WEBVTT` 头部，自动切换解析器
+- **渲染复用**：VTT 字幕使用与 LRC 完全相同的歌词渲染管线（`syncLyrics` / `lrc-line` 样式）
+
+### 🆕 版本号更新
+- 全局版本统一：`v3.0.2` → `v3.1.0`（11 个 JS 文件 + index.html + sw.js）
+
 ## v3.0.2 (2026-07-06)
 
 ### 🎮 手柄重映射 — 严格单功能

@@ -44,6 +44,10 @@ async function initApp() {
     // 🚀 v3.0.0: 网络状态侦听
     updateNetworkStatus();
 
+    // 🚀 v3.2.0: WCO 标题栏 + 动态 theme-color
+    if (typeof WCO !== 'undefined') WCO.init();
+    if (typeof ThemeColor !== 'undefined') ThemeColor.onDarkModeChange(cfg.darkMode);
+
     // 🚀 v3.0.1: 系统主题自动跟随
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
     if (!localStorage.getItem('MBolka_Cfg_v3') && !localStorage.getItem('MBolka_Cfg_v2')) {
@@ -193,6 +197,11 @@ async function initApp() {
             // 如果完全没有节能需求，恢复渲染
             if (!shouldBeEnergySaving() && analyser) {
                 requestAnimationFrame(renderVisLoop);
+            }
+
+            // 🩹 v3.2.3: 节能模式下恢复标签页时重新启动歌词降频定时器
+            if (shouldBeEnergySaving() && !lrcTimer) {
+                lrcTimer = setInterval(() => syncLyrics(true), 500);
             }
         }
     });

@@ -1,0 +1,52 @@
+/* ================= MBolka Player — WCO 标题栏样式 v3.2.0 ================= */
+
+.wco-titlebar {
+    position: fixed;
+    top: env(titlebar-area-y, 0);
+    left: env(titlebar-area-x, 0);
+    width: env(titlebar-area-width, 100%);
+    height: env(titlebar-area-height, 0);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 12px;
+    transition: background 0.6s var(--curve-smooth, cubic-bezier(0.22,1,0.36,1));
+    overflow: hidden;
+}
+.wco-drag-region {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    width: 100%;
+    -webkit-app-region: drag;
+    app-region: drag;
+}
+.wco-brand {
+    font-size: 14px;
+    color: var(--primary, #e8b4b8);
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+    app-region: drag;
+}
+.wco-track-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-main, #f2eee8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    -webkit-app-region: drag;
+    app-region: drag;
+}
+.wco-titlebar button,
+.wco-titlebar input,
+.wco-titlebar [role="button"] {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+}
+body.wco-active .player-wrapper {
+    padding-top: 0;
+}

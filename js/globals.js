@@ -18,28 +18,6 @@
  * - PWA 版本不展示安装按钮，检测到 PWA 运行时弹 toast 欢迎
  */
 
-// === Worker 内联定义 (Web Worker 解析元数据) ===
-const workerCode = `
-    self.onmessage = async function(e) {
-        const { files, index } = e.data;
-        const results = [];
-        const batch = files.slice(index, index + 10);
-        for (const file of batch) {
-            const meta = { title: file.name.replace(/\\.[^/.]+$/, ""), artist: "未知" };
-            results.push(meta);
-        }
-        self.postMessage({ results, batchSize: batch.length });
-    };
-`;
-const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
-const workerUrl = URL.createObjectURL(workerBlob);
-let metaWorker = null;
-
-function initWorker() {
-    if (metaWorker) return;
-    try { metaWorker = new Worker(workerUrl); } catch(e) { metaWorker = null; }
-}
-
 // === 核心状态与全局变量 ===
 const audio = new Audio(); audio.crossOrigin = "anonymous";
 let audioCtx, analyser, source, dataArray;
@@ -196,7 +174,7 @@ let frameEnergySaving = false;     // 🎬 画面节能：仅降至30fps
 // 偏好配置
 let cfg = {
     colorMode: false, customBgImg: null, customBgColor: null, blurAmt: 40,
-    defaultColor: '#9ac8e2', darkMode: false, lrcFontSize: 18, lrcLineHeight: 2.2,
+    defaultColor: '#e8b4b8', darkMode: false, lrcFontSize: 18, lrcLineHeight: 2.2,
     lrcAlign: 'center', themePreset: null,
     // 🚀 v2.8.2: 节能配置重构
     oneClickEnergyEnabled: false,   // 一键节能开关状态
@@ -234,7 +212,8 @@ let playStats = {};
 
 // === 预设主题色 ===
 const themePresets = [
-    { name: '默认蓝', color: '#9ac8e2' },
+    { name: '玫瑰金', color: '#e8b4b8' },
+    { name: '水母蓝', color: '#9ac8e2' },
     { name: '赛博朋克', color: '#ff00ff' },
     { name: '暖阳', color: '#ff8c42' },
     { name: '极光', color: '#00e5a0' },
@@ -243,7 +222,6 @@ const themePresets = [
     { name: '深海', color: '#00b4d8' },
     { name: '日落', color: '#ff6b35' },
     { name: '薄荷', color: '#48cae4' },
-    { name: '玫瑰金', color: '#e8b4b8' },
 ];
 
 // === DOM 引用映射 ===

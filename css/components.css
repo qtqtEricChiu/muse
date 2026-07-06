@@ -4,10 +4,11 @@
 .eq-band label { width: 60px; font-size: 12px; color: var(--text-sub); text-align: right; flex-shrink: 0; }
 .eq-band input { flex: 1; }
 .eq-band .eq-val { width: 40px; font-size: 12px; color: var(--primary); text-align: right; flex-shrink: 0; }
-.eq-preset-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.eq-preset-btns { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; margin-bottom: 12px; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
 .eq-preset-btn {
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main);
     padding: 6px 14px; border-radius: 10px; cursor: pointer; font-size: 12px; transition: 0.3s;
+    flex-shrink: 0; white-space: nowrap;
 }
 .eq-preset-btn:hover { border-color: var(--primary); background: rgba(255,255,255,0.12); }
 .eq-preset-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
@@ -118,7 +119,7 @@
     height: 3px; background: rgba(255,255,255,0.1);
 }
 .pip-progress-fill {
-    height: 100%; background: var(--primary, #9ac8e2);
+    height: 100%; background: var(--primary, #e8b4b8);
     transition: width 0.3s linear; border-radius: 0 2px 2px 0;
     box-shadow: 0 0 8px rgba(154,200,226,0.4);
 }
@@ -155,7 +156,7 @@
 .gamepad-badge.pad-rb { border-radius: 4px; width: 22px; }
 
 .gamepad-badge.pad-dpad { background: rgba(255,255,255,0.12); color: #aaa; }
-.gamepad-badge.pad-rs { background: rgba(154,200,226,0.2); color: #9ac8e2; }
+.gamepad-badge.pad-rs { background: rgba(var(--primary-rgb),0.2); color: var(--primary); }
 
 /* 🚀 v3.0.2: 频谱容器内的 badge 避免 overflow:hidden 裁切 */
 .vis-canvas-container .gamepad-badge { top: 4px; right: 4px; }

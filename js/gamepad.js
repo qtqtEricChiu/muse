@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Gamepad & Input v3.0.2
+ * MBolka Player - Gamepad & Input v3.2.0
  * 2D focus navigation, keyboard/touch mappings, gamepad polling
  */
 
@@ -10,10 +10,65 @@ let _seekLastTime = 0;
 let _rightStickLastTime = 0;
 let _rightStickScrollTime = 0;
 let _lrcBlurRestoreTimer = null;
+let _rsFocusTimer = null;       // 🚀 v3.2.2: 右摇杆焦点延迟吸附
+let _rsLastScrollTime = 0;
+let _rsAccelStartTime = 0;       // 🚀 v3.3.0: 右摇杆加速度计时起点
+let _cfAccelStartTime = 0;       // 🚀 v3.3.4: 曲库 coverflow 左摇杆横向滚动加速度计时起点
+
+// 🩹 v3.2.3 P0: 惰性缓存 scrollable 引用，避免每帧 querySelectorAll 触发 reflow
+let _cachedScrollable = null;
+let _scrollableTimestamp = 0;
+
+function invalidateScrollableCache() {
+    _cachedScrollable = null;
+    _scrollableTimestamp = 0;
+}
+
+function getActiveScrollable() {
+    const now = Date.now();
+    if (_cachedScrollable && (now - _scrollableTimestamp < 500)) return _cachedScrollable;
+    const openModals = document.querySelectorAll('.modal-overlay.open');
+    const topModal = openModals[openModals.length - 1];
+    if (topModal) {
+        // 🚀 v3.3.4: 网格模式（按艺术家/最近添加）下让右摇杆滚动曲库；coverflow 自行管理，不介入
+        const clGrid = topModal.querySelector('#coverLibGrid');
+        const cfMode = (typeof isCoverflowMode === 'function') ? isCoverflowMode() : true;
+        if (clGrid && topModal.id === 'coverLibraryModal' && !cfMode) {
+            _cachedScrollable = clGrid;
+        } else {
+            _cachedScrollable = topModal.querySelector('.settings-body')
+                || topModal.querySelector('#playlistContainer')
+                || topModal.querySelector('#albumDetailTracks')
+                || topModal.querySelector('.album-detail-panel')
+                || topModal.querySelector('.modal-content');
+        }
+    }
+    // 🩹 v3.2.3: 回退检查专辑详情 overlay（仅当真正打开时，避免常驻 DOM 误判成滚动目标 → 歌词右摇杆滚动失效）
+    if (!_cachedScrollable) {
+        const albumDetail = document.querySelector('#albumDetailOverlay.open .album-detail-panel')
+            || document.querySelector('#albumDetailOverlay.open');
+        if (albumDetail) _cachedScrollable = albumDetail;
+    }
+    _scrollableTimestamp = now;
+    return _cachedScrollable;
+}
 
 const updateFocusContext = () => {
+    // 🩹 v3.2.3 P0: modal 开/关时失效化 scrollable 缓存
+    if (typeof invalidateScrollableCache === 'function') invalidateScrollableCache();
+
     focusableElements.forEach(el => el.classList.remove('gamepad-focus'));
     currentFocusIndex = -1;
+
+    // 🩹 v3.2.3: 专辑详情面板 — 使用正确选择器（动态 overlay 携带 .open 类）
+    const albumDetailOverlay = document.querySelector('#albumDetailOverlay.open');
+    if (albumDetailOverlay) {
+        focusableElements = Array.from(albumDetailOverlay.querySelectorAll('.focusable, button, [tabindex="0"]'));
+        if (focusableElements.length > 0) {
+            if (currentFocusIndex >= focusableElements.length || currentFocusIndex === -1) setFocus(0);
+        }
+        return;
+    }
 
     // 🚀 v2.8.4: 按 z-index 优先级检测最上层浮窗
     const allModals = Array.from(document.querySelectorAll('.modal-overlay'));
@@ -28,8 +83,7 @@ const updateFocusContext = () => {
     // 获取最上层浮窗
     const topModal = activeModals[0];
 
-    // 🚀 核心：检测动态生成的专辑详情面板与静态曲库弹窗
-    const albumDetailPanel = document.querySelector('.album-detail-panel');
+    // 🚀 核心：检测静态曲库弹窗
     const coverLibModal = document.getElementById('coverLibraryModal');
 
     if (topModal) {
@@ -40,18 +94,40 @@ const updateFocusContext = () => {
             const globalSel = '.settings-tab-bar .focusable, .settings-tab-bar button, .settings-tab-bar input, .settings-tab-bar select, .modal-header .focusable, .modal-header button, .settings-footer .focusable';
             const globalCtrls = Array.from(topModal.querySelectorAll(globalSel));
             if (activePanel) {
-                const panelFocus = Array.from(activePanel.querySelectorAll('.focusable, button, input[type="range"], input[type="checkbox"], select, [tabindex="0"]'));
+                let panelFocus = Array.from(activePanel.querySelectorAll('.focusable, button, input[type="range"], input[type="checkbox"], select, [tabindex="0"]'));
+                // 🚀 v3.2.1: 过滤隐藏/冗余元素
+                panelFocus = panelFocus.filter(el => {
+                    if (el.tagName === 'INPUT' && el.type === 'checkbox' && el.closest('.toggle-switch')) return false;
+                    const dropdown = el.closest('.custom-select-dropdown');
+                    if (dropdown) {
+                        const wrap = dropdown.closest('.custom-select-wrap');
+                        if (wrap && !wrap.classList.contains('open')) return false;
+                    }
+                    const style = getComputedStyle(el);
+                    if (style.display === 'none' || style.visibility === 'hidden') return false;
+                    return true;
+                });
                 focusableElements = [...globalCtrls, ...panelFocus];
             } else {
                 focusableElements = globalCtrls;
             }
         } else if (topModal.id === 'playlistModal') {
-            const container = currentViewMode === 'coverwall' ? el.coverWallContainer : el.plContainer;
-            const modalFocus = Array.from(topModal.querySelectorAll('.focusable, input[type="text"], button'));
-            const listFocus = Array.from(container.querySelectorAll('.focusable'));
-            focusableElements = [...modalFocus, ...listFocus];
+            const container = el.plContainer;
+            const headerEls = Array.from(topModal.querySelectorAll('.modal-header .focusable, .modal-header button, .playlist-tab-bar .focusable, .playlist-tab-bar button, .search-container .focusable, .search-container button'));
+            const listEls = container ? Array.from(container.querySelectorAll('.focusable, button, [tabindex="0"]')) : [];
+            // 🩹 v3.2.3: 列表项在前，header 在后。上翻时优先回到列表顶部
+            focusableElements = [...listEls, ...headerEls];
         } else if (topModal.id === 'coverLibraryModal') {
-            focusableElements = Array.from(topModal.querySelectorAll('.focusable, .tab-button, .album-card'));
+            const headerEls = Array.from(topModal.querySelectorAll('.modal-header .focusable, .modal-header button, .cover-lib-tabs .focusable, .cover-lib-tabs button, .search-container .focusable'));
+            const cfMode = (typeof isCoverflowMode === 'function') ? isCoverflowMode() : true;
+            if (cfMode) {
+                // 🚀 v3.3.3: coverflow 模式 —— 居中即焦点，网格卡片不纳入焦点系统（避免随滑动逐个跳变）
+                focusableElements = [...headerEls];
+            } else {
+                // 🚀 v3.3.4: 网格模式（按艺术家/最近添加）—— 卡片纳入 2D 导航
+                const gridCards = Array.from(topModal.querySelectorAll('#coverLibGrid .cover-lib-card.focusable'));
+                focusableElements = [...headerEls, ...gridCards];
+            }
         } else {
             // 其它浮窗：通用 .focusable 查询
             focusableElements = Array.from(topModal.querySelectorAll('.focusable'));
@@ -61,9 +137,9 @@ const updateFocusContext = () => {
         if (focusableElements.length === 0 && topModal.querySelector('.modal-content')) {
             focusableElements = [topModal.querySelector('.modal-content')];
         }
-    } else if (albumDetailPanel) {
+    } else if (document.querySelector('.album-detail-panel')) {
         // 如果专辑详情打开，焦点锁定在详情内的按钮和歌曲行上
-        focusableElements = Array.from(albumDetailPanel.querySelectorAll('.focusable'));
+        focusableElements = Array.from(document.querySelector('.album-detail-panel').querySelectorAll('.focusable'));
     } else if (coverLibModal && coverLibModal.classList.contains('open')) {
         // 如果曲库打开，焦点锁定在 Tab 按钮和专辑卡片上
         focusableElements = Array.from(coverLibModal.querySelectorAll('.focusable'));
@@ -74,10 +150,9 @@ const updateFocusContext = () => {
     } else if (el.settingsModal.classList.contains('open')) {
         focusableElements = Array.from(el.settingsModal.querySelectorAll('.focusable'));
     } else if (el.playlistModal.classList.contains('open')) {
-        const container = currentViewMode === 'coverwall' ? el.coverWallContainer : el.plContainer;
         const modalFocus = Array.from(el.playlistModal.querySelectorAll('.focusable'));
-        const listFocus = Array.from(container.querySelectorAll('.focusable'));
-        focusableElements = [...modalFocus, ...listFocus];
+        const listFocus = Array.from(el.plContainer.querySelectorAll('.focusable'));
+        focusableElements = [...listFocus, ...modalFocus];
     } else if (isImmersiveMode) {
         focusableElements = Array.from(el.viewImm.querySelectorAll('.focusable'));
     } else {
@@ -85,14 +160,32 @@ const updateFocusContext = () => {
     }
 };
 
-// 🚀 升级为智能 2D 空间导航系统
+// 🚀 v3.2.1: 最近行/列优先 2D 导航
+// 🩹 v3.2.3: 列表向上导航时优先滚动到列表顶部再跳到金刚区
+const _scrollableContainers = '.playlist-items, #coverLibGrid, #playlistContainer, .settings-body, .album-detail-tracks';
+
 const moveFocus2D = (dir) => {
     if (focusableElements.length === 0) return;
     
-    // 如果当前没有任何焦点，默认激活第一个
     if (currentFocusIndex === -1) {
         setFocus(0);
         return;
+    }
+
+    // 🩹 v3.2.3: 向上导航时检测：如果当前元素在可滚动容器内且容器未到顶部，先滚动
+    if (dir === 'up') {
+        const container = focusableElements[currentFocusIndex]?.closest(_scrollableContainers);
+        if (container && container.scrollTop > 0) {
+            // 检查当前元素是否在容器可见区域顶部附近
+            const cr = container.getBoundingClientRect();
+            const er = focusableElements[currentFocusIndex].getBoundingClientRect();
+            const distFromTop = er.top - cr.top;
+            if (distFromTop <= 60) {
+                // 当前元素已经在可视区顶部 → 滚动容器向上
+                container.scrollTop -= 80;
+                return;
+            }
+        }
     }
 
     const currentEl = focusableElements[currentFocusIndex];
@@ -100,78 +193,89 @@ const moveFocus2D = (dir) => {
     const curX = currentRect.left + currentRect.width / 2;
     const curY = currentRect.top + currentRect.height / 2;
 
-    let bestTargetIdx = -1;
-    let minScore = Infinity;
-
+    // 第一阶段：筛选候选
+    const candidates = [];
     focusableElements.forEach((targetEl, idx) => {
         if (idx === currentFocusIndex) return;
-
         const targetRect = targetEl.getBoundingClientRect();
-
-        // 🩹 v2.8.8: 跳过不可见元素（size=0 或 display:none）
         if (targetRect.width === 0 || targetRect.height === 0) return;
-
         const tarX = targetRect.left + targetRect.width / 2;
         const tarY = targetRect.top + targetRect.height / 2;
-
         const dx = tarX - curX;
         const dy = tarY - curY;
-
-        // 过滤绝对不符合方向要求的元素（比如按"右"时，过滤掉所有在左边的元素）
         let isOpposite = false;
+        const DEAD = 30; // 🚀 v3.3.4: 同排/同列死区，导航方向须与当前元素明显错开，避免卡在 header 同一排（下不去卡片网格）
         switch(dir) {
-            case 'left': if (dx >= 0) isOpposite = true; break;
-            case 'right': if (dx <= 0) isOpposite = true; break;
-            case 'up': if (dy >= 0) isOpposite = true; break;
-            case 'down': if (dy <= 0) isOpposite = true; break;
+            case 'left':  if (dx >= -DEAD) isOpposite = true; break;   // 排除同列（dx≈0）元素
+            case 'right': if (dx <= DEAD) isOpposite = true; break;    // 排除同列
+            case 'up':    if (dy >= -DEAD) isOpposite = true; break;   // 排除同排
+            case 'down':  if (dy <= DEAD) isOpposite = true; break;    // 排除同排（header 陷阱）
         }
         if (isOpposite) return;
-
-        // 🩹 v2.8.8: 增强二维加权评分 + 可见性惩罚 + 元素大小奖励
-        let score = 0;
-        if (dir === 'left' || dir === 'right') {
-            score = Math.abs(dx) + Math.abs(dy) * 2.5;
-        } else {
-            score = Math.abs(dy) + Math.abs(dx) * 2.5;
-        }
-
-        // 🩹 视口外惩罚：目标元素在视口外 → 大幅增加评分，基本排除
-        const viewH = window.innerHeight;
-        const viewW = window.innerWidth;
-        if (targetRect.top < 0 || targetRect.bottom > viewH ||
-            targetRect.left < 0 || targetRect.right > viewW) {
-            score += 10000;
-        }
-
-        // 🩹 元素大小奖励：优先导航到更大的交互元素（按钮 > 标签）
-        const area = targetRect.width * targetRect.height;
-        score -= Math.log(area) * 0.5;
-
-        if (score < minScore) {
-            minScore = score;
-            bestTargetIdx = idx;
-        }
+        candidates.push({ idx, dx, dy, targetRect });
     });
 
-    if (bestTargetIdx !== -1) {
-        setFocus(bestTargetIdx);
+    if (candidates.length === 0) return;
+
+    // 第二阶段：最近行/列优先（避免跳过中间按钮跳到远处滑块）
+    let pool;
+    if (dir === 'up' || dir === 'down') {
+        const minAbsDy = Math.min(...candidates.map(c => Math.abs(c.dy)));
+        const bandCandidates = candidates.filter(c => Math.abs(c.dy) <= minAbsDy * 1.5);
+        pool = bandCandidates.length > 0 ? bandCandidates : candidates;
+    } else {
+        const minAbsDx = Math.min(...candidates.map(c => Math.abs(c.dx)));
+        const bandCandidates = candidates.filter(c => Math.abs(c.dx) <= minAbsDx * 1.5);
+        pool = bandCandidates.length > 0 ? bandCandidates : candidates;
     }
+
+    // 第三阶段：评分
+    let bestTargetIdx = -1;
+    let minScore = Infinity;
+    pool.forEach(c => {
+        let score;
+        if (dir === 'left' || dir === 'right') {
+            score = Math.abs(c.dx) + Math.abs(c.dy) * 2.5;
+        } else {
+            score = Math.abs(c.dy) + Math.abs(c.dx) * 2.5;
+        }
+        const viewH = window.innerHeight;
+        const viewW = window.innerWidth;
+        if (c.targetRect.top < 0 || c.targetRect.bottom > viewH ||
+            c.targetRect.left < 0 || c.targetRect.right > viewW) {
+            score += 10000;
+        }
+        const area = c.targetRect.width * c.targetRect.height;
+        score -= Math.log(area) * 0.5;
+        // 🚀 v3.2.2: 同容器奖励 — 垂直导航时优先留在当前滚动容器内
+        const currentContainer = currentEl.closest(_scrollableContainers);
+        const targetEl = focusableElements[c.idx];
+        if (currentContainer && targetEl && targetEl.closest(_scrollableContainers) === currentContainer) {
+            score -= 80;
+        }
+        if (score < minScore) { minScore = score; bestTargetIdx = c.idx; }
+    });
+
+    if (bestTargetIdx !== -1) setFocus(bestTargetIdx);
 };
 
 // 辅助设置聚焦函数，带滚动条视口自动跟随
-function setFocus(idx) {
+function setFocus(idx, skipScroll) {
     if (currentFocusIndex >= 0 && focusableElements[currentFocusIndex]) {
         focusableElements[currentFocusIndex].classList.remove('gamepad-focus');
     }
     currentFocusIndex = idx;
     const target = focusableElements[currentFocusIndex];
     target.classList.add('gamepad-focus');
-    
-    // 🚀 让滚轮自动平滑跟随焦点，防止焦点卡到屏幕外面
-    if (target.scrollIntoViewIfNeeded) {
-        target.scrollIntoViewIfNeeded(false);
-    } else {
-        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    // 🚀 v3.3.3: 曲库已取消卡片焦点，不再由 setFocus 反向驱动 coverflow 居中的切换
+    // 在 coverflow 中由 updateCoverflow 负责居中滚动，跳过 setFocus 自带的 scrollIntoView
+    if (!skipScroll) {
+        if (target.scrollIntoViewIfNeeded) {
+            target.scrollIntoViewIfNeeded(false);
+        } else {
+            target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
     }
 }
 
@@ -181,7 +285,29 @@ const moveFocus = (direction) => {
     else moveFocus2D('up');
 };
 
+// 🚀 v3.3.4: 横向导航 —— coverflow 模式左右切换居中唱片；网格模式走 2D 导航
+const coverLibNav = (dir) => {
+    const clModal = document.getElementById('coverLibraryModal');
+    const clOpen = clModal && clModal.classList.contains('open');
+    const cfMode = (typeof isCoverflowMode === 'function') ? isCoverflowMode() : true;
+    if (clOpen && cfMode && typeof coverLibMoveCenter === 'function') {
+        coverLibMoveCenter(dir === 'left' ? -1 : 1);
+    } else {
+        moveFocus2D(dir);
+    }
+};
+
 const activateFocus = () => {
+    // 🚀 v3.3.4: 曲库 coverflow(按专辑) 模式 —— A/Enter 始终作用于居中唱片（居中即焦点）；
+    //           Tab/搜索/关闭分别由 LB·RB / Y / B 接管，不再让 A 误触头部按钮（避免"回到开头"）
+    const clModal = document.getElementById('coverLibraryModal');
+    const cfMode = (typeof isCoverflowMode === 'function') ? isCoverflowMode() : true;
+    // 🩹 v3.3.4: 层级关系 —— 专辑详情打开时 A 键作用于详情曲目，而非上一级 coverflow 居中卡
+    const albumDetailOpen = !!document.querySelector('#albumDetailOverlay.open');
+    if (clModal && clModal.classList.contains('open') && cfMode && !albumDetailOpen) {
+        const centerCard = (typeof getCoverLibCenterCard === 'function') ? getCoverLibCenterCard() : null;
+        if (centerCard) { centerCard.click(); return; }
+    }
     if (currentFocusIndex >= 0 && focusableElements[currentFocusIndex]) {
         // 🔧 v2.8.1 P3: 增强手柄确认逻辑，处理更多元素类型
         const focused = focusableElements[currentFocusIndex];
@@ -224,8 +350,8 @@ window.addEventListener('keydown', (e) => {
         // 🚀 WASD与方向键全面升级为2D空间导航
         case 'w': case 'arrowup': e.preventDefault(); moveFocus2D('up'); break;
         case 's': case 'arrowdown': e.preventDefault(); moveFocus2D('down'); break;
-        case 'a': case 'arrowleft': e.preventDefault(); moveFocus2D('left'); break;
-        case 'd': case 'arrowright': e.preventDefault(); moveFocus2D('right'); break;
+        case 'a': case 'arrowleft': e.preventDefault(); coverLibNav('left'); break;
+        case 'd': case 'arrowright': e.preventDefault(); coverLibNav('right'); break;
 
         case 'j': audio.currentTime -= 10; break;
         case 'k': audio.currentTime += 10; break;
@@ -241,8 +367,10 @@ window.addEventListener('keydown', (e) => {
         case 'p':
             closeAllModals();
             el.playlistModal.classList.add('open');
+            if (typeof _pushModal === 'function') _pushModal('playlistModal', null); // 🩹 v3.3.4: 推栈，确保 B 键逐级返回
             currentViewMode = 'list';
             renderPlaylist();
+            if (typeof initPlaylistTabBar === 'function') initPlaylistTabBar();
             break;
         // 🚀 v2.8: / 聚焦播放列表搜索框
         case '/':
@@ -258,6 +386,7 @@ window.addEventListener('keydown', (e) => {
         case '?':
             e.preventDefault();
             closeAllModals();
+            if (typeof _pushModal === 'function') _pushModal('helpModal', null);
             el.helpModal.classList.add('open');
             updateFocusContext();
             break;
@@ -334,7 +463,7 @@ function injectGamepadHints() {
         { id: 'btnFavQuick',     tag: 'Ⓨ',    cls: 'pad-y',  tip: '收藏 (Y)' },
         { id: 'btnToggleLrc',    tag: 'RS↕',  cls: 'pad-rs', tip: '右摇杆上下=滚动歌词' },
         { id: 'btnEnterImmersive', tag: '↓',  cls: 'pad-dpad', tip: '沉浸舱 (十字键↓)' },
-        { id: 'btnExitImmersive',  tag: 'ⓑ',  cls: 'pad-b',    tip: '返回 (B)' },
+        { id: 'btnExitImmersive',  tag: '↓',  cls: 'pad-dpad', tip: '退出沉浸 (十字键↓)' },
         { id: 'btnToggleList',   tag: '←',    cls: 'pad-dpad', tip: '播放列表 (十字键←)' },
         { id: 'btnCoverLibrary', tag: '→',    cls: 'pad-dpad', tip: '曲库 (十字键→)' },
     ];
@@ -348,7 +477,7 @@ function injectGamepadHints() {
         badge.title = h.tip;
         el.appendChild(badge);
     });
-    // 关闭按钮统一标注 B 键
+    // 🩹 v3.2.3: 关闭按钮统一标注 B 键（浮动 badge，不修改按钮文本）
     ['btnCloseSettings','btnCloseCoverLib','btnCloseList','btnCloseStats',
      'btnCloseAlbumDetail','btnCloseFileInfo','btnCloseHelp'].forEach(id => {
         const btn = document.getElementById(id);
@@ -361,6 +490,16 @@ function injectGamepadHints() {
             btn.appendChild(b);
         }
     });
+    // 🩹 v3.2.3: 退出沉浸舱 badge
+    const immExitBtn = document.getElementById('btnExitImmersive');
+    if (immExitBtn && !immExitBtn.querySelector('.gamepad-badge')) {
+        immExitBtn.style.position = 'relative';
+        const b = document.createElement('span');
+        b.className = 'gamepad-badge pad-b';
+        b.textContent = 'ⓑ';
+        b.title = '关闭/返回 (B/Esc)';
+        immExitBtn.appendChild(b);
+    }
 }
 
 // 🚀 v3.0.2: 右摇杆滚动歌词时清除高斯模糊
@@ -401,10 +540,12 @@ let sliderFineMode = false;
 let currentSlider = null;
 
 const pollGamepad = () => {
-    if (!gamepadConnected) { requestAnimationFrame(pollGamepad); return; }
-    const pad = navigator.getGamepads()[0];
-    if (pad) {
-        const btns = pad.buttons.map(b => b.pressed);
+    let pad = null, btns = [];
+    try {
+        if (!gamepadConnected) return;
+        pad = navigator.getGamepads()[0];
+        if (pad) {
+            btns = pad.buttons.map(b => b.pressed);
 
         // --- B 键（button 1）：最高优先级 — 全域退出/关闭 ---
         if (btns[1] && !prevPadBtns[1]) {
@@ -418,6 +559,7 @@ const pollGamepad = () => {
                 return;
             }
             const closed = handleGlobalClose();
+            if (closed && typeof updateFocusContext === 'function') updateFocusContext(); // 🩹 v3.3.4: 关闭后恢复主界面焦点
             if (!closed && isImmersiveMode) {
                 toggleImmersiveMode();
             }
@@ -479,13 +621,24 @@ const pollGamepad = () => {
         // 🚀 v3.0.2: X=播放暂停 / Y=收藏（单功能，无长按/双击）
         if (btns[2] && !prevPadBtns[2]) togglePlay();
         if (btns[3] && !prevPadBtns[3]) {
-            if (currentIndex >= 0) toggleFavorite(currentIndex);
+            // 🩹 v3.2.4: 曲库打开时 Y 键聚焦搜索框
+            const coverLib = document.getElementById('coverLibraryModal');
+            if (coverLib && coverLib.classList.contains('open') && !document.querySelector('#albumDetailOverlay.open')) {
+                const search = coverLib.querySelector('#coverLibSearch');
+                if (search) { search.focus(); search.select(); }
+            } else if (currentIndex >= 0) {
+                toggleFavorite(currentIndex);
+            }
         }
 
-        // 🚀 v3.0.2: LB/RB — 设置内切Tab，否则切歌
+        // 🚀 v3.2.2: LB/RB — 设置/播放列表/曲库内切Tab，否则切歌
         if (btns[4] && !prevPadBtns[4]) {
             if (el.settingsModal.classList.contains('open')) {
                 switchSettingsTab(-1);
+            } else if (el.playlistModal.classList.contains('open')) {
+                switchPlaylistTab(-1);
+            } else if (document.getElementById('coverLibraryModal')?.classList.contains('open') && !document.querySelector('#albumDetailOverlay.open')) {
+                switchCoverLibTab(-1);
             } else {
                 goPrev();
             }
@@ -493,6 +646,10 @@ const pollGamepad = () => {
         if (btns[5] && !prevPadBtns[5]) {
             if (el.settingsModal.classList.contains('open')) {
                 switchSettingsTab(1);
+            } else if (el.playlistModal.classList.contains('open')) {
+                switchPlaylistTab(1);
+            } else if (document.getElementById('coverLibraryModal')?.classList.contains('open') && !document.querySelector('#albumDetailOverlay.open')) {
+                switchCoverLibTab(1);
             } else {
                 goNext();
             }
@@ -522,6 +679,7 @@ const pollGamepad = () => {
         if (btns[10] && !prevPadBtns[10]) toggleFocusMode();
         if (btns[11] && !prevPadBtns[11]) {
             closeAllModals();
+            if (typeof _pushModal === 'function') _pushModal('helpModal', null);
             el.helpModal.classList.add('open');
             updateFocusContext();
         }
@@ -532,22 +690,78 @@ const pollGamepad = () => {
         if (btns[14] && !prevPadBtns[14]) {                             // ← 播放列表
             closeAllModals();
             el.playlistModal.classList.add('open');
+            if (typeof _pushModal === 'function') _pushModal('playlistModal', null); // 🩹 v3.3.4: 推栈，确保 B 键逐级返回
             currentViewMode = 'list';
             renderPlaylist();
+            if (typeof initPlaylistTabBar === 'function') initPlaylistTabBar(); // 🩹 v3.2.3
             updateFocusContext();
         }
         if (btns[15] && !prevPadBtns[15]) { showCoverLibrary(); }       // → 曲库
 
-        // 左摇杆导航（保持不变）
+        // 左摇杆导航
         let stickX = pad.axes[0], stickY = pad.axes[1];
-        if (Date.now() - lastNavTime > 200) {
+        const clModal = document.getElementById('coverLibraryModal');
+        const clOpen = clModal && clModal.classList.contains('open');
+        const cfMode = (typeof isCoverflowMode === 'function') ? isCoverflowMode() : true;
+        // 🩹 v3.3.4: 层级关系 —— 专辑详情打开时曲库手柄逻辑应暂停，左摇杆不再控上一级 coverflow
+        const albumDetailOpen = !!document.querySelector('#albumDetailOverlay.open');
+        if (clOpen && cfMode && !albumDetailOpen) {
+            // 🚀 v3.3.4: coverflow(按专辑) 模式 —— 左右=逐帧连续横向滚动 + 加速度（解决原 ±1 离散跳变的低帧率感）
+            //   🩹 修复：coverflow grid 带 scroll-snap + smooth，小幅增量会被吸附/平滑动画抵消 → 完全不滚动。
+            //           故滚动期间临时关闭 snap/smooth，并用 _clScrollSuppressUntil 抑制 onCoverflowScroll 回环；
+            //           松手时把"视觉中心卡"定为新 center 并即时恢复 3D 景深。
+            if (Math.abs(stickX) > 0.2) {
+                const grid = clModal.querySelector('#coverLibGrid');
+                if (grid) {
+                    grid.style.scrollSnapType = 'none';   // 关闭吸附，确保增量即时生效
+                    grid.style.scrollBehavior = 'auto';   // 关闭平滑，避免动画抵消
+                    const now = Date.now();
+                    if (_cfAccelStartTime === 0) _cfAccelStartTime = now;
+                    const elapsed = now - _cfAccelStartTime;
+                    const mag = Math.abs(stickX);
+                    const speed = (4 + mag * 14) * Math.min(1 + elapsed / 700, 5); // 持续拨动越久越快，上限5倍
+                    grid.scrollLeft += stickX * speed;   // 左推 stickX<0 → scrollLeft 减小（往前）；右推 → 往后
+                    _clScrollSuppressUntil = now + 800;  // 抑制 onCoverflowScroll 的回拉重算，避免 scroll 事件回环
+                    if (typeof enterCoverflowFlat === 'function') enterCoverflowFlat(); // 滚动时全部清晰
+                }
+            } else {
+                // 松手 —— 恢复吸附/平滑，定格当前视觉中心卡为新 center 并恢复 3D
+                _cfAccelStartTime = 0;
+                const grid = clModal.querySelector('#coverLibGrid');
+                if (grid) {
+                    grid.style.scrollSnapType = '';
+                    grid.style.scrollBehavior = '';
+                    const cards = grid.querySelectorAll('.cover-lib-card');
+                    if (cards.length) {
+                        const mid = grid.scrollLeft + grid.clientWidth / 2;
+                        let best = 0, bestD = Infinity;
+                        cards.forEach((c, i) => {
+                            const cm = c.offsetLeft + c.offsetWidth / 2;
+                            const d = Math.abs(cm - mid);
+                            if (d < bestD) { bestD = d; best = i; }
+                        });
+                        if (best !== coverLibCenter) coverLibCenter = best;
+                        clearTimeout(_coverflowFlatTimer);   // 取消 enterCoverflowFlat 的 350ms 恢复定时器，避免拉回旧 center
+                        _coverflowIsFlat = false;
+                        _clScrollSuppressUntil = Date.now() + 800;
+                        if (typeof updateCoverflow === 'function') updateCoverflow(); // 居中到新 center 并恢复景深
+                    }
+                }
+            }
+            // 上下仍用于跳到 Tab/头部（2D 导航，保留节流）
+            if (Date.now() - lastNavTime > 200 && !(btns[6] && btns[7])) {
+                if (stickY < -0.5) { moveFocus2D('up'); lastNavTime = Date.now(); }
+                else if (stickY > 0.5) { moveFocus2D('down'); lastNavTime = Date.now(); }
+            }
+        } else if (Date.now() - lastNavTime > 200 && !(btns[6] && btns[7])) {
+            // 网格模式 / 其它浮窗 —— 2D 导航（含网格卡片左右/上下漫游）
             if (stickY < -0.5) { moveFocus2D('up'); lastNavTime = Date.now(); }
             else if (stickY > 0.5) { moveFocus2D('down'); lastNavTime = Date.now(); }
             else if (stickX < -0.5) { moveFocus2D('left'); lastNavTime = Date.now(); }
             else if (stickX > 0.5) { moveFocus2D('right'); lastNavTime = Date.now(); }
         }
 
-        // 🚀 v3.0.2: 右摇杆 — 水平=音量, 垂直=滚动歌词/子页面
+        // 🚀 v3.2.2: 右摇杆 — 水平=音量, 垂直=滚动+延迟焦点吸附
         const rightStickX = pad.axes[2] || 0;
         const rightStickY = pad.axes[3] || 0;
         if (Date.now() - _rightStickLastTime > 150) {
@@ -557,36 +771,55 @@ const pollGamepad = () => {
                 _rightStickLastTime = Date.now();
             }
         }
-        if (Date.now() - _rightStickScrollTime > 100) {
-            if (Math.abs(rightStickY) > 0.3) {
-                const scrollAmount = rightStickY > 0 ? 40 : -40;
-                const openModals = document.querySelectorAll('.modal-overlay.open');
-                if (openModals.length > 0) {
-                    const topModal = openModals[openModals.length - 1];
-                    const scrollTarget = topModal.querySelector('.modal-content') || topModal;
-                    scrollTarget.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                    setTimeout(() => {
-                        updateFocusContext();
-                        // 聚焦滚动容器内左上角最近的元素
-                        const scRect = scrollTarget.getBoundingClientRect();
-                        const scX = scRect.left, scY = scRect.top;
-                        let bestIdx = -1, bestDist = Infinity;
-                        focusableElements.forEach((el, i) => {
-                            const r = el.getBoundingClientRect();
-                            if (r.bottom < scRect.top || r.top > scRect.bottom) return; // 不在可视区
-                            const ox = r.left - scX, oy = r.top - scY;
-                            const dist = Math.abs(ox) * 0.5 + Math.abs(oy); // 水平权重减半
-                            if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-                        });
-                        if (bestIdx >= 0) setFocus(bestIdx);
-                        else if (focusableElements.length > 0) setFocus(0);
-                    }, 150);
-                } else if (el.lrcPanel.style.display !== 'none') {
-                    el.lrcView.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                    _lrcScrollBlurClear();
-                }
-                _rightStickScrollTime = Date.now();
+        // 🚀 v3.3.4: 右摇杆垂直滚动（页面 + 歌词），全程带加速度（拨动越久越快）
+        if (Math.abs(rightStickY) > 0.2) {
+            const now = Date.now();
+            if (_rsAccelStartTime === 0) _rsAccelStartTime = now;
+            const elapsed = now - _rsAccelStartTime;
+            const mag = Math.abs(rightStickY);
+            const speed = (4 + mag * 12) * Math.min(1 + elapsed / 700, 5); // 基础随幅度，持续拨动最多5倍速
+            // 目标：优先当前打开浮窗的滚动容器；无浮窗且歌词可见则滚动歌词
+            const topModalOpen = document.querySelector('.modal-overlay.open');
+            let rsTarget = null, isLrc = false;
+            if (topModalOpen) {
+                rsTarget = getActiveScrollable();
+            } else if (el.lrcPanel && el.lrcPanel.style.display !== 'none') {
+                rsTarget = el.lrcView; isLrc = true;
             }
+            if (rsTarget) {
+                rsTarget.scrollTop += rightStickY * speed;
+                if (isLrc) {
+                    _lrcScrollBlurClear();
+                } else {
+                    clearTimeout(_rsFocusTimer);
+                    // 🩹 v3.2.3 P1: 限制候选数为 50 个/找到 5 个即停，减少 getBoundingClientRect 调用
+                    _rsFocusTimer = setTimeout(() => {
+                        if (!rsTarget) return;
+                        const cr = rsTarget.getBoundingClientRect();
+                        const visible = [];
+                        const maxScan = Math.min(focusableElements.length, 50);
+                        for (let i = 0; i < maxScan && visible.length < 5; i++) {
+                            const fel = focusableElements[i];
+                            if (!rsTarget.contains(fel)) continue;
+                            const r = fel.getBoundingClientRect();
+                            if (r.bottom > cr.top + 20 && r.top < cr.bottom - 20 && r.right > cr.left && r.left < cr.right) {
+                                visible.push(fel);
+                            }
+                        }
+                        if (visible.length > 0) {
+                            visible.sort((a, b) => {
+                                const ar = a.getBoundingClientRect(), br = b.getBoundingClientRect();
+                                return (ar.top + ar.left * 0.3) - (br.top + br.left * 0.3);
+                            });
+                            const idx = focusableElements.indexOf(visible[0]);
+                            if (idx !== -1) setFocus(idx);
+                        }
+                    }, 450);
+                }
+            }
+        } else {
+            // 摇杆回中 — 重置加速度计时器
+            _rsAccelStartTime = 0;
         }
 
         // 🚀 v3.0.0: Seek 模式 (LT + RT 双扳机)
@@ -627,8 +860,15 @@ const pollGamepad = () => {
             }, '*');
         } catch(e) {}
     }
-
-    requestAnimationFrame(pollGamepad);
+    } catch (err) {
+        // 🛡️ v3.3.1: 单帧异常隔离 — 任何按钮/焦点处理出错都不应拖垮整个手柄轮询循环
+        console.error('[pollGamepad] 帧异常已被隔离，手柄循环继续运行：', err);
+    } finally {
+        // 始终同步上一帧按键状态并续排下一帧，确保循环不会因异常而永久死亡
+        try { if (btns && btns.length) prevPadBtns = btns.slice(); } catch (_) {}
+        try { if (pad && pad.axes) prevPadAxes = Array.from(pad.axes); } catch (_) {}
+        requestAnimationFrame(pollGamepad);
+    }
 };
 
 // 🩹 v2.8.8: 辅助函数 — 切换设置浮窗选项卡
@@ -654,6 +894,34 @@ function toggleFocusMode() {
     showToast(`🎯 焦点模式: ${focusMode === 'normal' ? '正常导航' : '微调优先'}`);
 }
 requestAnimationFrame(pollGamepad);
+
+// 🚀 v3.2.2: 播放列表 Tab 切换（全部 ↔ 收藏）
+// 🩹 v3.2.3: 使用 playlist-tab-bar 驱动切换
+function switchPlaylistTab(dir) {
+    const bar = document.querySelector('#playlistModal .playlist-tab-bar');
+    if (!bar) return;
+    const tabs = Array.from(bar.querySelectorAll('.playlist-tab'));
+    if (tabs.length < 2) return;
+    const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+    const nextIdx = (activeIdx + dir + tabs.length) % tabs.length;
+    tabs[nextIdx].click(); // click 会触发 initPlaylistTabBar 绑定的切换逻辑
+}
+
+// 🚀 v3.2.2: 曲库 Tab 切换（按专辑 ↔ 按艺术家 ↔ 最近添加）
+function switchCoverLibTab(dir) {
+    const tabs = Array.from(document.querySelectorAll('#coverLibraryModal .cover-lib-tab'));
+    if (tabs.length < 2) return;
+    const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+    const nextIdx = (activeIdx + dir + tabs.length) % tabs.length;
+    tabs.forEach(t => t.classList.remove('active'));
+    tabs[nextIdx].classList.add('active');
+    tabs[nextIdx].click();
+    setTimeout(() => {
+        // 🚀 v3.3.4: 切换 Tab 后按当前模式刷新（coverflow 居中 / 网格重扫焦点）
+        if (typeof refreshCoverLibAfterRender === 'function') refreshCoverLibAfterRender();
+        else { if (typeof updateFocusContext === 'function') updateFocusContext(); if (typeof updateCoverflow === 'function') updateCoverflow(); }
+    }, 180);
+}
 
 // === 音频输出设备选择 (v2.8.13) ===
 // 🔥 v2.8.13: 音频输出设备选择功能（Windows Chrome/Edge 支持）

@@ -81,7 +81,7 @@ const createRipple = (x, y) => {
 // 🚀 v2.9.0: mousemove 粒子生成加 rAF 节流防抖
 let particleThrottleTimer = null;
 document.addEventListener('mousemove', (e) => {
-    if (isEnergySaving || reducedMotion) return;
+    if (shouldBeEnergySaving() || reducedMotion) return;
     mouseX = e.clientX; mouseY = e.clientY;
     if (particleThrottleTimer) return;
     particleThrottleTimer = requestAnimationFrame(() => {
@@ -94,7 +94,7 @@ document.addEventListener('mousemove', (e) => {
 });
 
 document.addEventListener('touchmove', (e) => {
-    if (isEnergySaving || reducedMotion) return;
+    if (shouldBeEnergySaving() || reducedMotion) return;
     if (isImmersiveMode && isPlaying) {
         const touch = e.touches[0];
         mouseX = touch.clientX; mouseY = touch.clientY;
@@ -106,7 +106,7 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: true });
 
 document.addEventListener('click', (e) => {
-    if (isEnergySaving || reducedMotion) return;
+    if (shouldBeEnergySaving() || reducedMotion) return;
     if (isImmersiveMode) {
         const ct = e.target && e.target.closest ? e.target : null;
         if (!ct || (!ct.closest('button') && !ct.closest('.progress-area'))) {
@@ -114,6 +114,23 @@ document.addEventListener('click', (e) => {
         }
     }
 });
+
+// 🚀 性能优化：主画布尺寸仅在容器变化时经 ResizeObserver 更新，避免每帧读 layout 强制重排
+let mainCanvasW = 0, mainCanvasH = 0, mainNeedsRedraw = true;
+let immCtx = null, bgColorCtx = null;
+function resizeMainCanvas() {
+    const cvs = el.canvasMain;
+    if (!cvs) return;
+    const w = cvs.offsetWidth, h = cvs.offsetHeight;
+    if (w !== mainCanvasW || h !== mainCanvasH) {
+        mainCanvasW = w; mainCanvasH = h;
+        cvs.width = w; cvs.height = h;
+        mainNeedsRedraw = true;
+    }
+}
+if (el.canvasMain && 'ResizeObserver' in window) {
+    new ResizeObserver(resizeMainCanvas).observe(el.canvasMain);
+}
 
 const initVis = () => {
     try {
@@ -123,6 +140,7 @@ const initVis = () => {
         source.connect(analyser); analyser.connect(audioCtx.destination);
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         spectrumCtxMain = el.canvasMain.getContext('2d');
+        resizeMainCanvas();
         renderVisLoop();
     } catch(e) {}
 };
@@ -236,7 +254,7 @@ const renderVisLoop = (timestamp) => {
     if (cfg.rumbleEnabled) updateVibrationRumble(dataArray);
 
     // 🚀 v2.8: 节能模式 — 激活时跳过全部绘制（含沉浸舱），仅保持 rAF 心跳
-    if (isEnergySaving) {
+    if (shouldBeEnergySaving()) {
         requestAnimationFrame(renderVisLoop);
         return;
     }
@@ -259,7 +277,9 @@ const renderVisLoop = (timestamp) => {
     // 3. 分视角渲染
     if (isImmersiveMode && !immCanvasCleared) {
         // === 沉浸模式渲染 ===
-        const cvs = el.canvasImm, ctx = cvs.getContext('2d');
+        const cvs = el.canvasImm;
+        if (!immCtx) immCtx = cvs.getContext('2d');
+        const ctx = immCtx;
         if (cvs.width !== window.innerWidth || cvs.height !== window.innerHeight) {
             cvs.width = window.innerWidth; cvs.height = window.innerHeight;
             const cols = Math.ceil(cvs.width / 20);
@@ -411,8 +431,10 @@ const renderVisLoop = (timestamp) => {
         ripples = ripples.filter(r => { if(r.update()){ r.draw(ctx); return true; } return false; });
     } else if (!isImmersiveMode) {
         // === 主界面渲染 ===
+        // 🚀 性能优化：暂停时跳过逐帧重绘（保留最后一帧），仅在播放中或尺寸变化时才绘制
+        if (!isPlaying && !mainNeedsRedraw) return;
+        mainNeedsRedraw = false;
         const cvs = el.canvasMain;
-        cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
         spectrumCtxMain.clearRect(0,0, cvs.width, cvs.height);
         const w = (cvs.width / (analyser.frequencyBinCount/2)); let x = 0;
         for(let i=0; i<analyser.frequencyBinCount/2; i++) {
@@ -428,8 +450,8 @@ const renderVisLoop = (timestamp) => {
             drawFlowingSand();
         } else {
             // 如果关闭了取色模式，擦除主背景Canvas，让 CSS 的静态预设主题渐变显露出来
-            const bgCtx = el.bgColor.getContext('2d');
-            if (bgCtx) bgCtx.clearRect(0, 0, el.bgColor.width, el.bgColor.height);
+            if (!bgColorCtx) bgColorCtx = el.bgColor.getContext('2d');
+            if (bgColorCtx) bgColorCtx.clearRect(0, 0, el.bgColor.width, el.bgColor.height);
         }
     }
 };

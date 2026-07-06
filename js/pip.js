@@ -44,8 +44,6 @@ function exitEnergySaving(mode = EnergyMode.PIP_TEMP) {
 
 // 🚀 v2.8.4: 实际应用/取消节能效果
 function applyEnergySaving(enable, triggerMode = EnergyMode.NONE) {
-    isEnergySaving = enable;
-
     if (enable) {
         // 🚀 v2.7.0: 强制退出沉浸模式 — 停止所有动画特效并释放内存
         if (isImmersiveMode) {
@@ -175,7 +173,7 @@ async function togglePip() {
         // 额外注入PiP专用样式
         const pipExtraStyle = pipWindow.document.createElement('style');
         pipExtraStyle.textContent = `
-            :root { --primary: ${cfg.defaultColor || '#9ac8e2'}; }
+            :root { --primary: ${cfg.defaultColor || '#e8b4b8'}; }
             body { margin: 0; padding: 0; overflow: hidden; background: #0a0a1a; }
             @media (min-aspect-ratio: 2/1) {
                 .pip-container { flex-direction: row !important; }

@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Audio Core v3.0.1
+ * MBolka Player - Audio Core v3.2.0
  * Lyrics engine (chain+pair), EQ (28 presets), crossfade v2.8.9,
  * playback control, AB repeat, progress bar, sleep timer, export/import
  */
@@ -55,10 +55,12 @@ function parseLyricText(text) {
     // ── Phase 4: 创作信息模式检测（v2.8.12 基于TME清单最终版彻底扩充）──
     // 🔥 v2.8.13p2: 新增 配唱制作、母带处理、录音工作室 等
     // 🔥 v2.8.13p4: 新增 作词、作曲、演唱制作人、录音室、混音工作室、混音师、母带工作室、合音制作、编外合音制作、混音及母带后期 等
-    const CREDIT_PAT = /^(词|曲|作词|作曲|编曲|制作人|演唱制作人?|制作\/版权|演唱|Rap|Rap\s*flow|音乐统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|弦乐|所有乐器|录音|录音棚|录音师|录音室|录音工作室|音频编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|艺人及作品管理|监制|出品|发行|词曲|制作|Remixed|Keyboard|Synthesizer|Bass|Drum|Background|Vocal|Digital|Recording|Mix|All instruments|Drum Programming|Vocal Arrangement|Digital Editing|Recording Engineers|Mix Engineer|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\s+By|Released\s+By)[：:\s]/i;
+    // 🔥 共享英文角色名单（CREDIT_PAT 与 CREDIT_MULTI_PAT 共有，避免重复与不同步）
+    const EN_ROLES = 'Remixed|Keyboard|Synthesizer|Bass|Drum|Background|Vocal|Digital|Recording|Mix|All instruments|Drum Programming|Vocal Arrangement|Digital Editing|Recording Engineers|Mix Engineer';
+    const CREDIT_PAT = new RegExp('^(词|曲|作词|作曲|编曲|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|弦乐|所有乐器|录音|录音棚|录音师|录音室|录音工作室|音频编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|艺人及作品管理|监制|出品|发行|词曲|制作|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
     // 🔥 v2.8.13p2: 多角色合并格式（用/分隔，如"词/曲"、"编曲/混音/制作"、"Lyrics/Composed by"）
     // 🔥 v2.8.13p4: 角色列表扩展，与 CREDIT_PAT 主要角色同步，新增多身份组合支持
-    const CREDIT_MULTI_PAT = /^(词|曲|作词|作曲|编曲|混音|混音师|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带工作室|OP|SP|ISRC|演唱|Remixed|Keyboard|Synthesizer|Bass|Drum|Background|Vocal|Digital|Recording|Mix|All instruments|Drum Programming|Vocal Arrangement|Digital Editing|Recording Engineers|Mix Engineer)(\/(词|曲|作词|作曲|编曲|混音|混音师|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带工作室|OP|SP|ISRC|演唱|Remixed|Keyboard|Synthesizer|Bass|Drum|Background|Vocal|Digital|Recording|Mix|All instruments|Drum Programming|Vocal Arrangement|Digital Editing|Recording Engineers|Mix Engineer))+[：:\s]/i;
+    const CREDIT_MULTI_PAT = new RegExp('^(词|曲|作词|作曲|编曲|混音|混音师|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带工作室|OP|SP|ISRC|演唱|' + EN_ROLES + ')(\\/(词|曲|作词|作曲|编曲|混音|混音师|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带工作室|OP|SP|ISRC|演唱|' + EN_ROLES + '))+[：:\\s]', 'i');
     const EN_CREDIT_PAT = /^(Lyrics|Composed|Arranged|Produced|Mixed|Recorded|Mastered|Performed|Written)(\s+by)?[：:\s]/i;
     const OA_OC_PAT = /^(OA|OC|OP|SP|ISRC|Arranger|Producer|Presented\s+By)(\(.+?\))?[：:\s]/i;
     const isCredit = (t) => t && (CREDIT_PAT.test(t) || CREDIT_MULTI_PAT.test(t) || EN_CREDIT_PAT.test(t) || OA_OC_PAT.test(t));
@@ -269,8 +271,36 @@ function parseLyricText(text) {
     return { lyrics, credits: processedCredits.length > 0 ? processedCredits : null, kanaData };
 }
 
+// 🚀 v3.1.0: VTT 字幕解析（与 LRC 同一输出格式）
+function parseVttText(text) {
+    const lyrics = [];
+    const lines = text.split(/\r?\n/);
+    const TIME_RE = /^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})/;
+    let i = 0;
+    // 跳过 WEBVTT 头部
+    while (i < lines.length && !lines[i].includes('-->')) i++;
+    for (; i < lines.length; i++) {
+        const match = lines[i].match(TIME_RE);
+        if (match) {
+            const start = parseInt(match[1])*3600 + parseInt(match[2])*60 + parseInt(match[3]) + parseInt(match[4])/1000;
+            const textLines = [];
+            i++;
+            while (i < lines.length && !lines[i].includes('-->') && lines[i].trim() !== '') {
+                textLines.push(lines[i].trim());
+                i++;
+            }
+            if (textLines.length > 0) {
+                lyrics.push({ time: start, text: textLines.join('\n') });
+            }
+            if (i < lines.length && lines[i].includes('-->')) i--; // 回退一行让外层循环处理
+        }
+    }
+    return { lyrics, credits: null, kanaData: null };
+}
+
 const loadLrc = async (song) => {
     parsedLyrics = []; el.lrcView.innerHTML = ''; el.immCurrLine.textContent = ''; el.immNextLine.textContent = '';
+    syncLyrics._lines = null; syncLyrics._lastIdx = -1;
     let lrcText = null;
 
     // 优先内嵌歌词
@@ -302,7 +332,9 @@ const loadLrc = async (song) => {
         return;
     }
 
-    const parseResult = parseLyricText(lrcText);
+    // 🚀 v3.1.0: 自动检测 VTT 字幕格式
+    const isVtt = lrcText.trim().startsWith('WEBVTT');
+    const parseResult = isVtt ? parseVttText(lrcText) : parseLyricText(lrcText);
     parsedLyrics = parseResult.lyrics || [];
     const creditsData = parseResult.credits;
     const kanaData = parseResult.kanaData;
@@ -407,6 +439,14 @@ const handleUserScroll = () => {
 };
 el.lrcView.addEventListener('wheel', handleUserScroll, {passive: true}); el.lrcView.addEventListener('touchmove', handleUserScroll, {passive: true});
 
+// 缓存歌词行节点，避免 timeupdate 高频 querySelectorAll（歌词重渲染时置空）
+function getLrcLines() {
+    if (!syncLyrics._lines) {
+        syncLyrics._lines = Array.from(el.lrcView.querySelectorAll('.lrc-line'));
+    }
+    return syncLyrics._lines;
+}
+
 const syncLyrics = (force = false) => {
     if(!parsedLyrics.length) return;
     const cur = audio.currentTime - lyricsOffset;
@@ -416,35 +456,37 @@ const syncLyrics = (force = false) => {
         if (cur >= parsedLyrics[i].time) { activeIdx = i; break; }
     }
 
-    // 主界面歌词面板高亮
+    // 主界面歌词面板高亮（仅激活行变化或强制时更新，避免每 tick 全量重排）
     if (el.lrcPanel.style.display !== 'none') {
-        const lines = el.lrcView.querySelectorAll('.lrc-line');
-        lines.forEach((line, i) => {
-            if (i === activeIdx) {
-                if (!line.classList.contains('active')) {
-                    line.classList.add('active');
-                    if (!isUserScrollingLyrics || force) {
-                        void line.offsetHeight;
-                        const rect = line.getBoundingClientRect();
-                        const viewRect = el.lrcView.getBoundingClientRect();
-                        
-                        let offset;
-                        if (lyricsAlignMode === 'center') {
-                            const scale = 1.05;
-                            const visualHeight = rect.height * scale;
-                            offset = rect.top - viewRect.top
-                                + el.lrcView.scrollTop
-                                - (viewRect.height / 2) + (visualHeight / 2);
-                        } else {
-                            offset = rect.top - viewRect.top
-                                + el.lrcView.scrollTop
-                                - (viewRect.height * 0.3);
-                        }
-                        el.lrcView.scrollTo({ top: offset, behavior: 'smooth' });
+        const lines = getLrcLines();
+        if (force || activeIdx !== syncLyrics._lastIdx) {
+            const prev = syncLyrics._lastIdx;
+            if (prev >= 0 && lines[prev]) lines[prev].classList.remove('active');
+            const line = lines[activeIdx];
+            if (line) {
+                line.classList.add('active');
+                if (!isUserScrollingLyrics || force) {
+                    const rect = line.getBoundingClientRect();
+                    const viewRect = el.lrcView.getBoundingClientRect();
+                    let offset;
+                    if (lyricsAlignMode === 'center') {
+                        const scale = 1.05;
+                        const visualHeight = rect.height * scale;
+                        offset = rect.top - viewRect.top
+                            + el.lrcView.scrollTop
+                            - (viewRect.height / 2) + (visualHeight / 2);
+                    } else {
+                        offset = rect.top - viewRect.top
+                            + el.lrcView.scrollTop
+                            - (viewRect.height * 0.3);
                     }
+                    el.lrcView.scrollTo({ top: offset, behavior: 'smooth' });
                 }
-            } else line.classList.remove('active');
-        });
+            }
+            syncLyrics._lastIdx = activeIdx;
+        }
+    } else {
+        syncLyrics._lastIdx = -1;
     }
 
     // 🚀 v2.8.12: 沉浸模式歌词 — 当前行遇空行向上查找，下一行跳过空行
@@ -891,6 +933,20 @@ const playAudio = async (idx) => {
     cfActive = 'A';
     audio.src = song.url;
 
+    // 🚀 v3.1.0: 长音频播放进度恢复（>15min记忆断点）
+    const dur = song.duration || song.file._duration || 0;
+    if (dur > 900) {
+        try {
+            const key = 'MBolka_PlayPos_' + (song.file.name || '');
+            const saved = JSON.parse(localStorage.getItem(key));
+            if (saved && saved.d === dur && saved.t > 1) {
+                const resume = saved.t > dur - 5 ? 0 : saved.t;
+                audio.currentTime = resume;
+                if (resume > 0) showToast(`⏯ 从 ${formatTime(resume)} 续播`);
+            }
+        } catch (_) {}
+    }
+
     // 同步信息到双界面
     el.mainTitle.textContent = el.immTitle.textContent = song.title;
     el.mainArtist.textContent = el.immArtist.textContent = song.artist;
@@ -903,6 +959,8 @@ const playAudio = async (idx) => {
     if (hasCurrentAlbumArt) {
         el.mainArt.src = el.immArt.src = song.art;
         currentAlbumColor = await extractColor(song.art);
+        // 🚀 v3.2.1: 同步到 WCO 标题栏 theme-color
+        if (typeof ThemeColor !== 'undefined') ThemeColor.update(currentAlbumColor);
         // 设置专辑环境光阴影CSS变量
         if (currentAlbumColor) {
             document.documentElement.style.setProperty('--album-color', currentAlbumColor + '80');
@@ -962,7 +1020,32 @@ const playAudio = async (idx) => {
         cfPreloadNext();
     } catch(e) {
         setPlayState(false);
-        showToast("❌ 播放受阻");
+        if (e.name === 'NotAllowedError') {
+            // 🩹 v3.2.3: 浏览器自动播放策略拦截 — 监听下一次用户手势自动恢复
+            showToast("🖱 点击页面任意位置开始播放");
+            const resumeOnGesture = async () => {
+                document.removeEventListener('click', resumeOnGesture);
+                document.removeEventListener('keydown', resumeOnGesture);
+                try {
+                    await audio.play();
+                    setPlayState(true);
+                    showToast("▶ 播放已恢复");
+                    if(!audioCtx) { initVis(); initEQ(); }
+                    cfPreloadNext();
+                } catch(e2) {
+                    showToast("❌ 播放受阻，请检查音频文件");
+                }
+            };
+            document.addEventListener('click', resumeOnGesture);
+            document.addEventListener('keydown', resumeOnGesture);
+            // 15 秒后自动移除监听，防止内存泄漏
+            setTimeout(() => {
+                document.removeEventListener('click', resumeOnGesture);
+                document.removeEventListener('keydown', resumeOnGesture);
+            }, 15000);
+        } else {
+            showToast("❌ 播放受阻");
+        }
     }
 };
 
@@ -1176,6 +1259,8 @@ function bindProgressBar(progArea, progFill, timeDisplayEl, isMain) {
         cachedRect = progArea.getBoundingClientRect(); // 🚀 按下时缓存一次
         const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
         updateVisuals(clientX);
+        // 🚀 v3.3.3: 拖动进度条 = 快速操作，让 coverflow（若打开）暂时取消 3D 偏移，松手后恢复
+        if (typeof enterCoverflowFlat === 'function') enterCoverflowFlat();
     };
 
     const handleMove = (e) => {
@@ -1185,6 +1270,8 @@ function bindProgressBar(progArea, progFill, timeDisplayEl, isMain) {
         if (e.cancelable) e.preventDefault(); 
         const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
         updateVisuals(clientX);
+        // 🚀 v3.3.3: 拖动进度条全程保持 coverflow 平坦（防抖续期）
+        if (typeof enterCoverflowFlat === 'function') enterCoverflowFlat();
     };
 
     const handleEnd = (e) => {
@@ -1223,6 +1310,9 @@ bindProgressBar(el.progAreaMain, el.progFillMain, el.timeCur, true);
 bindProgressBar(el.immProgArea, el.immProgFill, document.getElementById('immTimeCur'), false);
 
 
+// 媒体中心位置状态节流标记
+let _lastPosState = 0;
+
 // === 必须修改 audio.ontimeupdate 以防止系统时间覆盖拖拽进度 ===
 audio.ontimeupdate = () => {
     if (audio.duration) {
@@ -1235,23 +1325,47 @@ audio.ontimeupdate = () => {
             if (el.timeCur) el.timeCur.textContent = formatTime(audio.currentTime);
             const immTimeCur = document.getElementById('immTimeCur');
             if (immTimeCur) immTimeCur.textContent = formatTime(audio.currentTime);
+
+            // 🚀 无障碍：同步进度条 slider 的 aria 值（屏幕阅读器可感知进度）
+            if (el.progAreaMain) {
+                const progMax = Math.floor(audio.duration);
+                if (el.progAreaMain.getAttribute('aria-valuemax') !== String(progMax)) {
+                    el.progAreaMain.setAttribute('aria-valuemax', progMax);
+                }
+                el.progAreaMain.setAttribute('aria-valuenow', Math.floor(audio.currentTime));
+                el.progAreaMain.setAttribute('aria-valuetext', `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`);
+            }
+        }
+        
+        // 🚀 v3.1.0: 长音频(>15min)每10秒记忆播放进度
+        const dur = audio.duration || 0;
+        if (dur > 900 && _pbThrottle < Date.now() - 10000) {
+            _pbThrottle = Date.now();
+            try {
+                const key = 'MBolka_PlayPos_' + (playlist[currentIndex]?.file?.name || '');
+                localStorage.setItem(key, JSON.stringify({ t: audio.currentTime, d: dur }));
+            } catch (_) {}
         }
         
         // 🚀 v2.7: 节能模式下歌词走低频定时器，跳过此高频回调
-        if (!isEnergySaving) syncLyrics();
+        if (!shouldBeEnergySaving()) syncLyrics();
         
         // A-B 重复判定
         if (abMode && abPointA !== null && abPointB !== null) {
             if (audio.currentTime >= abPointB) audio.currentTime = abPointA;
         }
         
-        // 同步系统媒体中心 (Media Session)
+        // 同步系统媒体中心 (Media Session) — 节流到 ~4Hz 降低系统开销
         if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
-            navigator.mediaSession.setPositionState({
-                duration: audio.duration, 
-                playbackRate: playbackRate, 
-                position: audio.currentTime
-            });
+            const now = Date.now();
+            if (now - _lastPosState > 250) {
+                _lastPosState = now;
+                navigator.mediaSession.setPositionState({
+                    duration: audio.duration, 
+                    playbackRate: playbackRate, 
+                    position: audio.currentTime
+                });
+            }
         }
     }
 };
@@ -1302,10 +1416,20 @@ audio.onended = () => {
 };
 
 // === 睡眠定时器 ===
+let sleepTimerInterval = null; // 🚀 仅在设定了睡眠定时器时才启动的每秒刷新句柄
+function startSleepTimerInterval() {
+    if (sleepTimerInterval) return;
+    sleepTimerInterval = setInterval(updateSleepTimerUI, 1000);
+}
+function stopSleepTimerInterval() {
+    if (sleepTimerInterval) { clearInterval(sleepTimerInterval); sleepTimerInterval = null; }
+}
+
 function setSleepTimer(minutes) {
     if (sleepTimer) clearTimeout(sleepTimer);
     if (minutes === 0) {
         sleepTimer = null; sleepEndTime = null;
+        stopSleepTimerInterval();
         updateSleepTimerUI();
         showToast("🌙 睡眠定时已取消");
         return;
@@ -1317,9 +1441,11 @@ function setSleepTimer(minutes) {
         setPlayState(false);
         sleepTimer = null;
         sleepEndTime = null;
+        stopSleepTimerInterval();
         updateSleepTimerUI();
         showToast("🌙 睡眠定时结束，已停止播放");
     }, ms);
+    startSleepTimerInterval();
     updateSleepTimerUI();
     showToast(`🌙 睡眠定时: ${minutes} 分钟后停止`);
 }
@@ -1344,8 +1470,7 @@ function updateSleepTimerUI() {
         display.style.color = '';
     }
 }
-// 每秒更新
-setInterval(updateSleepTimerUI, 1000);
+// 🚀 不再常驻定时器：由 setSleepTimer 按需启动/停止（见 startSleepTimerInterval）
 
 // 🚀 v2.8: 睡眠定时器快速菜单 (Alt+T 快捷键)
 function showSleepQuickMenu() {
@@ -1460,7 +1585,7 @@ function searchPlaylist(query) {
         if (i === currentIndex) classes += ' active';
         div.className = classes;
         div.dataset.index = i;
-        div.innerHTML = `<span class="pl-title">${s.title}</span><span style="font-size:12px;opacity:0.6;">${s.artist}</span><span class="favorite-btn ${isFav ? 'faved' : ''}" data-idx="${i}">${isFav ? '❤️' : '🩶'}</span>`;
+        div.innerHTML = `<span class="pl-title">${escapeHTML(s.title)}</span><span style="font-size:12px;opacity:0.6;">${escapeHTML(s.artist)}</span><span class="favorite-btn ${isFav ? 'faved' : ''}" data-idx="${i}">${isFav ? '❤️' : '🩶'}</span>`;
         div.onclick = (e) => {
             if (e.target.classList.contains('favorite-btn')) { e.stopPropagation(); toggleFavorite(i); return; }
             playAudio(i); closeAllModals();
@@ -1474,6 +1599,6 @@ function searchPlaylist(query) {
 let pipWindow = null;
 let pipSyncInterval = null; // 🚀 v2.7-preview2 P1: 提升为模块级变量以支持彻底清理
 let pipHealthCheck = null;   // 🚀 v2.7-preview2 P1: 健康检查兜底
-let isEnergySaving = false; // 🚀 v2.7: 节能模式状态机（与 v2.8.4 bit-flag 并行）
+let _pbThrottle = 0;        // 🚀 v3.1.0: 播放进度持久化节流
 
 // 🚀 v2.8.4: 进入指定节能模式（位运算，支持叠加）

@@ -3,9 +3,10 @@
   "short_name": "Muse",
   "description": "Ultimate Local Music Player - 包咯啦出品",
   "start_url": "./index.html",
+  "display_override": ["window-controls-overlay"],
   "display": "standalone",
   "background_color": "#0a0a1a",
-  "theme_color": "#e8b84b",
+  "theme_color": "#e8b4b8",
   "icons": [
     {
       "src": "icons/icon-192.png",

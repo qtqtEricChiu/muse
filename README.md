@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.0.2
+# MBolka Player - Ultimate Nexus v3.4.0
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.0.2-blue)
+![Version](https://img.shields.io/badge/version-3.4.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -30,18 +30,23 @@
 - 粒子特效系统：切歌爆炸、播放波纹、鼠标跟随拖尾
 
 ### 🎛️ 全域弹窗栈控制器 — LIFO 完美退出
-- **`handleGlobalClose()` 统一关闭管理器**：不管页面上有多少层弹窗（设置/列表/曲库/专辑详情/统计），按 Esc 或手柄 B 键自动关闭最上层，层层递进
-- 键盘 Esc 全适配 + 手柄 B 键全适配，100% 向前兼容
+- **`handleGlobalClose()` 统一关闭管理器**：始终关闭当前实际最上层（z-index 最高）的打开浮窗，层层递进返回主界面；键盘 Esc / 手柄 B 键全适配，100% 向前兼容
+- **播放列表等浮窗补推栈**：键盘 `p` 与手柄 ← 打开播放列表时显式入栈，B 键逐级返回逻辑一致，不再"卡在浮窗回不去主界面"（v3.4.0）
+- **曲库 coverflow（按专辑）**：单行 3D coverflow 视图，鼠标滚轮 / 手柄左摇杆切换居中唱片，空闲景深模糊、停止自动恢复（v3.4.0）
 
 ### 🎵 完整音频能力
 - 支持 MP3 / FLAC / WAV / M4A / OGG / AAC / WMA / OPUS 格式
 - LRC 歌词解析（UTF-8 / GBK 双编码自动识别）+ 内嵌歌词（ID3/USLT）
+- **VTT 字幕支持**：自动发现同名 `.vtt` 文件，复用 LRC 渲染管线（v3.1.0）
+- **长音频进度持久化**：时长 > 15 分钟每 10 秒存 `localStorage`，切歌自动续播（v3.1.0）
 - CUE 分轨文件解析
 - A-B 段落重复模式（长按播放按钮激活）
 - 十段均衡器 (EQ) + 8 种预设
 - 0.5x~2.0x 变速播放 + 升降调控制
 - 淡入淡出无缝切歌 (Crossfade)
 - 睡眠定时器 (15/30/60分钟)
+- **自动播放策略优雅降级**：`NotAllowedError` 捕获后监听用户手势自动恢复，引导 Toast 15 秒安全过期（v3.2.3）
+- **PWA Window Controls Overlay**：桌面端标题栏随主题色/封面取色自适应（v3.2.0）
 
 ### 🎮 全方位操控
 - 完整键盘快捷键（Space、方向键、J/K、WASD 等）
@@ -57,7 +62,10 @@
 ### 🎨 预设主题色 + WCAG 无障碍
 - 10 套预设配色方案：赛博朋克、暖阳、极光、星夜、樱花、深海、日落、薄荷、玫瑰金
 - 聚焦卡片式选择器，手柄/键盘完美导航
-- `--text-on-primary` 动态对比度自适应：浅色主题深色文字，深色主题自动反白
+- **封面取色 → PWA 标题栏联动**：专辑封面主色调经 `ThemeColor.update()` 实时驱动 `<meta name="theme-color">` 与 WCO 标题栏（v3.2.0）
+- **WCAG 2.2 对比度合规**：`getLuminance` 改用标准 sRGB 相对亮度公式 + 对比度择优前景色；`player-wrapper` 由 `role="application"` 改为 `role="group"` + `aria-label`
+- **视口缩放放开**：移除 `maximum-scale`/`user-scalable=no`，低视力用户可自由缩放（WCAG 1.4.4 / 1.4.10）
+- **焦点可见性**：`:focus-visible` 轮廓与手柄 `.gamepad-focus` 视觉对齐，键盘/鼠标用户清晰定位
 - 深色/护眼模式，可手动切换或跟随系统
 
 ### 💾 智能缓存与容错
@@ -83,6 +91,9 @@
 ### 📺 画中画与PWA
 - Document PiP 画中画迷你播放器（动态模糊背景 + 双行歌词 + 悬停控制栏）
 - PWA 支持，可安装到桌面
+- **离线运行时缓存**：Service Worker 对 Google Fonts / jsmediatags 运行时缓存（stale-while-revalidate），离线可达（v3.3.0）
+- **SW 更新提示**：监听 `updatefound`/`controllerchange`，新版本提示用户刷新（v3.3.0）
+- **iOS 兼容性回退**：不支持画中画时隐藏对应按钮，核心播放/手势保持可用（v3.3.0）
 - 移动端全局手势控制
 
 ### ⚡ 极致性能优化
@@ -90,10 +101,19 @@
 - 位标志节能状态机：四模式叠加（一键/画中画/帧率/可见性），精准控制能耗
 - 三角函数查表法 (LUT)：128 点 SIN/COS 预计算
 - GPU 图层升格 (will-change)：关键动画元素独立合成层
-- DOM 布局抖动消除：缓存 `getBoundingClientRect()`
+- DOM 布局抖动消除：缓存 `getBoundingClientRect()` + scrollable 惰性缓存
+- 播放列表 DocumentFragment 批量插入 + 事件委托，100 首 reflow 从 100 次变 1 次
+- 曲库 Tab 缓存 + Fragment 化渲染 + generation ID 竞态保护 + 防抖，切换 <1ms 无崩溃
+- CSS `transition: all` → 精确属性名，`.playlist-items` 加 `contain: strict`
 - FPS 实时监测 + 粒子密度自适应
 - Page Visibility API：标签页隐藏时自动暂停渲染
 - 曲库增量切片渲染：每次 12 张卡片，保持 60fps
+- **歌词增量同步**：`syncLyrics` 仅激活行变化时更新 + 节点缓存（`getLrcLines` 懒初始化），消除每 tick 全量 `querySelectorAll` 与强制重排（v3.3.0）
+- **画布尺寸 ResizeObserver 化**：主画布尺寸仅在容器变化时更新，rAF 内不再每帧读 `offsetWidth` 重排（v3.3.0）
+- **暂停不重绘**：暂停且非沉浸时跳过逐帧重绘，仅保留末帧，空闲功耗下降（v3.3.0）
+- **Media Session 节流**：`setPositionState` 由每 tick 降频至 ~4Hz（v3.3.0）
+- **睡眠定时器按需**：无定时任务时不常驻 `setInterval` 空跑（v3.3.0）
+- **死代码清除**：删除 `globals.js` 内联 Worker + 无用 Blob URL 泄漏；jsmediatags 改 `defer`（v3.3.0）
 
 ---
 
@@ -111,7 +131,7 @@
 | 播放模式 | 三态循环切换：顺序 → 随机 → 单曲循环 |
 | A-B 重复 | 长按播放键进入，点击进度条设置 A/B 点 |
 | 播放列表管理 | 右键菜单、拖拽排序、全文搜索 |
-| 曲库 | 独立模块，按专辑/艺术家/最近添加三维聚合 + 专辑详情面板 |
+| 曲库 | 独立模块：按专辑（coverflow 单行 3D 视图 + 滚轮/左摇杆切换居中 + 空闲景深 + 窗口化渲染）/ 艺术家 / 最近添加 三维聚合 + 专辑详情面板 |
 | 十段均衡器 | 8种预设 + 手动调节 (32Hz~16kHz) |
 | 变速/变调 | 0.5x~2.0x 播放速度 + 保持音调/允许变调 |
 | 淡入淡出 | 1~8秒可配置 Crossfade |
@@ -122,7 +142,7 @@
 | 画中画 | Document PiP 悬浮窗，动态模糊背景 + 双行歌词 |
 | 统计看板 | 总时长、Top10最爱、播放次数 |
 | 导出导入 | M3U / JSON 格式播放列表备份 |
-| 手柄支持 | Xbox/PS 手柄完整映射 + 2D 空间焦点导航 |
+| 手柄支持 | Xbox/PS 手柄完整映射 + 2D 空间焦点导航 + B 键逐级返回（播放列表/曲库/专辑详情）+ coverflow 滚轮/左摇杆切换居中 |
 | 键盘快捷键 | 全键盘操作，按 `?` 查看完整快捷键列表 |
 | 全屏模式 | F 键或手柄 View 键切换 |
 | 自定义背景 | 上传本地图片作为背景 |
@@ -136,12 +156,52 @@
 | 歌词垂直对齐 | 居中/偏上 两种模式可选，持久化存储 |
 | IndexedDB 缓存 | 元数据缓存 + 目录句柄持久化 |
 | 错误日志 | 播放异常、解析失败自动记录到本地 |
+| VTT 字幕 | 自动发现同名 `.vtt` 文件，复用 LRC 渲染管线显示时间轴字幕 |
+| 长音频续播 | 时长 > 15 分钟每 10 秒存进度，切歌自动续播（最后 5 秒重置） |
+| 自动播放降级 | `NotAllowedError` 捕获后监听用户手势自动恢复，引导 Toast 15 秒过期 |
+| WCO 标题栏 | PWA Window Controls Overlay，标题栏随主题色/封面取色自适应 |
+| 标题栏取色 | 专辑封面主色调实时驱动 `<meta name="theme-color">` 与 WCO 标题栏 |
+| 离线运行时缓存 | Service Worker 对字体/jsmediatags 运行时缓存，离线可达 |
+| SW 更新提示 | 监听 `updatefound`/`controllerchange`，新版本提示刷新 |
+| iOS 兼容回退 | 不支持画中画时隐藏对应按钮，核心播放/手势保持可用 |
+| 无障碍进度 | 进度条 `aria-valuenow/valuemax/valuetext` 实时同步（WCAG 4.1.2） |
+| 视口缩放 | 放开缩放限制，低视力用户可自由缩放（WCAG 1.4.4/1.4.10） |
+| XSS 防护 | 文件名/标题经 `escapeHTML` 转义，杜绝基于文件的脚本注入 |
 
 ---
 
 ## 🆕 更新日志
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
+
+### v3.4.0 (2026-07-07) — 曲库 coverflow 交互与手柄返回修复
+
+- **手柄 B 键逐级返回修复**：`handleGlobalClose()` 改为始终关闭实际最上层（z-index 最高）打开浮窗；播放列表（键盘 `p` / 手柄 ←）打开时补推 Modal 栈，B 键 / Esc 逐级返回一致，不再"卡在浮窗回不去主界面"
+- **曲库-按专辑（coverflow）滚轮失效修复**：coverflow 网格带 `scroll-snap` + `smooth`，连续滚轮被吸附 / 平滑动画互相抵消导致封面不切；`enterCoverflowFlat()` 进入时关闭 snap/smooth、`setCoverLibCenter` 平坦分支改用 `behavior:'auto'`，滚轮连续切换跟手，停止 350ms 后自动恢复 3D 景深与吸附
+
+### v3.3.0 (2026-07-06) — 性能 / 可维护性 / 无障碍 / PWA 全面优化
+
+- **歌词增量同步**：`syncLyrics` 仅激活行变化时更新 + 节点缓存（`getLrcLines`），消除每 tick 全量 `querySelectorAll` 与强制重排（修复由此引入的 TDZ 崩溃，首页恢复）
+- **画布尺寸 ResizeObserver 化**：主画布尺寸仅变化时更新，rAF 内不再每帧读 `offsetWidth` 重排
+- **暂停不重绘**：暂停且非沉浸时跳过逐帧重绘，空闲功耗下降
+- **`setPositionState` 节流**：Media Session 位置状态降频至 ~4Hz
+- **睡眠定时器按需**：无定时任务时不常驻 `setInterval`；删除 `globals.js` 内联 Worker 死代码；jsmediatags 改 `defer`
+- **构建补全**：`build.js` 补列 `theme-color.js`/`wco.js`/`wco.css`，`dist/` 不再缺文件
+- **节能统一**：删除冗余 `isEnergySaving`，统一 `EnergyMode` 位标志
+- **XSS 防护**：搜索/收藏/统计 `title·artist` 与 Toast 经 `escapeHTML`；内联 `onclick` 迁 `ui-core.js`
+- **PWA 离线**：运行时缓存 CDN 资源、`cache.addAll` 可观测、SW 更新提示、iOS 画中画回退
+- **无障碍 (WCAG 2.2)**：视口缩放放开、进度条 aria 同步、`:focus-visible` 对齐、`getLuminance` 标准亮度公式、`player-wrapper` 改 `role="group"`
+
+### v3.2.4 (2026-07-06) — 曲库缓存崩溃修复 + 唱片库 UI 重设计
+
+- **4 个缓存 Bug 全量修复**：空缓存陷阱（cloneNode 时序）、竞态保护（generation ID）、缓存有效性检查（childNodes.length）、Tab 点击防抖（80ms）
+- **唱片库 UI 重设计**：Analog Vinyl Archive 风格 — 硬角封套卡片、多层阶梯阴影、方形封面自适应、hover 浮现唱针播放按钮、响应式断点（6/5/4/3 列）
+
+### v3.2.3 (2026-07-06) — 性能优化全量实施 + 自动播放策略修复
+
+- **P0-P8 性能优化全量实施**：scrollable 惰性缓存（帧耗时 -50%）、焦点候选限制、DocumentFragment 批量插入（100 首 reflow 100→1）、事件委托（200 闭包→2 监听器）、曲库 Tab 缓存（切换 <1ms）、CSS transition 精确化 + contain:strict、拖拽辅助线复用
+- **自动播放策略优雅降级**：`playAudio()` 捕获 `NotAllowedError` 后监听手势自动恢复，显示引导 Toast，15 秒自动过期
+- **设置页嵌套清理**：Crossfade 从 `renderEQPanel` 动态嵌套移出为 HTML 独立 `drawer-box`
 
 ### v2.8.10 (2026-06-03) — 🌍 全球发行版：LRC 同时间戳配对重写 + UI 精修
 
@@ -595,7 +655,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.0.1
+MBolka Player v3.4.0
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -659,4 +719,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.0.1**
+**© MocaBolka 2026 | v3.4.0**

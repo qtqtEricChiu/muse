@@ -2,17 +2,19 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MBolka Player - Ultimate Nexus v3.0.2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBolka Player - Ultimate Nexus v3.2.0</title>
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" sizes="180x180">
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#e8b4b8">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700;6..72,800&family=Geist:wght@100..900&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js" integrity="sha384-JpTt7qxVx1X/pHeYiCfqFdKRu2HF1MBGr1kEXtbNIGwwryGWMbbW78onU3bdkAHZ" crossorigin="anonymous"></script>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700;6..72,800&family=Geist:wght@100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700;6..72,800&family=Geist:wght@100..900&display=swap"></noscript>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js" integrity="sha384-JpTt7qxVx1X/pHeYiCfqFdKRu2HF1MBGr1kEXtbNIGwwryGWMbbW78onU3bdkAHZ" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/base-layout.css">
@@ -26,7 +28,23 @@
     <!-- Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+            let reloading = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (reloading) return;
+                reloading = true;
+                location.reload();
+            });
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                reg.addEventListener('updatefound', () => {
+                    const installing = reg.installing;
+                    if (installing) installing.addEventListener('statechange', () => {
+                        // 仅当已有旧版本控制页面时才提示更新（避免首次安装即刷新）
+                        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                            if (typeof showToast === 'function') showToast('🚀 已更新到新版本，正在刷新…', '✨');
+                        }
+                    });
+                });
+            });
         }
     </script>
 </head>
@@ -95,6 +113,13 @@
   </defs>
 </svg>
 
+    <!-- 🚀 v3.2.0: WCO 标题栏 — Windows Chrome PWA 下融入系统标题区域 -->
+    <div id="wco-titlebar" class="wco-titlebar" style="display:none;">
+        <div class="wco-drag-region">
+            <span class="wco-brand">♪</span>
+            <span class="wco-track-title" id="wcoTrackTitle">MBolka Player</span>
+        </div>
+    </div>
     <!-- 动态背景层 -->
     <div id="bg-layer-img"></div>
     <canvas id="bg-layer-color"></canvas>
@@ -104,7 +129,7 @@
 
     <!-- ================= 视图 1：主界面 ================= -->
     <div class="view-container" id="view-main">
-    <div class="player-wrapper" role="application">
+    <div class="player-wrapper" role="group" aria-label="MBolka 播放器">
             <div class="header">
                 <div class="brand"><svg id="logoIcon" class="brand-icon"><use href="#icon-music"/></svg> MBolka Player</div>
                 <div class="nav-actions">
@@ -205,7 +230,7 @@
                     </div>
                 </div>
                 <div class="imm-header-actions">
-                    <button class="imm-icon-btn focusable" id="btnExitImmersive" title="返回主界面 (Esc / 十字键下)">✖</button>
+                    <button class="imm-icon-btn focusable" id="btnExitImmersive" title="返回主界面">✖</button>
                 </div>
             </div>
 
@@ -256,18 +281,18 @@
     <!-- ================= 弹窗组件 ================= -->
     <!-- ================= 静态曲库弹窗 ================= -->
     <div class="modal-overlay" id="coverLibraryModal" role="dialog" aria-modal="true" aria-label="曲库">
-        <div class="modal-content" style="width: 750px; max-width: 95vw; max-height: 88vh; padding: 24px;">
+        <div class="modal-content cover-lib-modal-content" style="width:100%;max-height:92vh;">
             <div class="cover-lib-header">
                 <h2 style="font-size:20px;">🖼️ 曲库</h2>
                 <div style="display:flex;gap:8px;">
                     <button class="btn-glass focusable" id="btnImportPlaylist" style="font-size:12px;" title="导入播放列表JSON">📥 导入</button>
-                    <button class="btn-glass focusable" id="btnCloseCoverLib" style="padding: 6px 12px;">关闭 (B/Esc)</button>
+                    <button class="btn-glass focusable" id="btnCloseCoverLib" style="padding: 6px 12px;">关闭</button>
                 </div>
             </div>
             <div class="cover-lib-tabs">
-                <button class="cover-lib-tab focusable active" data-mode="album" tabindex="0">📀 按专辑</button>
-                <button class="cover-lib-tab focusable" data-mode="artist" tabindex="0">🎤 按艺术家</button>
-                <button class="cover-lib-tab focusable" data-mode="recent" tabindex="0">🕐 最近添加</button>
+                <button class="cover-lib-tab focusable active" data-mode="album" tabindex="0">按专辑</button>
+                <button class="cover-lib-tab focusable" data-mode="artist" tabindex="0">按艺术家</button>
+                <button class="cover-lib-tab focusable" data-mode="recent" tabindex="0">最近添加</button>
             </div>
             <div class="search-container">
                 <input type="text" class="search-input focusable" id="coverLibSearch" tabindex="0" placeholder="🔍 搜索专辑/艺术家...">
@@ -281,12 +306,16 @@
         <div class="modal-content" style="height: 65vh;">
             <div class="modal-header">
                 <h2 style="font-size: 20px;" id="playlistModalTitle">播放列表</h2>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn-glass focusable" id="btnShowAll" style="font-size:13px;">📋 全部</button>
-                    <button class="btn-glass focusable" id="btnShowFavorites" style="font-size:13px;">❤️ 收藏</button>
-                    <button class="btn-glass focusable" id="btnShowCoverWall" style="font-size:13px;">🖼️ 曲库</button>
-                    <button class="btn-glass focusable" id="btnCloseList" style="padding: 6px 12px;">关闭 (B/Esc)</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <div class="playlist-tab-bar">
+                        <button class="playlist-tab focusable active" data-filter="all">全部</button>
+                        <button class="playlist-tab focusable" data-filter="favorites">收藏</button>
+                    </div>
+                    <button class="btn-glass focusable" id="btnCloseList" style="padding: 6px 12px;">关闭</button>
                 </div>
+                <!-- 保留隐藏的 btnShowAll/btnShowFavorites 供 onclick 绑定引用 -->
+                <button id="btnShowAll" style="display:none;"></button>
+                <button id="btnShowFavorites" style="display:none;"></button>
             </div>
             <!-- 搜索框 -->
             <div class="search-container">
@@ -294,7 +323,7 @@
                 <button class="btn-glass focusable" id="btnExportM3U" tabindex="0" style="font-size:12px;padding:8px 12px;" title="导出 M3U">📥 M3U</button>
                 <button class="btn-glass focusable" id="btnExportJSON" tabindex="0" style="font-size:12px;padding:8px 12px;" title="导出 JSON">📥 JSON</button>
             </div>
-            <!-- 封面墙视图 -->
+            <!-- 封面墙容器（保留隐藏，兼容旧引用不报错） -->
             <div class="cover-wall-container" id="coverWallContainer" style="display:none;"></div>
             <!-- 列表视图 -->
             <div class="playlist-items" id="playlistContainer" role="listbox" aria-label="播放列表项">
@@ -308,22 +337,22 @@
         <div class="modal-content settings-modal-content" style="max-height:90vh;">
             <div class="modal-header">
                 <h2 style="font-size: 20px;">⚙️ 设置</h2>
-                <button class="btn-glass focusable" id="btnCloseSettings" style="padding: 6px 12px;">关闭 (B/Esc)</button>
+                <button class="btn-glass focusable" id="btnCloseSettings" style="padding: 6px 12px;">关闭</button>
             </div>
             <!-- 🚀 v3.0.2: 顶部横向标签 + 可滚动内容 -->
             <div class="settings-layout">
                 <div class="settings-tab-bar">
-                    <button class="settings-tab focusable active" data-tab="0"><svg class="tab-icon"><use href="#icon-folder"/></svg>音乐</button>
+                    <button class="settings-tab focusable active" data-tab="0"><svg class="tab-icon"><use href="#icon-headphones"/></svg>音频</button>
                     <button class="settings-tab focusable" data-tab="1"><svg class="tab-icon"><use href="#icon-palette"/></svg>外观</button>
-                    <button class="settings-tab focusable" data-tab="2"><svg class="tab-icon"><use href="#icon-headphones"/></svg>音频</button>
-                    <button class="settings-tab focusable" data-tab="3"><svg class="tab-icon"><use href="#icon-gamepad"/></svg>控制</button>
-                    <button class="settings-tab focusable" data-tab="4"><svg class="tab-icon"><use href="#icon-settings"/></svg>其他</button>
+                    <button class="settings-tab focusable" data-tab="2"><svg class="tab-icon"><use href="#icon-gamepad"/></svg>触觉</button>
+                    <button class="settings-tab focusable" data-tab="3"><svg class="tab-icon"><use href="#icon-volume"/></svg>性能</button>
+                    <button class="settings-tab focusable" data-tab="4"><svg class="tab-icon"><use href="#icon-settings"/></svg>高级</button>
                 </div>
                 <div class="settings-body">
                     <div class="drawer-box" style="background:rgba(232,184,75,0.08);border-color:rgba(232,184,75,0.2);" data-tab-group="0">
                 <div class="drawer-title">📁 载入音乐 (Ctrl+O)</div>
                 <button class="btn-glass focusable" id="btnLoadFolder" style="width:100%;justify-content:center;background:var(--primary);color:var(--text-on-primary);border:none;padding:14px;">📁 打开文件夹</button>
-                <p style="font-size:11px;color:var(--text-sub);text-align:center;margin:8px 0 0;">支持 MP3 / FLAC / WAV / M4A / OGG + LRC / CUE</p>
+                <p style="font-size:11px;color:var(--text-sub);text-align:center;margin:8px 0 0;">支持 MP3 / FLAC / WAV / M4A / OGG + LRC / VTT / CUE</p>
             </div>
 
             <div class="drawer-box" style="background:rgba(232,184,75,0.06);border-color:rgba(232,184,75,0.15);" data-tab-group="1">
@@ -360,6 +389,25 @@
             <div class="drawer-box">
                 <div class="drawer-title">🎛 均衡器</div>
                 <div id="eqPanelContainer"></div>
+            </div>
+            <div class="drawer-box">
+                <div class="drawer-title">⏩ 播放速度与音调</div>
+                <div class="speed-pitch-row">
+                    <label>速度</label>
+                    <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.05" value="1.00" class="focusable">
+                    <span class="val" id="speedVal">1.00x</span>
+                </div>
+                <button class="btn-glass focusable" id="btnTogglePitch" style="width:100%;justify-content:center;margin-top:8px;">🔒 保持音调</button>
+            </div>
+            <div class="drawer-box" data-tab-group="0">
+                <div class="drawer-title">🔄 淡入淡出切歌</div>
+                <div style="font-size:11px;color:var(--warn,#e8a840);margin-bottom:8px;">⚠ 实验性功能，可能无法正常生效，不推荐开启</div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button class="btn-glass focusable" id="btnToggleCrossfade" style="flex:1;justify-content:center;">⏸ 关闭</button>
+                    <span style="font-size:13px;color:var(--text-sub);">时长:</span>
+                    <input type="range" id="crossfadeSlider" class="focusable" min="1" max="8" step="0.5" value="3" style="width:100px;">
+                    <span id="crossfadeVal" style="font-size:13px;color:var(--primary);">3.0s</span>
+                </div>
             </div>
             <div class="drawer-box">
                 <div class="drawer-title">📝 歌词显示</div>
@@ -459,9 +507,9 @@
                     <span id="settingsRumbleWeakVal" style="width:36px;font-size:11px;color:rgba(255,255,255,0.5);text-align:right;">0%</span>
                   </div>
                   <div style="display:flex;align-items:center;gap:8px;font-size:11px;">
-                    <span style="width:48px;color:rgba(255,255,255,0.45);">底板</span>
+                    <span style="width:48px;color:rgba(255,255,255,0.45);">门槛</span>
                     <span id="settingsRumbleFloorVal" style="color:var(--primary);">—</span>
-                    <span style="margin-left:auto;font-size:10px;color:rgba(255,255,255,0.3);">自动地板</span>
+                    <span style="margin-left:auto;font-size:10px;color:rgba(255,255,255,0.3);">自动门槛</span>
                     <span id="settingsRumbleFloorAuto" style="color:rgba(255,255,255,0.5);">关闭</span>
                   </div>
                 </div>
@@ -483,14 +531,16 @@
                     </div>
                 </div>
                 <div class="settings-row">
-                    <span>地板阈值</span>
+                    <span>门槛阈值</span>
                     <input type="range" id="rumbleFloorSlider" class="focusable" min="0" max="0.5" step="0.01" value="0.30" style="flex:1;">
                     <span id="rumbleFloorVal" style="width:40px;text-align:right;font-size:12px;color:var(--primary);">0.30</span>
                 </div>
+                <p style="font-size:10px;color:var(--text-sub);margin:-6px 0 10px 82px;">低于此值的频谱能量被截断，越高越只保留节奏峰值</p>
                 <div class="settings-row">
-                    <span>自动地板</span>
+                    <span>自动门槛</span>
                     <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="rumbleAutoFloorToggle"><span class="toggle-slider"></span></label>
                 </div>
+                <p style="font-size:10px;color:var(--text-sub);margin:-6px 0 10px 82px;">响度大时自动抬升门槛，安静时降回</p>
                 <div class="settings-row">
                     <span>节流间隔</span>
                     <div class="custom-select-wrap">
@@ -548,34 +598,13 @@
                 <p style="font-size:10px;color:var(--text-sub);text-align:center;margin:4px 0 0;">清除元数据缓存和错误日志，释放存储空间</p>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">⌨️ 快捷键指南</div>
-                <div class="hotkey-grid">
-                    <span><kbd>Space</kbd> / <kbd class="pad">A键</kbd></span> <span>播放 / 暂停 / 确认选定项</span>
-                    <span><kbd>← / →</kbd> / <kbd class="pad">LB / RB</kbd></span> <span>上一曲 / 下一曲</span>
-                    <span><kbd>↑ / ↓</kbd> / <kbd class="pad">LT / RT</kbd></span> <span>快退 / 快进 5 秒</span>
-                    <span><kbd>J / K</kbd> / <kbd class="pad">十字 左/右</kbd></span> <span>快退 / 快进 10秒</span>
-                    <span><kbd>Ctrl+O</kbd></span> <span><b>打开文件夹载入音乐</b></span>
-                    <span><kbd>I</kbd> / <kbd class="pad">十字 下</kbd></span> <span><b>切换沉浸舱模式</b></span>
-                    <span><kbd>S / M / R</kbd></span> <span>三态切换: 顺序 → 随机 → 单曲循环</span>
-                    <span><kbd>C</kbd></span> <span>开关专辑封面取色模式</span>
-                    <span><kbd>U / F</kbd></span> <span><b>收藏/取消收藏当前歌曲</b></span>
-                    <span><kbd>Shift+F</kbd> / <kbd class="pad">View</kbd></span> <span>全屏开关</span>
-                    <span><kbd>D</kbd></span> <span>深色/护眼模式</span>
-                    <span><kbd>/</kbd></span> <span><b>聚焦搜索播放列表</b></span>
-                    <span><kbd>L / P</kbd> / <kbd class="pad">十字 上</kbd></span> <span>开关歌词 / 播放列表</span>
-                    <span><kbd>Alt+T</kbd></span> <span><b>睡眠定时器快速菜单</b></span>
-                    <span><kbd>WASD</kbd> / <kbd class="pad">左摇杆</kbd></span> <span><b>UI 焦点导航 (脱离鼠标)</b></span>
-                    <span><kbd>Esc</kbd> / <kbd class="pad">B键</kbd></span> <span>关闭弹窗 / 退出沉浸</span>
-                    <span><kbd>Shift+Esc</kbd> / <kbd class="pad">长按B键</kbd></span> <span><b>一键关闭所有弹窗回主页</b></span>
-                    <span><kbd>T</kbd></span> <span>统计面板</span>
-                    <span><kbd>G</kbd></span> <span>曲库</span>
-                    <span><kbd>Q</kbd></span> <span>画中画</span>
-                    <span><kbd>?</kbd></span> <span><b>快捷键帮助面板</b></span>
-                </div>
+                <div class="drawer-title">⌨️ 快捷键大全</div>
+                <button class="btn-glass focusable" id="btnOpenHelpShortcuts" style="width:100%;justify-content:center;">⌨️ 查看快捷键大全</button>
+                <p style="font-size:10px;color:var(--text-sub);text-align:center;margin:4px 0 0;">点击打开快捷键帮助面板</p>
             </div>
                 </div>
                 <div class="settings-footer">
-                    ©MocaBolka 2026 v3.0.2<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, QClaw
+                    ©MocaBolka 2026 v3.2.0<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, QClaw
                 </div>
             </div>
         </div>
@@ -597,7 +626,7 @@
         <div class="modal-content" style="width:580px; max-height:80vh;">
             <div class="modal-header">
                 <h2 style="font-size:20px;">⌨️ 快捷键大全</h2>
-                <button class="btn-glass focusable" id="btnCloseHelp" style="padding:6px 12px;">关闭 (Esc)</button>
+                <button class="btn-glass focusable" id="btnCloseHelp" style="padding:6px 12px;">关闭</button>
             </div>
             <div class="drawer-box">
                 <div class="drawer-title">🎵 播放控制</div>
@@ -689,5 +718,9 @@
     <script src="js/app.js"></script>
     <!-- 12. 震动引擎 (v3.0.0) -->
     <script src="js/vibration.js"></script>
+    <!-- 🚀 v3.2.0: PWA WCO 标题栏 -->
+    <link rel="stylesheet" href="css/wco.css">
+    <script src="js/theme-color.js"></script>
+    <script src="js/wco.js"></script>
 </body>
 </html>
