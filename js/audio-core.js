@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Audio Core v3.5.1
+ * MBolka Player - Audio Core v3.5.2
  * Lyrics engine (chain+pair), EQ (28 presets), crossfade v2.8.9,
  * playback control, AB repeat, progress bar, sleep timer, export/import
  */

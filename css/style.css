@@ -207,14 +207,6 @@ body.bg-immersive .player-wrapper {
 .vis-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; opacity: 0; transition: 0.3s; text-shadow: 0 2px 5px #000; letter-spacing: 1px;}
 .vis-canvas-container:hover .vis-hint { opacity: 1; }
 
-.progress-area { width: 100%; cursor: pointer; padding: 10px 0; position: relative; }
-.prog-bg { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; position: relative; }
-/* 🩹 v3.5.1: .prog-fill 基类移至 base-layout.css（含正确 transform-origin:left + width:100%），
-   本文件仅保留其伪元素与交互态，避免构建时 CSS 合并顺序逆转导致进度条消失 */
-.prog-fill::after { content: ''; position: absolute; right: -6px; top: 50%; transform: translateY(-50%) scale(0); width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform 0.2s var(--curve-spring); box-shadow: 0 0 10px var(--primary); }
-.progress-area:hover .prog-fill::after { transform: translateY(-50%) scale(1); }
-.time-labels { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-sub); margin-top: 8px; font-weight: 500; font-variant-numeric: tabular-nums;}
-
 .prog-hover-tip {
     position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
     background: rgba(0,0,0,0.85); color: #fff; padding: 6px 14px; border-radius: 10px;

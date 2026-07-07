@@ -1,10 +1,10 @@
 ﻿/*
- * MBolka Player - Globals v3.5.1
+ * MBolka Player - Globals v3.5.2
  * Worker inline, state variables, LUTs, EnergyMode enum, cfg, el references
  */
 
 /**
- * MBolka Player - Ultimate Nexus v3.5.1
+ * MBolka Player - Ultimate Nexus v3.5.2
  * Main Application Logic
  * 
  * 🔥 v2.8.10 全球发行版：
@@ -175,6 +175,7 @@ let frameEnergySaving = false;     // 🎬 画面节能：仅降至30fps
 let cfg = {
     followAccentColor: false,   // 🚀 v3.5.0: 跟随强调色（专辑封面取色 + 主题色逻辑）
     bgImmersive: false,         // 🚀 v3.5.0: 背景沉浸（专辑封面/自定义背景全屏沉浸 + 夜间半透明黑遮罩叠加）
+    wcoPseudoImmersive: true,   // 🚀 v3.5.2: PWA WCO 标题栏伪沉浸（顶部取色驱动 theme-color）
     customBgImg: null, customBgColor: null, blurAmt: 40,
     defaultColor: '#e8b4b8', darkMode: false, lrcFontSize: 18, lrcLineHeight: 2.2,
     lrcAlign: 'center', themePreset: null,

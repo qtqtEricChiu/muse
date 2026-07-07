@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Utilities v3.5.1
+ * MBolka Player - Utilities v3.5.2
  * Toast, formatting, encoding, settings persistence
  */
 
@@ -46,7 +46,7 @@ const saveSettingsNow = () => {
     try {
         localStorage.setItem('MBolka_Cfg_v3', JSON.stringify({
             // 🚀 核心修复：只保存滑块的物理数值，防止保存淡入淡出时的临时"0"音量
-            followAccentColor: cfg.followAccentColor, bgImmersive: cfg.bgImmersive, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
+            followAccentColor: cfg.followAccentColor, bgImmersive: cfg.bgImmersive, wcoPseudoImmersive: cfg.wcoPseudoImmersive, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
             isShuffle: isShuffle, isRepeatOne: isRepeatOne,
             customBgImg: cfg.customBgImg, customBgColor: cfg.customBgColor, customBgTopColor: cfg.customBgTopColor,
             darkMode: cfg.darkMode, lrcFontSize: cfg.lrcFontSize,
@@ -110,6 +110,7 @@ const loadSettings = () => {
         if (stored) {
             cfg.followAccentColor = stored.followAccentColor ?? stored.colorMode ?? false;
             cfg.bgImmersive = stored.bgImmersive ?? false;
+            cfg.wcoPseudoImmersive = stored.wcoPseudoImmersive ?? true;
             cfg.blurAmt = stored.blurAmt ?? 40;
             audio.volume = stored.vol ?? 0.7;
             isShuffle = stored.isShuffle ?? false;

@@ -2,16 +2,45 @@
 
 ---
 
+## v3.5.2 (2026-07-07) — v3.5.1 patch 3
+
+### 🩹 线上构建「整个播放器界面被压成标题条」紧急修复
+
+- **问题**：构建部署后 `dist/style.min.css` 中 `.player-wrapper` 被错误赋予了 `height:50px;font-size:18px;border-color:rgba(255,107,107,.3)` 等按钮属性，导致主界面播放器被压成一条窄带，内容区完全不可见；同时进度条 `.prog-fill` 也消失。
+- **根因**：`css/base-layout.css` 中 `.player-wrapper` 规则缺少闭合大括号 `}`。该规则从 `.player-wrapper {` 一直延续到 `.btn-fav-ctrl` / `.btn-pip-ctrl` 及媒体查询之后，导致这些按钮规则被嵌套在 `.player-wrapper` 块内部。`clean-css` 压缩后，`.player-wrapper` 合并了本应属于按钮的 `height:50px` 等属性。
+- **修复**：
+  1. 在 `css/base-layout.css` `.player-wrapper` 属性声明后补全闭合 `}`，使 `.btn-fav-ctrl` / `.btn-pip-ctrl` / 媒体查询回到顶层。
+  2. `build.js` 修正 `CSS_FILES` 顺序为 `style.css → variables.css → base-layout.css → immersive.css → modals.css → components.css → cover-lib.css → wco.css`，与原始 HTML 一致。
+  3. 清理 `css/style.css` 中与 `base-layout.css` 完全重复的进度条区块，消除 `clean-css` 合并时 `.prog-fill` 属性被拆散的隐患。
+- **涉及文件**：`css/base-layout.css`、`build.js`、`css/style.css`。需 `node build.js` 重建 `dist/`。
+
+### 🎛️ 设置-外观新增：标题栏伪沉浸开关
+
+- **需求**：把 PWA 标题栏顶部取色（假沉浸）做成用户可选项，关闭后标题栏颜色不再跟随封面/背景顶部，改用常规主题色。
+- **实现**：
+  1. 新增配置项 `cfg.wcoPseudoImmersive: true`（默认开启，保持原行为），在 `js/utils.js` 中持久化/恢复。
+  2. `js/theme-color.js` `_applyColor()` 中仅当 `cfg.wcoPseudoImmersive !== false` 且非深色模式时才使用 `_topColor`（顶部取色）。
+  3. `index.html` 设置-外观「沉浸式外观」抽屉新增「标题栏伪沉浸」toggle-switch（图标 `#icon-layers`）。
+  4. `js/ui-core.js`：`updateSettingsUI()` 同步开关状态；新增 `wcoPseudoImmersiveToggle` change 事件，切换后立即调用 `ThemeColor.refresh()` 刷新标题栏颜色并 `saveSettings()`。
+  5. PWA 专属检测：该开关容器在非 PWA（普通浏览器标签页）下默认隐藏，仅在 `window.matchMedia('(display-mode: standalone)')` 或 `navigator.standalone` 为真时通过 `display:flex` 显示。
+- **涉及文件**：`js/globals.js`、`js/utils.js`、`js/theme-color.js`、`index.html`、`js/ui-core.js`
+
+### 🆕 版本号更新
+- `v3.5.1` → `v3.5.2`
+- 更新位置：`index.html`（标题 + 页脚版权）、`package.json`、`sw.js`、`build.js`（SW 缓存键 `mbolka-v3.5.1`→`mbolka-v3.5.2`）
+
+---
+
 ## v3.5.1 (2026-07-07)
 
 ### 🩹 标题栏顶部取色回归修复 + build.js CSS 顺序修复（进度条消失）
 
-### 🔧 build.js CSS 顺序导致「线上构建主页面/沉浸舱进度条不显示进度」
+### 🔧 build.js CSS 顺序 + 重复规则清理导致「线上构建主页面/沉浸舱进度条不显示进度」
 - **问题**：构建部署后 `dist/style.min.css` 中进度条 `.prog-fill` 不显示进度填充，本地开发正常。
-- **根因**：`build.js` 的 `CSS_FILES` 顺序为 `variables.css → base-layout.css → style.css`，与原始 HTML 的 `style.css → variables.css → base-layout.css` **相反**。`style.css` 与 `base-layout.css` 均有 `.prog-fill` 规则，但 `style.css` 版本 **缺少 `transform-origin: left`** 且 **`width: 0%`**（旧版写法）。原始 HTML 下 `base-layout.css` 后加载覆盖，进度条正常；构建后 `style.css` 后加载反而覆盖了正确的 `base-layout.css` 版本，导致 `transform-origin` 回退到默认 `center`，`width: 0%` 令 `scaleX()` 不可见。
+- **根因**：`build.js` 的 `CSS_FILES` 顺序与原始 HTML 不一致，且 `style.css` 与 `base-layout.css` 存在大量重复的进度条/布局规则。`clean-css` 合并时两个 `.prog-fill` 基类互相干扰，导致构建产物中关键属性（`width:100%`、`transform:scaleX(0)`、`transform-origin:left`）被拆散或覆盖，最终进度条宽度为 0 且缩放出错。
 - **修复**：
-  1. `build.js` `CSS_FILES` 顺序修正为 `style.css → variables.css → base-layout.css → …`，与 HTML 加载顺序一致。
-  2. `css/style.css` 删除与 `base-layout.css` 冲突的 `.prog-fill` 基类规则（仅保留伪元素 `::after` 与其交互态），消除重复定义隐患。
+  1. `build.js` `CSS_FILES` 顺序修正为 `style.css → variables.css → base-layout.css → immersive.css → modals.css → components.css → cover-lib.css → wco.css`，与 HTML 加载顺序完全一致。
+  2. `css/style.css` 删除与 `base-layout.css` 完全重复的进度条区块（`.progress-area` / `.prog-bg` / `.prog-fill` 基类 / `.prog-fill::after` / `.progress-area:hover .prog-fill::after` / `.time-labels`），消除重复定义隐患。`base-layout.css` 保留唯一权威的进度条规则。
 - **涉及文件**：`build.js`、`css/style.css`。需 `node build.js` 重建 `dist/`。
 
 ### 🩹 标题栏顶部取色回归修复

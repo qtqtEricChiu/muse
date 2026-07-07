@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.5.1
+# MBolka Player - Ultimate Nexus v3.5.2
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.5.1-blue)
+![Version](https://img.shields.io/badge/version-3.5.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -179,10 +179,20 @@
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
 
-### v3.5.1 (2026-07-07) — 标题栏顶部取色回归修复 + build CSS 顺序修复
+### v3.5.2 (2026-07-07) — 标题栏伪沉浸开关
+
+- **设置-外观新增「标题栏伪沉浸」开关**（`cfg.wcoPseudoImmersive`，默认开启）：控制 PWA 标题栏 `theme-color` 是否跟随专辑封面/背景顶部取色；关闭后标题栏使用常规主题色，不再取顶部颜色
+- **紧急修复线上构建导致播放器被压成标题条的 bug**：`css/base-layout.css` 中 `.player-wrapper` 规则缺少闭合大括号，导致构建后 `.player-wrapper` 被错误合并了按钮的 `height:50px` 等属性；已补全 `}` 并修正 `build.js` CSS 顺序、清理 `style.css` 重复进度条规则
+
+### v3.5.2 (2026-07-07) — 标题栏伪沉浸开关 + 线上构建崩溃修复
+
+- **设置-外观新增「标题栏伪沉浸」开关**：`cfg.wcoPseudoImmersive`（默认开启），控制 PWA 标题栏 `theme-color` 是否跟随专辑封面/背景顶部取色；关闭后标题栏使用常规主题色
+- **紧急修复线上构建导致播放器被压成标题条的 bug**：`css/base-layout.css` 中 `.player-wrapper` 规则缺少闭合大括号，导致构建后 `.player-wrapper` 被错误合并了按钮的 `height:50px` 等属性；已补全 `}`，并修正 `build.js` CSS 顺序、清理 `style.css` 重复进度条规则
+
+### v3.5.1 (2026-07-07) — 标题栏顶部取色回归修复 + build CSS 顺序/重复规则修复
 
 - **标题栏顶部取色回归修复**：`applyThemeLogic()` `showColor` 分支原无条件调用 `ThemeColor.updateTopColor(null)`，覆盖了 `audio-core.js` 从专辑封面提取的顶部取色；已删除该行，并新增 `extractTopColorFromElement()` 从 DOM `<img>` 兜底采样。末尾追加 `ThemeColor.refresh()` 确保最终落盘
-- **build CSS 顺序导致进度条消失修复**：`build.js` `CSS_FILES` 顺序与 HTML 不一致，导致构建后 `style.css` 的错误 `.prog-fill` 规则（缺 `transform-origin:left`、`width:0%`）覆盖了 `base-layout.css` 的正确规则；已修复顺序并清理 `style.css` 冲突规则
+- **build CSS 顺序与重复规则修复**：`build.js` `CSS_FILES` 顺序与 HTML 不一致，且 `style.css`/`base-layout.css` 进度条规则重复；`clean-css` 合并后 `.prog-fill` 关键属性被拆散/覆盖，导致主页面/沉浸舱进度条不显示。已修正顺序并清理 `style.css` 中重复的进度条区块，由 `base-layout.css` 保留唯一权威规则
 
 ### v3.5.0 (2026-07-07) — 设置-外观新选项 + 歌词栏结构修复 + 性能优化 + WCO 假沉浸
 
@@ -712,7 +722,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.5.1
+MBolka Player v3.5.2
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -776,4 +786,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.5.1**
+**© MocaBolka 2026 | v3.5.2**
