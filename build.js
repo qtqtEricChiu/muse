@@ -20,6 +20,50 @@ const CSS_FILES = [
     'wco.css'
 ];
 
+// 🚀 v3.5.0: 元数据解析 Worker 内联模板 —— 作为源码 js/meta-worker.js 缺失时的兜底
+// 模板内容与 js/meta-worker.js 完全一致；CDN 链接 (jsmediatags@3.9.8) 也保持一致
+const META_WORKER_TEMPLATE =
+"/**\n" +
+" * MBolka Player - 元数据解析 Worker (P1-3, v3.5.0)\n" +
+" * 后台线程中用 jsmediatags 解析音乐文件标签，主线程只收结果。\n" +
+" * 通信协议：\n" +
+" *   -> postMessage({ key: String, file: File })\n" +
+" *   <- postMessage({ key, title?, artist?, album?, art?, lrcText?, error: Boolean })\n" +
+" */\n" +
+"importScripts('https://cdn.jsdelivr.net/npm/jsmediatags@3.9.8/build/jsmediatags.min.js');\n" +
+"\n" +
+"self.onmessage = (e) => {\n" +
+"  const { key, file } = e.data;\n" +
+"  if (!file) { self.postMessage({ key, error: true }); return; }\n" +
+"  try {\n" +
+"    jsmediatags.read(file, {\n" +
+"      onSuccess: (tag) => {\n" +
+"        const result = { key, error: false };\n" +
+"        const t = tag.tags;\n" +
+"        if (t.title) result.title = _decodeText(t.title);\n" +
+"        if (t.artist) result.artist = _decodeText(t.artist);\n" +
+"        if (t.album) result.album = _decodeText(t.album);\n" +
+"        if (t.lyrics) result.lrcText = _decodeText(t.lyrics.lyrics || t.lyrics);\n" +
+"        if (t.picture) {\n" +
+"          let b64 = '';\n" +
+"          const d = t.picture.data;\n" +
+"          for (let i = 0; i < d.length; i++) b64 += String.fromCharCode(d[i]);\n" +
+"          result.art = 'data:' + t.picture.format + ';base64,' + self.btoa(b64);\n" +
+"        }\n" +
+"        self.postMessage(result);\n" +
+"      },\n" +
+"      onError: () => self.postMessage({ key, error: true })\n" +
+"    });\n" +
+"  } catch (_e) { self.postMessage({ key, error: true }); }\n" +
+"};\n" +
+"\n" +
+"function _decodeText(str) {\n" +
+"  if (!str) return '';\n" +
+"  let s = str.replace(/\\\\u([0-9a-fA-F]{4})/g, (m, g) => String.fromCharCode(parseInt(g, 16)));\n" +
+"  s = s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"');\n" +
+"  return s;\n" +
+"}\n";
+
 async function build() {
     console.log('🔨 Building MBolka Player v3.5.0...');
 
@@ -61,8 +105,18 @@ async function build() {
     fs.cpSync(path.join(SRC, 'icons'), path.join(DIST, 'icons'), { recursive: true });
     fs.copyFileSync(path.join(SRC, 'manifest.json'), path.join(DIST, 'manifest.json'));
     // 🚀 v3.5.0: 元数据解析 Worker（不参与 bundle，原样复制）
-    fs.copyFileSync(path.join(SRC, 'js/meta-worker.js'), path.join(DIST, 'js/meta-worker.js'));
+    // 优先从源码 js/meta-worker.js 复制；缺失时回退到 build.js 内联模板，保证 CI 必过
+    const _mwSrc = path.join(SRC, 'js/meta-worker.js');
+    const _mwDst = path.join(DIST, 'js/meta-worker.js');
+    fs.mkdirSync(path.dirname(_mwDst), { recursive: true });
+    if (fs.existsSync(_mwSrc)) {
+        fs.copyFileSync(_mwSrc, _mwDst);
+    } else {
+        console.log(`  ⚠️  ${_mwSrc} 不存在，使用 build.js 内联模板生成`);
+        fs.writeFileSync(_mwDst, META_WORKER_TEMPLATE);
+    }
     console.log(`  ✅ favicon.ico + icons/ + manifest.json + js/meta-worker.js`);
+
 
     // Generate dist-specific Service Worker (相对路径，子路径 /muse/ 安全)
     const iconFiles = fs.readdirSync(path.join(SRC, 'icons'))
