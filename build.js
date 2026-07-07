@@ -21,7 +21,7 @@ const CSS_FILES = [
 ];
 
 async function build() {
-    console.log('🔨 Building MBolka Player v3.4.3...');
+    console.log('🔨 Building MBolka Player v3.5.0...');
 
     // Create dist directory
     if (!fs.existsSync(DIST)) fs.mkdirSync(DIST, { recursive: true });
@@ -60,7 +60,9 @@ async function build() {
     fs.copyFileSync(path.join(SRC, 'favicon.ico'), path.join(DIST, 'favicon.ico'));
     fs.cpSync(path.join(SRC, 'icons'), path.join(DIST, 'icons'), { recursive: true });
     fs.copyFileSync(path.join(SRC, 'manifest.json'), path.join(DIST, 'manifest.json'));
-    console.log(`  ✅ favicon.ico + icons/ + manifest.json`);
+    // 🚀 v3.5.0: 元数据解析 Worker（不参与 bundle，原样复制）
+    fs.copyFileSync(path.join(SRC, 'js/meta-worker.js'), path.join(DIST, 'js/meta-worker.js'));
+    console.log(`  ✅ favicon.ico + icons/ + manifest.json + js/meta-worker.js`);
 
     // Generate dist-specific Service Worker (相对路径，子路径 /muse/ 安全)
     const iconFiles = fs.readdirSync(path.join(SRC, 'icons'))
@@ -82,9 +84,9 @@ async function build() {
  */
 function genSW(urls) {
     const list = JSON.stringify(urls, null, 12);
-    return `/* MBolka Player v3.4.3 — dist Service Worker (相对路径, 子路径安全) */
-const CACHE_NAME = 'mbolka-v3.4.3';
-const RUNTIME_CACHE = 'mbolka-runtime-v3.4.3';
+    return `/* MBolka Player v3.5.0 — dist Service Worker (相对路径, 子路径安全) */
+const CACHE_NAME = 'mbolka-v3.5.0';
+const RUNTIME_CACHE = 'mbolka-runtime-v3.5.0';
 const CACHE_URLS = ${list};
 
 self.addEventListener('install', e => {
@@ -105,7 +107,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const req = e.request;
     if (req.method !== 'GET') return;
-    // 🔧 v3.4.3: Network-First —— 在线优先回源（源码改动刷新即生效），离线/失败回退缓存
+    // 🔧 v3.5.0: Network-First —— 在线优先回源（源码改动刷新即生效），离线/失败回退缓存
     e.respondWith(
         fetch(req).then(res => {
             if (res && res.ok && isSameOrigin(req.url)) {

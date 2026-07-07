@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Audio Core v3.2.0
+ * MBolka Player - Audio Core v3.5.0
  * Lyrics engine (chain+pair), EQ (28 presets), crossfade v2.8.9,
  * playback control, AB repeat, progress bar, sleep timer, export/import
  */
@@ -700,7 +700,8 @@ function togglePitchPreserve() {
     audio.preservesPitch = preservesPitch;
     const btn = document.getElementById('btnTogglePitch');
     // 🚀 v3.4.x: 用 SVG 图标替换原 emoji，避免覆盖按钮内置图标
-    if (btn) btn.innerHTML = preservesPitch ? iconSvg('lock') + ' 保持音调' : iconSvg('music') + ' 允许变调';
+    // 🚀 v3.5.0: 复用 setBtnText helper
+    if (btn) setBtnText(btn, preservesPitch ? 'lock' : 'music', preservesPitch ? '保持音调' : '允许变调');
     saveSettings();
     showToast(preservesPitch ? '已锁定音调' : '已允许升降调');
 }
@@ -971,6 +972,8 @@ const playAudio = async (idx) => {
     if (hasCurrentAlbumArt) {
         el.mainArt.src = el.immArt.src = song.art;
         currentAlbumColor = await extractColor(song.art);
+        // 🚀 v3.4.2: 同步采样专辑封面顶部附近颜色，用于 WCO 假沉浸标题栏
+        currentAlbumTopColor = await extractTopColor(song.art, 0.2);
         // 设置专辑环境光阴影CSS变量
         if (currentAlbumColor) {
             document.documentElement.style.setProperty('--album-color', currentAlbumColor + '80');
@@ -979,12 +982,17 @@ const playAudio = async (idx) => {
     } else {
         el.mainArt.src = el.immArt.src = "";
         currentAlbumColor = null;
+        currentAlbumTopColor = null;
         document.documentElement.style.setProperty('--album-color', 'rgba(0,0,0,0.5)');
         el.mainColAlbum.classList.add('no-art'); el.immTrackCard.classList.add('no-art');
     }
     // 🚀 v3.2.2: 标题栏配色统一处理——有封面取色，无封面/取色失败回调默认色
     //           （隐藏标题栏时 ThemeColor 内部强制 #180219）
-    if (typeof ThemeColor !== 'undefined') ThemeColor.update(currentAlbumColor);
+    // 🚀 v3.4.2: 同时把顶部取色传给 ThemeColor，让 WCO 右上金刚键背景跟随页面顶部
+    if (typeof ThemeColor !== 'undefined') {
+        ThemeColor.update(currentAlbumColor);
+        ThemeColor.updateTopColor(currentAlbumTopColor);
+    }
 
     // 🚀 v3.2.2: 实时同步 WCO 标题栏曲目标题（随切歌即时更新）
     if (typeof WCO !== 'undefined' && WCO.setTrack) WCO.setTrack(song.title, song.artist);
@@ -1066,11 +1074,9 @@ const playAudio = async (idx) => {
 };
 
 // 🚀 v3.4.x: 只切换按钮内置 <use> 的图标，避免 textContent 覆盖掉 SVG 图标
+// 🚀 v3.5.0: 复用统一 setBtnIcon helper
 function _syncPlayIcon(btn, playing) {
-    if (!btn) return;
-    const u = btn.querySelector('use');
-    if (u) u.setAttribute('href', '#icon-' + (playing ? 'pause' : 'play'));
-    else btn.innerHTML = `<svg class="btn-icon"><use href="#icon-${playing ? 'pause' : 'play'}"/></svg>`;
+    setBtnIcon(btn, playing ? 'pause' : 'play');
 }
 
 const setPlayState = (playing) => {

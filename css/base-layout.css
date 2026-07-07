@@ -16,6 +16,21 @@
 }
 #bg-layer-img.active, #bg-layer-color.active { opacity: 1; }
 
+/* 🚀 v3.5.0: 背景沉浸遮罩层（位于背景层之上、视图之下，夜间黑遮罩与之 alpha-over 叠加合成） */
+#bg-immersive-scrim {
+    position: fixed; inset: 0; z-index: -9; pointer-events: none;
+    background: #000;
+    opacity: var(--bg-scrim-alpha, 0);
+    transition: opacity 0.6s var(--curve-smooth);
+}
+
+/* 🚀 v3.5.0: 背景沉浸 → 主界面播放器更透明，让背景全屏展现 */
+body.bg-immersive .player-wrapper {
+    background: rgba(20, 17, 30, 0.28) !important;
+    backdrop-filter: blur(calc(var(--bg-blur-dynamic, 12px) * 0.6)) saturate(120%);
+    -webkit-backdrop-filter: blur(calc(var(--bg-blur-dynamic, 12px) * 0.6)) saturate(120%);
+}
+
 /* ================= 视图容器切换 ================= */
 .view-container {
     position: absolute; inset: 0; width: 100vw; height: 100vh;
@@ -195,15 +210,32 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     scroll-behavior: smooth; 
     width: 100%;
 }
-.lrc-line { 
-    font-size: var(--lrc-font-size); 
-    line-height: var(--lrc-line-height); 
-    color: rgba(255,255,255,0.35); 
-    transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); 
-    min-height: 40px; 
-    cursor: pointer; 
-    filter: blur(2px); 
-    opacity: 0.4; 
+/* 🩹 v3.5.0: 歌词栏专属自定义滚动条 — 适配玻璃态美学 */
+.lrc-viewport::-webkit-scrollbar { width: 4px; }
+.lrc-viewport::-webkit-scrollbar-track { background: transparent; }
+.lrc-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; transition: background 0.3s; }
+.lrc-viewport::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+/* 🩹 v3.5.0: 修复属性丢失（transform/word-break/padding/user-select 等曾因 } 过早闭合成为孤儿代码），
+   改用具体属性过渡替代 transition:all 提升性能 */
+.lrc-line {
+    font-size: var(--lrc-font-size);
+    line-height: var(--lrc-line-height);
+    color: rgba(255,255,255,0.35);
+    transition: color 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+                opacity 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+                transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+                filter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    min-height: 40px;
+    cursor: pointer;
+    filter: blur(2px);
+    opacity: 0.4;
+    transform: scale(0.95);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+    padding: 0 10px;
+    user-select: text; /* v2.9.0: 歌词可选中复制 */
 }
 /* 🚀 v3.0.2: 手动滚动时清除所有歌词行模糊 */
 .lrc-viewport.scrolling .lrc-line {
@@ -212,26 +244,25 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     transition: filter 0.15s ease, opacity 0.15s ease;
 }
 
-    transform: scale(0.95); 
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    white-space: pre-wrap;
-    padding: 0 10px;
-    user-select: text; /* 🚀 v2.9.0: 歌词可选中复制 */
-}
-.lrc-line:hover { filter: blur(0px); color: rgba(255,255,255,0.8); opacity: 0.8; }
-.lrc-line.active { 
-    color: #fff; 
-    font-size: calc(var(--lrc-font-size) * 1.44); 
-    font-weight: 700; 
-    text-shadow: 0 0 20px rgba(154,200,226,0.6); 
-    transform: scale(1.05); 
-    filter: blur(0px); 
-    opacity: 1; 
+.lrc-line:hover { filter: blur(0px); color: rgba(154,200,226,0.8); opacity: 0.8; }
+/* 🩹 v3.5.0: 缩小字号跳变（*1.44→*1.2），transform:scale(1.05)+字重700+辉光 已足够区分；
+   使用含取色温的激活色替代纯白，视觉更统一 */
+.lrc-line.active {
+    color: rgba(255,248,240,0.95);
+    font-size: calc(var(--lrc-font-size) * 1.2);
+    font-weight: 700;
+    text-shadow: 0 0 24px rgba(var(--primary-rgb), 0.5), 0 0 60px rgba(var(--primary-rgb), 0.2);
+    transform: scale(1.05);
+    filter: blur(0px);
+    opacity: 1;
 }
 
-/* 🔥 v2.8.10p2: 下一句不再有特殊规则，与非活跃行一致；hover 自然解除模糊 */
+/* 🩹 v3.5.0: 下一句不模糊、微放大 — 创建视觉梯队（曾因 base-layout.css 覆盖 style.css 而丢失） */
+.lrc-line.active + .lrc-line {
+    filter: blur(0px) !important;
+    opacity: 0.75;
+    transform: scale(0.98);
+}
 
 /* 🚀 v2.8.5: 双语歌词显示优化 */
 .lrc-line.bilingual {
@@ -307,10 +338,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
 }
 
 /* 🚀 v2.8.5: 歌词对齐模式 — 偏上显示 */
+/* 🩹 v3.5.0: 偏上对齐激活行同步缩小字号跳变 */
 .lyrics-align-top .lrc-line.active {
-    color: #fff;
-    font-size: calc(var(--lrc-font-size) * 1.3);
+    color: rgba(255,248,240,0.95);
+    font-size: calc(var(--lrc-font-size) * 1.2);
     font-weight: 700;
+    text-shadow: 0 0 24px rgba(var(--primary-rgb), 0.5), 0 0 60px rgba(var(--primary-rgb), 0.2);
 }
 /* 🔥 v2.8.10p2: 偏上模式下一句也还原为默认非活跃样式 */
 .lyrics-align-top .lrc-line.break { min-height: 14px; max-height: 14px; }

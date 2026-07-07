@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.4.3
+# MBolka Player - Ultimate Nexus v3.5.0
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.4.3-blue)
+![Version](https://img.shields.io/badge/version-3.5.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -49,6 +49,7 @@
 - 睡眠定时器 (15/30/60分钟)
 - **自动播放策略优雅降级**：`NotAllowedError` 捕获后监听用户手势自动恢复，引导 Toast 15 秒安全过期（v3.2.3）
 - **PWA Window Controls Overlay**：Windows Chrome 标题栏随切歌实时刷新曲目名、完全窗口水平居中；OS 沉浸顶 bar 颜色 = `<meta name="theme-color">`，始终跟随专辑封面色 / 主题默认色 / 深色模式实时沉浸（v3.4.2 修复取色模式锁死紫色问题）
+- **WCO 假沉浸标题栏（顶部取色）**：隐藏标题栏时，右侧系统金刚键背景自动取页面顶部附近颜色（`js/theme-color.js` `updateTopColor()` + `js/utils.js` `extractTopColor()`），让系统窗口控制区与页面背景视觉融合，达成"假沉浸"效果（v3.4.4）；切歌、自定义背景上传/清除均同步计算顶部取色
 
 ### 🎮 全方位操控
 - 完整键盘快捷键（Space、方向键、J/K、WASD 等）
@@ -65,6 +66,8 @@
 - 10 套预设配色方案：赛博朋克、暖阳、极光、星夜、樱花、深海、日落、薄荷、玫瑰金
 - 聚焦卡片式选择器，手柄/键盘完美导航
 - **封面取色 → PWA 标题栏联动**：专辑封面主色调经 `ThemeColor.update()` 实时驱动 `<meta name="theme-color">`（即 Windows Chrome OS 沉浸顶 bar 颜色），切歌即刷新标题曲目与顶 bar 颜色；无封面 / 取色失败时回落主题默认色，修复残留上一张封面色（v3.4.2 起 OS 顶 bar 完全跟随取色沉浸）
+- **跟随强调色（设置-外观）**：独立开关「跟随强调色」与「取色模式」同源驱动全域强调色（`--primary` 及其衍生色）；`followAccentColor` 配置统一迁移原 `colorMode`，`loadSettings` 兼容旧键（v3.5.0）
+- **背景沉浸（设置-外观）**：开启后播放器面板透明度降低（`rgba 0.28` + backdrop-blur 60%）→ 专辑封面/自定义背景全屏展现；夜间模式自动叠加半透明黑遮罩，采用 **alpha-over 分层合成公式** `1-(1-a)*(1-b)` 正确加深而不丢失层次（v3.5.0）
 - **WCAG 2.2 对比度合规**：`getLuminance` 改用标准 sRGB 相对亮度公式 + 对比度择优前景色；`player-wrapper` 由 `role="application"` 改为 `role="group"` + `aria-label`
 - **视口缩放放开**：移除 `maximum-scale`/`user-scalable=no`，低视力用户可自由缩放（WCAG 1.4.4 / 1.4.10）
 - **焦点可见性**：`:focus-visible` 轮廓与手柄 `.gamepad-focus` 视觉对齐，键盘/鼠标用户清晰定位
@@ -175,6 +178,17 @@
 ## 🆕 更新日志
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
+
+### v3.5.0 (2026-07-07) — 设置-外观新选项 + 歌词栏结构修复 + 性能优化 + WCO 假沉浸
+
+- **歌词栏 CSS 结构性 Bug 修复**：修复 `base-layout.css` 中 `.lrc-line` 大括号过早闭合导致 7 条关键属性（`word-break`/`user-select:text`/`transform:scale(0.95)`/`padding` 等）成为孤儿代码完全失效的问题；缩小激活行字号跳变（*1.44→*1.2）消除布局抖动、恢复下一句不模糊的视觉梯队、新增歌词栏专属薄型滚动条、激活行颜色改用主题色辉光
+- **设置-外观新选项**：「跟随强调色」与「背景沉浸」两个独立开关。跟随强调色与取色模式同源驱动全域强调色；背景沉浸让专辑封面/自定义背景全屏沉浸，夜间模式自动叠加半透明黑遮罩（alpha-over 分层合成 `1-(1-a)*(1-b)`）
+- **曲库搜索防抖 (P0-1)**：`#coverLibSearch` 输入改为 180ms 防抖，连续击键只触发一次全量重渲染
+- **`saveSettings` 节流落盘 (P1-1)**：首次调用立即落盘、400ms 节流窗口内合并写入，页面隐藏/卸载强制 `flushSettings()`；37 处调用方自动受益
+- **统一图标切换 helper `setBtnIcon` (P1-4)**：优先切换 `<use href>`，无 `<use>` 时整段替换 SVG，消除内联 SVG 字符串重复
+- **WCO 假沉浸标题栏**：隐藏标题栏时右侧系统金刚键背景自动取页面顶部附近颜色（`extractTopColor()`），系统窗口控制区与页面背景视觉融合；切歌、自定义背景上传/清除均同步计算顶部取色
+- 沉浸舱取色背景实时跟随（修复退出沉浸舱才更新、返回主界面流沙卡顿一秒的 bug）
+- 主界面右上角「列表 / 歌词 / 曲库」按键：手柄接入时正确注入手柄键位徽标，手柄断连后键盘提示不丢失
 
 ### v3.4.0 (2026-07-07) — 曲库 coverflow 交互与手柄返回修复
 
@@ -692,7 +706,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.4.3
+MBolka Player v3.5.0
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -756,4 +770,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.4.3**
+**© MocaBolka 2026 | v3.5.0**

@@ -2,6 +2,107 @@
 
 ---
 
+## v3.5.0 (2026-07-07)
+
+### ⚡ 性能与可维护性优化（P0 + P1 全量落地）
+
+> 第一轮落地 P0-1 / P1-1 / P1-4（S–M、零风险）；第二轮（本次）补齐 P0 全部 + P1 全部：coverflow 增量渲染、播放列表搜索防抖、cachedCenters 消除 layout、大列表分块加载、元数据 Web Worker 解析、图标 refactor 收尾。
+
+#### 🔴 P0-1a｜曲库搜索输入防抖
+- **`js/cover-lib.js`**：`#coverLibSearch` 的 `input` 改为 180ms 防抖，连续击键只触发一次全量重渲染，大库下输入卡顿显著下降。
+
+#### 🔴 P0-1b｜播放列表搜索输入防抖
+- **`js/app.js`**：`#searchInput` 的 `input` 同样改为 180ms 防抖（原每键入一次即 `searchPlaylist()` 全量过滤+重渲染），与曲库搜索保持一致的响应体验。
+
+#### 🔴 P0-2｜coverflow 居中切换增量更新
+- **`js/cover-lib.js`** `updateCoverflow()`：每张卡片缓存 `dataset.flowOff`（距中心偏移），仅在偏移变化时写入 `style.transform`/`opacity`/`filter`/`zIndex`/`classList`，避免全量样式写入。滚动目标用 `_cachedCardCenters[coverLibCenter] - grid.clientWidth/2` 代替 `center.offsetLeft` 读取，消除同步布局。
+- 中心卡片 `blur()` 仅在中心偏移时才写入（非中心卡 blur 固定值）。
+
+#### 🔴 P0-3｜松手重算 `cachedCenters` 避免 layout 读取
+- **`js/cover-lib.js`**：新增 `_cachedCardCenters[]` 数组，在 `updateCoverflow()` 和 `onCoverflowScroll()` 中惰性计算/重建。`onCoverflowScroll()` 松手定位最近居中卡片时从缓存数组比对，不再每张卡片读 `offsetLeft + offsetWidth/2`（消除全量同步布局读取）。
+
+#### 🟡 P1-1｜`saveSettings` 节流落盘
+- **`js/utils.js`**：原 `saveSettings()` 每次调用都同步写 `localStorage`（滑块 `oninput`、连续切换等高频场景会每帧落盘）。现拆分为 `saveSettingsNow()`（实际写入）+ 节流包装 `saveSettings()`：首次调用立即落盘（关键变更不丢），节流窗口（400ms）内的后续调用合并为一次末尾写入。
+- 新增 `flushSettings()`，在 `visibilitychange`（页面隐藏）/ `pagehide`（卸载）时强制刷盘，避免节流窗口内的末次变更丢失。
+- 全部 37 处 `saveSettings()` 调用方无需改动即自动受益。
+
+#### 🟡 P1-2｜大播放列表分块渲染
+- **`js/loader.js`** `renderPlaylist()`：重构为分块渲染模式。抽取 `_createPlItem(s, i)` 工厂函数（消除与 `searchPlaylist()` 的 DOM 构建重复）。
+- 前 200 首同步挂载（立即可见），后续条目通过 `requestAnimationFrame` 分 100 首/批追加，避免大库（1000+）一次性全量 DOM 构建阻塞主线程。拖拽排序事件委托不受分块影响。
+
+#### 🟡 P1-3｜元数据 Web Worker 解析
+- **新增 `js/meta-worker.js`**：`importScripts` 加载 jsmediatags CDN，在后台线程中解析音乐文件标签（title/artist/album/lyrics/cover art base64）。
+- **`js/loader.js`** `parseMetadata()`：惰性创建 Worker 实例（`_initMetaWorker()`，仅在线/localhost 生效，`file://` 协议安全跳过），发送 `{key, file}` 到 Worker，8 秒超时→回退到内联 `_parseInline()` 解析。
+- Worker 不可达（协议限制/创建失败）时自动降级到原有内联路径，零破坏。
+- `cacheMetadata()` 仍由主线程执行（IDB 访问主线程更高效）。
+
+#### 🟢 P1-4a｜统一图标切换 helper `setBtnIcon`
+- **`js/utils.js`**：新增 `setBtnIcon(btn, name, label)`——优先切换按钮内 `<use href>`（不覆盖文字/内置图标），无 `<use>` 时整段替换为 SVG（可带文字 label）。
+- **`js/audio-core.js`**：`#btnPlay` / `#imm-btnPlay` 的播放/暂停图标切换（`_syncPlayIcon`）改用 `setBtnIcon`，高频图标热切换统一走此 helper。
+
+#### 🟢 P1-4b｜统一图标 + 文案 helper `setBtnText`
+- **`js/utils.js`**：新增 `setBtnText(btn, iconName, text)`，集中 `iconSvg + 文案` 的 innerHTML 模板。
+- **`js/ui-core.js`**：音调按钮（`btnTogglePitch`）与淡入淡出按钮（`btnToggleCrossfade`）的 icon+文案 切换改用 `setBtnText`。
+- **`js/audio-core.js`**：`togglePitchPreserve()` 内音调按钮改用 `setBtnText`。
+- **`js/pip.js`**：画中画播放/暂停图标改用 `setBtnIcon`。
+- 后续改文案只动一处（`setBtnText`），重复模板归零。
+
+### 🆕 版本号更新
+- `v3.4.4` → `v3.5.0`
+- 更新位置：`index.html`（标题 + 页脚版权），`README.md`（标题 + 徽章 + 页脚），`.dev-docs/prompt-by-qclaw/代码功能指导文档.md`（版本头 + 尾 + §8 迭代表）
+
+### 🎨 设置-外观新增：跟随强调色 + 背景沉浸
+
+- **需求**：在设置弹窗「外观」标签页中提供两个可选项，让用户精细控制界面的颜色跟随行为与背景沉浸程度。
+- **实现**：
+  1. **跟随强调色**（`cfg.followAccentColor`）：开关位于外观→「沉浸式外观」区块。开启时，主题强调色（`--primary` 及所有衍生色）跟随当前专辑封面提取的主色调，与「封面取色」同源驱动全域色彩体系；关闭时回落预设主题色。配置文件 `cfg.colorMode` 统一迁移为 `cfg.followAccentColor`，`loadSettings` 保留旧键兼容。
+     - `js/globals.js`：`cfg.followAccentColor` 替换原 `colorMode`。
+     - `js/utils.js`：`saveSettingsNow` 写入 `followAccentColor`，`loadSettings` 回读 `stored.followAccentColor ?? stored.colorMode`。
+     - `js/ui-core.js`：`updateSettingsUI` 同步开关状态；`toggleColorMode()` 与 `followAccentToggle` 均操控 `cfg.followAccentColor`；`toggleDarkMode` 调用 `applyBgImmersive` 重算遮罩。
+     - `js/visualizer.js`：4 处 `cfg.colorMode` 统一替换为 `cfg.followAccentColor`。
+  2. **背景沉浸**（`cfg.bgImmersive`）：开关位于外观→「沉浸式外观」区块。开启时，专辑封面或自定义背景以全屏形式呈现于玻璃播放器背后，播放器面板透明度降低（`background: rgba(20,17,30,0.28)`，backdrop-filter 强度降至 60%），让背景更通透、沉浸感更强。
+  3. **夜间模式遮罩叠加计算**（关键）：背景沉浸开启时，页面添加 `#bg-immersive-scrim` 固定遮罩层（`z-index: -9`，位于背景层之上、视图容器之下），其透明度由 `--bg-scrim-alpha` CSS 变量驱动。`applyBgImmersive()` 采用**分层 alpha-over 合成公式**：
+     ```
+     finalAlpha = 1 - (1 - baseScrim) * (1 - darkScrim)
+     ```
+     - `baseScrim = 0.38`：沉浸基础遮罩，确保专辑封面/自定义背景高亮部分不影响 UI 可读性。
+     - `darkScrim = 0.45`：夜间模式（`cfg.darkMode`）开启时额外叠加的半透明黑遮罩。
+     - 两者同时存在时不会简单相加溢出，而是正确加深却不丢失背景层次。
+  4. **相关文件**：`index.html`（新增 `#bg-immersive-scrim` 元素 + 两个 toggle-switch 放入外观标签页「沉浸式外观」区块）、`css/style.css` / `css/base-layout.css`（scrim 样式 + `.bg-immersive .player-wrapper` 半透明化 + 遮罩过渡动画）。
+
+### 🪟 PWA WCO 假沉浸标题栏（Windows Chrome）
+
+- **需求**：Windows Chrome 隐藏标题栏（PWA WCO 模式）时，右上金刚键（最小化/最大化/关闭）背景自动取页面顶部附近颜色，让系统窗口控制区与页面背景融合，达成「假沉浸」效果。
+- **实现**：
+  1. `js/utils.js` 新增 `extractTopColor(imgSrc, sampleHeight)`：从当前背景图片（专辑封面或自定义背景）顶部区域采样平均颜色，作为 WCO 标题栏沉浸色。
+  2. `js/theme-color.js` 扩展 `ThemeColor`：新增 `updateTopColor()`，优先级为 **顶部取色 > 深色模式 > 专辑平均色 > 默认色**。最终颜色写入 `<meta name="theme-color">`，Windows Chrome 用其渲染右侧系统金刚键背景；同时暴露 `--wco-theme-color` CSS 变量供自绘标题栏使用。
+  3. `js/audio-core.js` 切歌时同步提取 `currentAlbumTopColor` 并传给 `ThemeColor`。
+  4. `js/ui-core.js` 自定义背景上传/清除时同步计算 `cfg.customBgTopColor`，并在 `applyThemeLogic()` 中根据当前显示的背景（自定义图 / 专辑图 / 流沙背景）更新 `ThemeColor`。
+  5. `js/utils.js` 持久化/恢复 `cfg.customBgTopColor`。
+  6. `css/wco.css` 左侧自绘标题栏默认保持透明，让页面顶部背景自然延伸；增加文字阴影保证曲目标题在复杂背景上可读。右侧系统金刚键背景由 `theme-color` 自动跟随顶部取色。
+- **限制**：右侧金刚键区域只能由操作系统渲染为单一纯色，因此「取顶部附近颜色」本质是让系统色与页面顶部主色调一致，形成视觉上的假沉浸。若页面顶部为渐变或复杂纹理，仍只能取平均色近似。
+
+### 🎨 歌词栏美学与结构修复（CSS 结构性 Bug + 视觉升级）
+
+- **症状**：主界面歌词栏存在多项 CSS 问题：超长歌词行溢出无断词保护（`word-break`/`overflow-wrap` 失效）、歌词不可选中复制（`user-select: text` 丢失）、hover 文字颜色太冷（纯白 0.8）、激活行字号跳变过大（44%+）且与 `transform: scale(1.05)` 叠加造成布局抖动、下一句不模糊的视觉梯队丢失、`transition: all` 过度过渡影响性能。
+- **根因（`css/base-layout.css`）**：`.lrc-line` 规则在第 207 行大括号**过早闭合** → `transform: scale(0.95)` / `word-wrap` / `overflow-wrap` / `word-break` / `white-space` / `padding: 0 10px` / `user-select: text` 等 7 条关键属性变成孤儿代码（第 215-222 行）被浏览器完全忽略。由于 `base-layout.css` 加载顺序在 `style.css` 之后并覆盖之，这些属性在**所有场景下均未生效**。同时 `base-layout.css` 缺少 `.lrc-line.active + .lrc-line` 规则（style.css 中存在但被覆盖丢失），下一句不模糊的视觉层级消失。
+- **修复（`css/base-layout.css` + `css/style.css`）**：
+  1. 将 7 条孤儿属性合并回 `.lrc-line` 规则内（关闭过早大括号），恢复断词/换行/缩放/选中等全部行为。
+  2. 将 `.lrc-line` 的 `transition: all 0.6s …` 改为仅过渡 `color opacity transform filter` 四个具体属性（避免 `font-size` 等布局属性触发过渡）。
+  3. 激活行字号从 `calc(var(--lrc-font-size) * 1.44)` 降为 `* 1.2`，消除 44% 跳变造成的布局抖动；`transform: scale(1.05)` + `font-weight: 700` + 辉光已足够区分。
+  4. 激活行颜色从 `#fff` 改为 `rgba(255,248,240,0.95)` + 辉光换为 `rgba(var(--primary-rgb), …)` 跟随主题色。
+  5. 恢复缺失的 `.lrc-line.active + .lrc-line` 规则（下一句不模糊 + opacity 0.75 + scale 0.98）。
+  6. hover 文字色从白冷光改为 `rgba(154,200,226,0.8)`（水母蓝）更温暖。
+  7. 添加 `.lrc-viewport::-webkit-scrollbar` 薄型滚动条（4px 宽，12% 白 thumb），与玻璃态美学一致。
+  8. 同步更新 `style.css` 中对应规则（保持两份 CSS 一致）。
+  9. 同步更新 `.lyrics-align-top .lrc-line.active` 的激活色与辉光。
+
+### 🆕 版本号更新
+- `v3.4.3` → `v3.5.0`
+- 更新位置：`index.html`（标题 + 页脚版权 + 2 处注释）、13 个 JS 文件的版本头 + `globals.js` 副标题 + `loader.js` 文档标题、`package.json`、`sw.js`、`build.js`（SW 缓存键 `mbolka-v3.4.3`→`mbolka-v3.5.0`）
+
+---
+
 ## v3.4.3 (2026-07-07)
 
 ### 🎮 手柄全流程静态修复
@@ -22,9 +123,9 @@
 
 ### 🩹 主界面右上角「列表/歌词/曲库」按键指示不清修复（被键盘快捷键覆盖）
 
-- **症状**：主界面右上角「列表 / 歌词 / 曲库」三个玻璃按钮无手柄时完全看不到任何按键提示；接入手柄后显示的却是键盘字母 `P`/`L`/`G` 而非手柄键位（被键盘快捷键覆盖）；且手柄断连一次后字母永久消失。
-- **根因**：`index.html` 内联了静态 `gamepad-badge pad-p/l/g`（键盘字母），`.gamepad-badge` 默认 `display:none`，仅 `.gamepad-connected` 时显示。`js/gamepad.js` 的 `injectGamepadHints()` 因 `querySelector('.gamepad-badge')` 已存在而守卫跳过，无法注入真正手柄映射 `←`/`RS↕`/`→`。`removeGamepadHints()` 一并删掉静态徽章。
-- **修复**：`index.html` 静态 `gamepad-badge` 改为常驻 `.kbd-hint`，补 `title` 标明键盘+手柄键位；`css/components.css` 新增 `.kbd-hint`（底部小胶囊，手柄接入时降透明度）、`.gamepad-badge.pad-wide`（多字符圆角胶囊容纳 `RS↕`）；为 `.btn-glass` 补 `position: relative`。`js/gamepad.js` `btnToggleLrc` 加 `pad-wide` 类。连接时三个按钮正确注入手柄映射，与键盘提示分居两角。
+- **症状**：主界面右上角「列表 / 歌词 / 曲库」三个玻璃按钮接入手柄后显示的是键盘字母 `P`/`L`/`G` 而非手柄键位（被键盘快捷键覆盖），且手柄断连一次后字母永久消失。
+- **根因**：`index.html` 内联了静态 `gamepad-badge pad-p/l/g`（键盘字母），`js/gamepad.js` 的 `injectGamepadHints()` 因 `querySelector('.gamepad-badge')` 已存在而守卫跳过，无法注入真正手柄映射 `←`/`RS↕`/`→`；`removeGamepadHints()` 又会一并删掉这些静态徽章。
+- **修复**：移除三个按钮的静态键盘字母徽章；`css/components.css` 新增 `.gamepad-badge.pad-wide`（多字符圆角胶囊容纳 `RS↕`），并为 `.btn-glass` 补 `position: relative` 作为徽章定位上下文。`js/gamepad.js` 歌词按钮徽章加 `pad-wide` 类。连接手柄时三个按钮正确注入 `←`/`RS↕`/`→` 手柄映射徽章，仅在 `.gamepad-connected` 时出现，断连即移除。键盘快捷键 P/L/G 仍可在帮助面板查看，不再常驻显示。
 
 ### 🎨 沉浸舱取色背景实时跟随（视觉修复）
 

@@ -1,5 +1,5 @@
 /*
- * MBolka Player - File Loader v3.0.1
+ * MBolka Player - File Loader v3.5.0
  * Metadata parsing, playlist rendering, cover wall, file processing, drag-drop, CUE parsing
  */
 
@@ -21,11 +21,35 @@ const extractArtOnly = (file) => {
     });
 };
 
+// 🚀 v3.5.0 (P1-3): 元数据解析 Worker 实例（惰性创建）
+let _metaWorker = null;
+const _pendingMeta = new Map();
+const WORKER_PARSE_TIMEOUT = 8000; // 8s 超时 → 回退到内联解析
+
+function _initMetaWorker() {
+    if (_metaWorker) return true;
+    try {
+        // Worker 不支持 file:// 协议，仅在线 / localhost 下工作
+        if (location.protocol === 'file:') return false;
+        _metaWorker = new Worker('js/meta-worker.js');
+        _metaWorker.onmessage = (e) => {
+            const { key, error, title, artist, album, art, lrcText } = e.data;
+            const pending = _pendingMeta.get(key);
+            if (pending) {
+                clearTimeout(pending.timeout);
+                _pendingMeta.delete(key);
+                pending.resolve({ title, artist, album, art, lrcText, error });
+            }
+        };
+        _metaWorker.onerror = () => { _metaWorker = null; };
+        return true;
+    } catch (_e) { return false; }
+}
+
 const parseMetadata = async (file) => {
     const key = `${file.name}_${file.size}_${file.lastModified}`;
     const cached = await getCachedMetadata(key);
     if (cached) {
-        // 缓存命中：用传入 file 重建 blob URL，缓存只存纯文本字段
         const url = URL.createObjectURL(file);
         if (!loadedUrls.includes(url)) loadedUrls.push(url);
         const result = { ...cached, url, file, error: false };
@@ -37,42 +61,82 @@ const parseMetadata = async (file) => {
         return result;
     }
 
+    // 尝试 Worker 解析（惰性创建，仅在线协议）
+    if (_initMetaWorker()) {
+        return new Promise(resolve => {
+            const url = URL.createObjectURL(file);
+            const meta = { title: file.name.replace(/\.[^/.]+$/, ""), artist: "未知", album: "", url, file, error: false, lrcText: null };
+            const timeout = setTimeout(() => {
+                // Worker 超时 → 回退到内联解析
+                _pendingMeta.delete(key);
+                _parseInline(file, key, meta, resolve);
+            }, WORKER_PARSE_TIMEOUT);
+            _pendingMeta.set(key, { resolve: (parsed) => {
+                if (parsed.title) meta.title = parsed.title;
+                if (parsed.artist) meta.artist = parsed.artist;
+                if (parsed.album) meta.album = parsed.album;
+                if (parsed.lrcText) meta.lrcText = parsed.lrcText;
+                if (parsed.art) meta.art = parsed.art;
+                if (!parsed.art && window.jsmediatags) {
+                    extractArtOnly(file).then(art => {
+                        if (art) meta.art = art;
+                        _finalizeMeta(meta, key, resolve);
+                    }).catch(() => _finalizeMeta(meta, key, resolve));
+                } else {
+                    _finalizeMeta(meta, key, resolve);
+                }
+            }, timeout });
+            try {
+                _metaWorker.postMessage({ key, file });
+            } catch (_e) {
+                clearTimeout(timeout);
+                _pendingMeta.delete(key);
+                _parseInline(file, key, meta, resolve);
+            }
+        });
+    }
+
+    // Worker 不可达 → 内联解析
+    return _parseInlineFallback(file, key);
+};
+
+// 内联解析（回退路径）
+function _parseInline(file, key, meta, resolve) {
+    if (window.jsmediatags) {
+        jsmediatags.read(file, {
+            onSuccess: tag => {
+                if(tag.tags.title) meta.title = decodeText(tag.tags.title);
+                if(tag.tags.artist) meta.artist = decodeText(tag.tags.artist);
+                if(tag.tags.album) meta.album = decodeText(tag.tags.album);
+                if(tag.tags.lyrics) meta.lrcText = decodeText(tag.tags.lyrics.lyrics || tag.tags.lyrics);
+                if(tag.tags.picture) {
+                    let b64 = '';
+                    const d = tag.tags.picture.data;
+                    for(let i=0; i<d.length; i++) b64 += String.fromCharCode(d[i]);
+                    meta.art = `data:${tag.tags.picture.format};base64,${window.btoa(b64)}`;
+                }
+                _finalizeMeta(meta, key, resolve);
+            },
+            onError: () => _finalizeMeta(meta, key, resolve)
+        });
+    } else {
+        _finalizeMeta(meta, key, resolve);
+    }
+}
+
+function _parseInlineFallback(file, key) {
     return new Promise(resolve => {
         const url = URL.createObjectURL(file);
         const meta = { title: file.name.replace(/\.[^/.]+$/, ""), artist: "未知", album: "", url, file, error: false, lrcText: null };
-        if (window.jsmediatags) {
-            jsmediatags.read(file, {
-                onSuccess: tag => {
-                    if(tag.tags.title) meta.title = decodeText(tag.tags.title);
-                    if(tag.tags.artist) meta.artist = decodeText(tag.tags.artist);
-                    if(tag.tags.album) meta.album = decodeText(tag.tags.album);
-                    if(tag.tags.lyrics) {
-                        meta.lrcText = decodeText(tag.tags.lyrics.lyrics || tag.tags.lyrics);
-                    }
-                    if(tag.tags.picture) {
-                        let b64 = '';
-                        const d = tag.tags.picture.data;
-                        for(let i=0; i<d.length; i++) b64 += String.fromCharCode(d[i]);
-                        meta.art = `data:${tag.tags.picture.format};base64,${window.btoa(b64)}`;
-                    }
-                    // v3.0.3: 缓存仅存纯文本字段，剥离 file/url/art 防止 IDB 存整首歌
-                    const { art: _a, file: _f, url: _u, ...metaForCache } = meta;
-                    cacheMetadata(key, metaForCache);
-                    resolve(meta);
-                },
-                onError: () => {
-                    const { file: _f, url: _u, ...metaForCache } = meta;
-                    cacheMetadata(key, metaForCache);
-                    resolve(meta);
-                }
-            });
-        } else {
-            const { file: _f, url: _u, ...metaForCache } = meta;
-            cacheMetadata(key, metaForCache);
-            resolve(meta);
-        }
+        _parseInline(file, key, meta, resolve);
     });
-};
+}
+
+function _finalizeMeta(meta, key, resolve) {
+    const { art: _a, file: _f, url: _u, ...metaForCache } = meta;
+    cacheMetadata(key, metaForCache);
+    resolve(meta);
+}
 
 // 🩹 v3.2.3 P8: 复用单个拖拽插入线元素，避免每帧 create/remove
 let _dragInsertLine = null;
@@ -85,6 +149,96 @@ function _getInsertLine() {
     return _dragInsertLine;
 }
 
+// 🚀 v3.5.0 (P1-2): 分块构建单个 pl-item DOM（供 renderPlaylist 同步 + rAF 分块复用）
+function _createPlItem(s, i) {
+    const div = document.createElement('div');
+    const isFav = favorites.has(s.file.name);
+    let classes = 'pl-item focusable';
+    if (i === currentIndex) classes += ' active';
+    if (s.error) classes += ' error';
+    div.className = classes;
+    div.draggable = true;
+    div.dataset.index = i;
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'pl-title';
+    titleSpan.textContent = s.title;
+    div.appendChild(titleSpan);
+
+    const artistSpan = document.createElement('span');
+    artistSpan.style.cssText = 'font-size:12px;opacity:0.6;';
+    artistSpan.textContent = s.artist;
+    div.appendChild(artistSpan);
+
+    const favBtn = document.createElement('span');
+    favBtn.className = `favorite-btn ${isFav ? 'faved' : ''}`;
+    favBtn.dataset.idx = i;
+    favBtn.title = '收藏';
+    favBtn.innerHTML = iconSvg(isFav ? 'heart-filled' : 'heart');
+    div.appendChild(favBtn);
+
+    // 拖拽事件
+    div.ondragstart = (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', i.toString());
+        div.classList.add('dragging');
+        const line = _getInsertLine();
+        line.classList.remove('show');
+    };
+    div.ondragend = () => {
+        div.classList.remove('dragging');
+        document.querySelectorAll('.pl-item').forEach(d => d.classList.remove('drag-over'));
+        const line = _getInsertLine();
+        line.classList.remove('show');
+    };
+    div.ondragover = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = div.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const line = _getInsertLine();
+        const containerRect = el.plContainer.getBoundingClientRect();
+        if (e.clientY < midY) {
+            line.style.top = (rect.top - containerRect.top + el.plContainer.scrollTop - 2) + 'px';
+        } else {
+            line.style.top = (rect.bottom - containerRect.top + el.plContainer.scrollTop - 1) + 'px';
+        }
+        line.style.left = '10px';
+        line.style.right = '10px';
+        el.plContainer.style.position = 'relative';
+        line.classList.add('show');
+    };
+    div.ondragleave = (e) => {
+        if (!div.contains(e.relatedTarget)) {
+            const line = _getInsertLine();
+            line.classList.remove('show');
+        }
+    };
+    div.ondrop = (e) => {
+        e.preventDefault();
+        const line = _getInsertLine();
+        line.classList.remove('show');
+        const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+        const rect = div.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        let toIdx = i;
+        if (e.clientY >= midY && fromIdx < i) toIdx++;
+        if (e.clientY < midY && fromIdx > i) toIdx--;
+
+        if (fromIdx !== toIdx && toIdx >= 0 && toIdx <= playlist.length) {
+            const [moved] = playlist.splice(fromIdx, 1);
+            playlist.splice(toIdx, 0, moved);
+            if (currentIndex === fromIdx) currentIndex = toIdx;
+            else if (currentIndex > fromIdx && currentIndex <= toIdx) currentIndex--;
+            else if (currentIndex < fromIdx && currentIndex >= toIdx) currentIndex++;
+            renderPlaylist();
+            showToast("播放列表已重排", iconSvg('clipboard'));
+        }
+        div.classList.remove('drag-over');
+    };
+    return div;
+}
+
 const renderPlaylist = () => {
     if (currentViewMode === 'coverwall') {
         renderCoverWall();
@@ -94,106 +248,39 @@ const renderPlaylist = () => {
     el.coverWallContainer.style.display = 'none';
     el.plContainer.style.display = 'flex';
 
-    // 🩹 v3.2.3 P2: DocumentFragment 批量插入，100 首从 100 次 reflow 变 1 次
     el.plContainer.innerHTML = '';
+    const total = playlist.length;
+
+    // 🚀 v3.5.0 (P1-2): 分块渲染——前 200 首同步挂载，后续通过 rAF 分 100/批追加
+    const INITIAL_BATCH = 200;
+    const RM_BATCH = 100;
     const fragment = document.createDocumentFragment();
-    playlist.forEach((s, i) => {
-        const div = document.createElement('div');
-        const isFav = favorites.has(s.file.name);
-        let classes = 'pl-item focusable';
-        if (i === currentIndex) classes += ' active';
-        if (s.error) classes += ' error';
-        div.className = classes;
-        div.draggable = true;
-        div.dataset.index = i;
+    const done = Math.min(INITIAL_BATCH, total);
+    for (let i = 0; i < done; i++) fragment.appendChild(_createPlItem(playlist[i], i));
+    el.plContainer.appendChild(fragment);
 
-        // textContent 替代 innerHTML，避免 HTML parser 开销
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'pl-title';
-        titleSpan.textContent = s.title;
-        div.appendChild(titleSpan);
+    if (total > INITIAL_BATCH) {
+        let ci = INITIAL_BATCH;
+        function batchStep() {
+            if (ci >= total) { finishRender(); return; }
+            const frag = document.createDocumentFragment();
+            const end = Math.min(ci + RM_BATCH, total);
+            for (; ci < end; ci++) frag.appendChild(_createPlItem(playlist[ci], ci));
+            el.plContainer.appendChild(frag);
+            requestAnimationFrame(batchStep);
+        }
+        requestAnimationFrame(batchStep);
+    } else {
+        finishRender();
+    }
 
-        const artistSpan = document.createElement('span');
-        artistSpan.style.cssText = 'font-size:12px;opacity:0.6;';
-        artistSpan.textContent = s.artist;
-        div.appendChild(artistSpan);
-
-        const favBtn = document.createElement('span');
-        favBtn.className = `favorite-btn ${isFav ? 'faved' : ''}`;
-        favBtn.dataset.idx = i;
-        favBtn.title = '收藏';
-        // 🚀 v3.4.x: 用 SVG 图标替换 emoji，颜色由 .faved 类控制
-        favBtn.innerHTML = iconSvg(isFav ? 'heart-filled' : 'heart');
-        div.appendChild(favBtn);
-
-        // 🩹 v3.2.3 P3: onclick/oncontextmenu 已移至事件委托，此处只保留拖拽事件
-        // 拖拽排序 - 带插入线视觉反馈
-        div.ondragstart = (e) => {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', i.toString());
-            div.classList.add('dragging');
-            const line = _getInsertLine();
-            line.classList.remove('show');
-        };
-        div.ondragend = () => {
-            div.classList.remove('dragging');
-            document.querySelectorAll('.pl-item').forEach(d => d.classList.remove('drag-over'));
-            const line = _getInsertLine();
-            line.classList.remove('show');
-        };
-        div.ondragover = (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            const rect = div.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            const line = _getInsertLine();
-            const containerRect = el.plContainer.getBoundingClientRect();
-            if (e.clientY < midY) {
-                line.style.top = (rect.top - containerRect.top + el.plContainer.scrollTop - 2) + 'px';
-            } else {
-                line.style.top = (rect.bottom - containerRect.top + el.plContainer.scrollTop - 1) + 'px';
-            }
-            line.style.left = '10px';
-            line.style.right = '10px';
-            el.plContainer.style.position = 'relative';
-            line.classList.add('show');
-        };
-        div.ondragleave = (e) => {
-            if (!div.contains(e.relatedTarget)) {
-                const line = _getInsertLine();
-                line.classList.remove('show');
-            }
-        };
-        div.ondrop = (e) => {
-            e.preventDefault();
-            const line = _getInsertLine();
-            line.classList.remove('show');
-            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
-            const rect = div.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            let toIdx = i;
-            if (e.clientY >= midY && fromIdx < i) toIdx++;
-            if (e.clientY < midY && fromIdx > i) toIdx--;
-
-            if (fromIdx !== toIdx && toIdx >= 0 && toIdx <= playlist.length) {
-                const [moved] = playlist.splice(fromIdx, 1);
-                playlist.splice(toIdx, 0, moved);
-                if (currentIndex === fromIdx) currentIndex = toIdx;
-                else if (currentIndex > fromIdx && currentIndex <= toIdx) currentIndex--;
-                else if (currentIndex < fromIdx && currentIndex >= toIdx) currentIndex++;
-                renderPlaylist();
-                showToast("播放列表已重排", iconSvg('clipboard'));
-            }
-            div.classList.remove('drag-over');
-        };
-
-        fragment.appendChild(div);
-    });
-    el.plContainer.appendChild(fragment); // 一次性插入，仅触发 1 次 layout
-
-    updateFocusContext();
-    const activeItem = el.plContainer.querySelector('.active');
-    if(activeItem && el.playlistModal.classList.contains('open')) activeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    function finishRender() {
+        updateFocusContext();
+        const activeItem = el.plContainer.querySelector('.active');
+        if (activeItem && el.playlistModal && el.playlistModal.classList.contains('open')) {
+            activeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+    }
 };
 
 // 曲库渲染 - 按专辑/封面聚合
@@ -357,7 +444,7 @@ function clearPlaylist() {
     audio.src = '';
     el.mainTitle.textContent = 'MBolka Player Ultimate';
     el.mainArtist.textContent = '等待载入音乐...';
-    document.title = 'MBolka Player - Ultimate Nexus v3.0.1';
+    document.title = 'MBolka Player - Ultimate Nexus v3.5.0';
     renderPlaylist();
     updateEmptyState();
     showToast("播放列表已清空", iconSvg('ban'));

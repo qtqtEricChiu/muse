@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBolka Player - Ultimate Nexus v3.4.3</title>
+    <title>MBolka Player - Ultimate Nexus v3.5.0</title>
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
@@ -332,7 +332,7 @@
     </defs>
 </svg>
 
-    <!-- 🚀 v3.4.2: WCO 标题栏 — Windows Chrome PWA 下融入系统标题区域（整窗水平居中 + 跟随封面色沉浸） -->
+    <!-- 🚀 v3.5.0: WCO 标题栏 — Windows Chrome PWA 下融入系统标题区域（整窗水平居中 + 跟随封面色沉浸） -->
     <div id="wco-titlebar" class="wco-titlebar" style="display:none;">
         <div class="wco-drag-region">
             <span class="wco-brand"><svg class="ui-ico"><use href="#icon-music"/></svg></span>
@@ -342,6 +342,8 @@
     <!-- 动态背景层 -->
     <div id="bg-layer-img"></div>
     <canvas id="bg-layer-color"></canvas>
+    <!-- 🚀 v3.5.0: 背景沉浸遮罩层（位于背景层之上、视图容器之下；夜间模式黑遮罩与之分层 alpha-over 合成） -->
+    <div id="bg-immersive-scrim"></div>
 
     <!-- 沉浸模式粒子频谱背景 -->
     <canvas id="immersive-bg-canvas"></canvas>
@@ -352,9 +354,9 @@
             <div class="header">
                 <div class="brand"><svg id="logoIcon" class="brand-icon"><use href="#icon-music"/></svg> MBolka Player</div>
                 <div class="nav-actions">
-                    <button class="btn-glass focusable" id="btnToggleList" aria-label="打开播放列表" title="播放列表 (快捷键 P / 手柄 十字键←)"><svg class="btn-icon"><use href="#icon-list"/></svg> 列表<span class="kbd-hint">P</span></button>
-                    <button class="btn-glass focusable" id="btnToggleLrc" aria-label="切换歌词显示" title="歌词 (快捷键 L / 手柄 右摇杆上下滚动)"><svg class="btn-icon"><use href="#icon-lyrics"/></svg> 歌词<span class="kbd-hint">L</span></button>
-                    <button class="btn-glass focusable" id="btnCoverLibrary" title="曲库 (快捷键 G / 手柄 十字键→)" aria-label="打开曲库"><svg class="btn-icon"><use href="#icon-library"/></svg> 曲库<span class="kbd-hint">G</span></button>
+                    <button class="btn-glass focusable" id="btnToggleList" aria-label="打开播放列表" title="播放列表 (快捷键 P / 手柄 十字键←)"><svg class="btn-icon"><use href="#icon-list"/></svg> 列表</button>
+                    <button class="btn-glass focusable" id="btnToggleLrc" aria-label="切换歌词显示" title="歌词 (快捷键 L / 手柄 右摇杆上下滚动)"><svg class="btn-icon"><use href="#icon-lyrics"/></svg> 歌词</button>
+                    <button class="btn-glass focusable" id="btnCoverLibrary" title="曲库 (快捷键 G / 手柄 十字键→)" aria-label="打开曲库"><svg class="btn-icon"><use href="#icon-library"/></svg> 曲库</button>
                     <button class="btn-glass focusable" id="btnSettings" aria-label="打开设置"><svg class="btn-icon"><use href="#icon-settings"/></svg> 设置</button>
                     <input type="file" id="folderInput" webkitdirectory directory multiple>
                 </div>
@@ -597,6 +599,31 @@
                 <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 8px;">背景模糊强度: <span id="blurVal">40px</span></div>
                 <input type="range" class="focusable" id="blurSlider" min="0" max="100" value="40">
             </div>
+            <!-- 🚀 v3.5.0: 沉浸式外观（跟随强调色 + 背景沉浸） -->
+            <div class="drawer-box" style="background:rgba(232,180,184,0.06);border-color:rgba(232,180,184,0.15);">
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 沉浸式外观</div>
+                <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">让专辑封面/自定义背景成为全屏沉浸背板，并控制强调色是否跟随封面取色</p>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                    <div>
+                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-palette"/></svg> 跟随强调色</span>
+                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">专辑封面主色调驱动全域强调色（与「封面取色」同源）</p>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0">
+                        <input type="checkbox" id="followAccentToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                    <div>
+                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-images"/></svg> 背景沉浸</span>
+                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">背景全屏沉浸；开启深色模式时自动叠加半透明黑遮罩（分层 alpha 合成）</p>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0">
+                        <input type="checkbox" id="bgImmersiveToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
             <div class="drawer-box" id="audioOutputBox" style="display:none;">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-volume"/></svg> 音频输出设备</div>
                 <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">选择音频输出设备（仅 Windows Chrome/Edge 支持）</p>
@@ -823,7 +850,7 @@
             </div>
                 </div>
                 <div class="settings-footer">
-                    ©MocaBolka 2026 v3.4.3<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
+                    ©MocaBolka 2026 v3.5.0<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
                 </div>
             </div>
         </div>
@@ -937,7 +964,7 @@
     <script src="js/app.js"></script>
     <!-- 12. 震动引擎 (v3.0.0) -->
     <script src="js/vibration.js"></script>
-    <!-- 🚀 v3.4.2: PWA WCO 标题栏 -->
+    <!-- 🚀 v3.5.0: PWA WCO 标题栏 -->
     <link rel="stylesheet" href="css/wco.css">
     <script src="js/theme-color.js"></script>
     <script src="js/wco.js"></script>

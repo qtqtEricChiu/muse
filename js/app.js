@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Entry Point v3.0.1
+ * MBolka Player - Entry Point v3.5.0
  * Namespace export, initialization, event binding
  * All modules loaded via index.html <script> tags before this file
  */
@@ -85,10 +85,15 @@ async function initApp() {
 
     // === 统一事件绑定 (从 index.html 内联 script 迁移至此，确保加载时序一致) ===
 
-    // 搜索功能
+    // 搜索功能（🚀 v3.5.0: 180ms 防抖）
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => searchPlaylist(e.target.value));
+        let _searchTimer = null;
+        searchInput.addEventListener('input', (e) => {
+            const v = e.target.value;
+            clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(() => searchPlaylist(v), 180);
+        });
     }
 
     // 导出按钮

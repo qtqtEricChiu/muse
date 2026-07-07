@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Cover Library v3.0.1
+ * MBolka Player - Cover Library v3.5.0
  * Album/artist/recent grid views, album detail panel
  */
 
@@ -30,9 +30,11 @@ function showCoverLibrary() {
             };
         });
 
-        // 搜索框输入
+        // 搜索框输入（🚀 v3.5.0: 防抖 180ms，连续击键只触发一次全量重渲染）
         modal.querySelector('#coverLibSearch').addEventListener('input', (e) => {
-            renderCoverLibGrid(e.target.value);
+            const v = e.target.value;
+            clearTimeout(_coverLibSearchTimer);
+            _coverLibSearchTimer = setTimeout(() => renderCoverLibGrid(v), 180);
         });
 
         // 关闭按钮
@@ -106,6 +108,10 @@ let _coverflowFlatTimer = null;
 // 🚀 v3.3.4: 拖动底部滚动条支持 —— 用户横向滚动后把"视觉中心"卡片设为新中心，并清除景深
 let _clScrollSuppressUntil = 0;   // 程序化 scrollTo 期间抑制用户滚动重算，避免回环
 let _clScrollCenterTimer = null;
+// 🚀 v3.5.0: 搜索输入防抖定时器（合并连续击键，避免每字符一次全量重渲染）
+let _coverLibSearchTimer = null;
+// 🚀 v3.5.0: 卡片中心缓存（P0-3），松手重算时避免同步读 offsetLeft/offsetWidth 触发布局
+let _cachedCardCenters = [];
 
 function applyCoverflowFlat() {
     const grid = document.getElementById('coverLibGrid');
@@ -152,6 +158,7 @@ function enterCoverflowFlat() {
 
 // 🚀 v3.3.4: 曲库 coverflow 拖动底部横向滚动条浏览
 //   拖动滚动条时进入平坦（清除景深模糊，全部清晰），松手后把"当前视觉中心"的卡片设为新中心并恢复 3D。
+// 🚀 v3.5.0 (P0-3): 用 _cachedCardCenters 替代 offsetLeft/offsetWidth 读取，消除同步布局
 function onCoverflowScroll() {
     if (typeof isCoverflowMode === 'function' && !isCoverflowMode()) return; // 网格模式不介入
     if (Date.now() < _clScrollSuppressUntil) return; // 程序化 scrollTo 不处理，避免回环
@@ -162,18 +169,21 @@ function onCoverflowScroll() {
         if (!grid) return;
         const cards = grid.querySelectorAll('.cover-lib-card');
         if (!cards.length) return;
-        // 找到距容器水平中心最近的卡片，设为新的视觉中心
+        // 重建缓存（卡片数可能因窗口化渲染变化）
+        if (!_cachedCardCenters.length || _cachedCardCenters.length !== cards.length) {
+            _cachedCardCenters = Array.from(cards).map(c => c.offsetLeft + c.offsetWidth / 2);
+        }
+        // 用缓存找到距容器水平中心最近的卡片
         const mid = grid.scrollLeft + grid.clientWidth / 2;
         let best = 0, bestD = Infinity;
-        cards.forEach((c, i) => {
-            const cm = c.offsetLeft + c.offsetWidth / 2;
-            const d = Math.abs(cm - mid);
+        for (let i = 0; i < _cachedCardCenters.length; i++) {
+            const d = Math.abs(_cachedCardCenters[i] - mid);
             if (d < bestD) { bestD = d; best = i; }
-        });
+        }
         coverLibCenter = best;
         clearTimeout(_coverflowFlatTimer);
         _coverflowIsFlat = false;
-        _clScrollSuppressUntil = Date.now() + 500; // 防止下方 scrollTo 触发二次重算回环
+        _clScrollSuppressUntil = Date.now() + 500;
         updateCoverflow();
     }, 200);
 }
@@ -184,20 +194,31 @@ function onCoverflowScroll() {
 function isCoverflowMode() { return coverLibSortMode === 'album'; }
 
 // 🚀 v3.3.3: coverflow 核心 —— 根据「距中心偏移」给每张卡片注入 3D 变换，并把中心卡片滚到正中
+// 🚀 v3.5.0 (P0-2): 增量 diff 更新 — 仅更新 off 发生变化的卡片，避免全量样式写入
+// 🚀 v3.5.0 (P0-3): 滚动目标用 _cachedCardCenters 计算，消除 offsetLeft 触发布局
 function updateCoverflow() {
     if (_coverflowIsFlat) { applyCoverflowFlat(); return; }
     const grid = document.getElementById('coverLibGrid');
     if (!grid) return;
     const cards = grid.querySelectorAll('.cover-lib-card');
     if (!cards.length) return;
+
+    // 🚀 v3.5.0: 重新计算卡片中心缓存（仅在网格变化时重建）
+    if (!_cachedCardCenters.length || _cachedCardCenters.length !== cards.length) {
+        _cachedCardCenters = Array.from(cards).map(c => c.offsetLeft + c.offsetWidth / 2);
+    }
+
     cards.forEach((card, i) => {
         const off = i - coverLibCenter;
         const abs = Math.abs(off);
-        const x = off * 54;                               // 🚀 v3.3.4: 更密——相邻重叠更强，整排更饱满
-        const ry = off === 0 ? 0 : (off < 0 ? 42 : -42);  // 左侧朝右、右侧朝左倾斜
-        const tz = -abs * 30;                             // 越靠边越往里推
+        const prev = parseInt(card.dataset.flowOff, 10);
+        if (prev === off) return; // 🚀 v3.5.0: off 未变 → 跳过样式更新
+        card.dataset.flowOff = String(off);
+
+        const x = off * 54;
+        const ry = off === 0 ? 0 : (off < 0 ? 42 : -42);
+        const tz = -abs * 30;
         const scale = off === 0 ? 1 : Math.max(0.74, 1 - abs * 0.032);
-        // 🚀 v3.3.4: 空闲景深——非中心卡片加「较小值高斯模糊 + 降透明度」（参考歌词栏），中心始终清晰
         const blur = off === 0 ? 0 : Math.min(3, 1 + abs * 0.4);
         const idleOp = off === 0 ? 1 : Math.max(0.35, 1 - abs * 0.06);
         card.style.transform = `translateX(${x}px) translateZ(${tz}px) rotateY(${ry}deg) scale(${scale})`;
@@ -207,11 +228,11 @@ function updateCoverflow() {
         card.style.pointerEvents = abs > 12 ? 'none' : '';
         card.classList.toggle('cl-center', off === 0);
     });
-    // 整体横向滑动：把中心卡片滚到容器正中
-    const center = cards[coverLibCenter];
-    if (center) {
-        const target = center.offsetLeft - (grid.clientWidth - center.offsetWidth) / 2;
-        _clScrollSuppressUntil = Date.now() + 500; // 🚀 v3.3.4: 程序化居中滚动，抑制用户滚动重算回环
+    // 整体横向滑动：用缓存中心计算 scrollTo 目标，避免读 offsetLeft/offsetWidth
+    const cx = _cachedCardCenters[coverLibCenter];
+    if (cx != null) {
+        const target = cx - grid.clientWidth / 2;
+        _clScrollSuppressUntil = Date.now() + 500;
         grid.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
     }
 }

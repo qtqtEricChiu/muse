@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Storage v3.0.1
+ * MBolka Player - Storage v3.5.0
  * IndexedDB, directory handles, metadata cache, play stats, error logging,
  * theme logic, dark mode, immersive/fullscreen toggle
  */

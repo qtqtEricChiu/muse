@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Picture-in-Picture v3.0.1
+ * MBolka Player - Picture-in-Picture v3.5.0
  * Energy saving system (EnergyMode bitfield), PiP window management
  */
 
@@ -235,9 +235,8 @@ async function togglePip() {
             togglePlay();
             // 同步更新按钮图标
             const btn = pipWindow.document.getElementById('pipPlay');
-            if (btn && !pipWindow.closed) {
-                btn.innerHTML = iconSvg(isPlaying ? 'pause' : 'play');
-            }
+            // 🚀 v3.5.0: 复用 setBtnIcon helper
+            if (btn && !pipWindow.closed) setBtnIcon(btn, isPlaying ? 'pause' : 'play');
         };
         pipWindow.document.getElementById('pipNext').onclick = () => goNext();
         pipWindow.document.getElementById('pipFav').onclick = () => {

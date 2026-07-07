@@ -266,7 +266,7 @@ const renderVisLoop = (timestamp) => {
 
     // 2. 🚀 核心同步：不论在哪个界面，统一执行 60 帧无缝色相（Hue）过渡计算
     if (isPlaying) {
-        if (cfg.colorMode) {
+        if (cfg.followAccentColor) {
             let diff = targetHue - currentHue;
             if (diff > 180) diff -= 360;
             else if (diff < -180) diff += 360;
@@ -303,7 +303,7 @@ const renderVisLoop = (timestamp) => {
             // 🚀 v3.4.3: 沉浸光晕背景跟随专辑封面色相（currentHue 每帧平滑过渡），
             // 修复沉浸舱下「跟随专辑封面的取色背景」不实时更新、退出才刷新的问题。
             // 仅在取色模式开启时跟随封面色相；关闭时保持原中性灰（与主页关取色一致）。
-            const useAlbumHue = cfg.colorMode;
+            const useAlbumHue = cfg.followAccentColor;
             const immHue = Math.round(currentHue);
             const bgGrad = ctx.createRadialGradient(W*0.3, H*0.3, 0, W*0.5, H*0.5, Math.max(W,H)*0.7);
             bgGrad.addColorStop(0, useAlbumHue ? `hsla(${immHue}, 60%, ${14 + smoothBass/255*10}%, ${0.32 + smoothBass/255*0.2})` : `rgba(30,30,40,${0.2 + smoothBass/255*0.2})`);
@@ -435,7 +435,7 @@ const renderVisLoop = (timestamp) => {
         // 🚀 v3.4.3: 沉浸舱下同步重绘流沙取色背景。
         // 原仅主界面分支调用 drawFlowingSand()，沉浸舱分支不重绘 → 封面色更新后背景冻结，
         // 退出沉浸舱走主界面分支才立即刷新（currentHue 每帧已在过渡，只是画布未重绘）。
-        if (cfg.colorMode) {
+        if (cfg.followAccentColor) {
             drawFlowingSand();
         } else if (el.bgColor) {
             if (!bgColorCtx) bgColorCtx = el.bgColor.getContext('2d');
@@ -463,7 +463,7 @@ const renderVisLoop = (timestamp) => {
         }
 
         // 🚀 核心修改：在主界面也激活 60 帧取色流沙渲染，实现绝对一致的取色效率！
-        if (cfg.colorMode) {
+        if (cfg.followAccentColor) {
             drawFlowingSand();
         } else {
             // 如果关闭了取色模式，擦除主背景Canvas，让 CSS 的静态预设主题渐变显露出来

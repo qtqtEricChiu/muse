@@ -1,10 +1,10 @@
 /*
- * MBolka Player - Globals v3.0.1
+ * MBolka Player - Globals v3.5.0
  * Worker inline, state variables, LUTs, EnergyMode enum, cfg, el references
  */
 
 /**
- * MBolka Player - Ultimate Nexus v2.8.13p2
+ * MBolka Player - Ultimate Nexus v3.5.0
  * Main Application Logic
  * 
  * 🔥 v2.8.10 全球发行版：
@@ -173,7 +173,9 @@ let frameEnergySaving = false;     // 🎬 画面节能：仅降至30fps
 
 // 偏好配置
 let cfg = {
-    colorMode: false, customBgImg: null, customBgColor: null, blurAmt: 40,
+    followAccentColor: false,   // 🚀 v3.5.0: 跟随强调色（专辑封面取色 + 主题色逻辑）
+    bgImmersive: false,         // 🚀 v3.5.0: 背景沉浸（专辑封面/自定义背景全屏沉浸 + 夜间半透明黑遮罩叠加）
+    customBgImg: null, customBgColor: null, blurAmt: 40,
     defaultColor: '#e8b4b8', darkMode: false, lrcFontSize: 18, lrcLineHeight: 2.2,
     lrcAlign: 'center', themePreset: null,
     // 🚀 v2.8.2: 节能配置重构
@@ -195,7 +197,7 @@ let cfg = {
 let pipTempEnergySaving = false; // 标记是否因画中画而进入的临时节能模式
 // 🚀 v2.8.2+: Page Visibility API 优化变量
 let visLoopPaused = false;
-let currentAlbumColor = null, hasCurrentAlbumArt = false;
+let currentAlbumColor = null, currentAlbumTopColor = null, hasCurrentAlbumArt = false;
 let favorites = new Set();
 let currentViewMode = 'list';
 let ctxMenuTarget = -1;

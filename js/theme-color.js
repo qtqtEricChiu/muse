@@ -1,17 +1,17 @@
 /*
- * MBolka Player — Theme Color Manager v3.4.1
- * 动态更新 <meta name="theme-color">（控制 Windows Chrome PWA 系统顶 bar 颜色）
- * 🚀 v3.4.1: 修正 WCO 分支语义反转 bug。
- * MBolka 自绘 .wco-titlebar 永远 display:none，OS 接管整条标题区域，
- * meta theme-color 即顶 bar 颜色 → 始终跟随封面色/默认色/深色模式变化。
+ * MBolka Player — Theme Color Manager v3.5.0
+ * 动态更新 <meta name="theme-color">（控制 Windows Chrome PWA 系统顶 bar / WCO 右上金刚键背景色）
+ * 🚀 v3.4.2: 新增顶部取色支持。当背景图片存在时，优先使用图片顶部附近颜色作为 theme-color，
+ * 使 WCO 模式下系统窗口控制按钮（右上金刚键）的背景与页面顶部背景融合，达成假沉浸效果。
  */
 
 const ThemeColor = (() => {
     let _meta = null;
     let _currentColor = null;
+    let _topColor = null;
     let _isDarkMode = false;
 
-    const FALLBACK_COLOR = '#180219'; // 🚀 v3.4.1: 极端兜底（无 cfg 且无取色结果时的最后保底紫）
+    const FALLBACK_COLOR = '#180219';
 
     function getMeta() {
         if (!_meta) {
@@ -30,7 +30,11 @@ const ThemeColor = (() => {
         _applyColor();
     }
 
-    // 🚀 v3.4.1: 重新套用当前颜色（WCO 显隐切换时调用，无需重新传参）
+    function updateTopColor(topColor) {
+        _topColor = topColor || null;
+        _applyColor();
+    }
+
     function refresh() {
         _applyColor();
     }
@@ -41,20 +45,23 @@ const ThemeColor = (() => {
     }
 
     function _applyColor() {
-        // 🚀 v3.4.1: meta theme-color 始终跟随封面色 / 默认色 / 深色模式。
-        // 优先级：封面色 > 深色模式（#0e0c16）> 主题默认色（cfg.defaultColor）> 兜底紫（FALLBACK_COLOR）
+        // 🚀 v3.4.2: 优先级：顶部取色（图片顶部附近）> 深色模式 > 专辑平均色 > 默认色 > 兜底色
         let color;
-        if (_currentColor && !_isDarkMode) {
-            color = _currentColor;
+        if (_topColor && !_isDarkMode) {
+            color = _topColor;
         } else if (_isDarkMode) {
             color = '#0e0c16';
+        } else if (_currentColor) {
+            color = _currentColor;
         } else if (typeof cfg !== 'undefined' && cfg.defaultColor) {
             color = cfg.defaultColor;
         } else {
             color = FALLBACK_COLOR;
         }
         getMeta().setAttribute('content', color);
+        // 同步给 CSS 变量，供 WCO 自绘标题栏（如启用）跟随同色
+        document.documentElement.style.setProperty('--wco-theme-color', color);
     }
 
-    return { update, refresh, onDarkModeChange };
+    return { update, updateTopColor, refresh, onDarkModeChange };
 })();

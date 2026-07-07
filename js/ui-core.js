@@ -1,5 +1,5 @@
 /*
- * MBolka Player - UI Core v3.2.0
+ * MBolka Player - UI Core v3.5.0
  * Modal management, button bindings, settings UI, theme presets, EQ panel, stats, BG settings
  */
 
@@ -346,18 +346,23 @@ function updateModeUI() {
 function updateSettingsUI() {
     const btn = document.getElementById('btnToggleColorMode');
     if (btn) {
-        btn.innerHTML = cfg.colorMode ? iconSvg('palette') + ' 关闭取色模式 (Y / C)' : iconSvg('palette') + ' 开启取色模式 (Y / C)';
-        btn.style.color = cfg.colorMode ? 'var(--primary)' : '';
-        btn.style.borderColor = cfg.colorMode ? 'var(--primary)' : '';
+        btn.innerHTML = cfg.followAccentColor ? iconSvg('palette') + ' 关闭取色模式 (Y / C)' : iconSvg('palette') + ' 开启取色模式 (Y / C)';
+        btn.style.color = cfg.followAccentColor ? 'var(--primary)' : '';
+        btn.style.borderColor = cfg.followAccentColor ? 'var(--primary)' : '';
     }
     // 🚀 v2.8: 更新取色模式状态标签与预览条
     const label = document.getElementById('colorModeLabel');
-    if (label) label.innerHTML = cfg.colorMode ? iconSvg('check') + ' 取色模式已激活 · 专辑封面驱动全域色彩' : iconSvg('square') + ' 取色模式未激活 · 使用预设主题色';
+    if (label) label.innerHTML = cfg.followAccentColor ? iconSvg('check') + ' 取色模式已激活 · 专辑封面驱动全域色彩' : iconSvg('square') + ' 取色模式未激活 · 使用预设主题色';
     const preview = document.getElementById('colorModePreview');
     if (preview) {
-        preview.style.display = cfg.colorMode ? 'block' : 'none';
-        if (cfg.colorMode && currentAlbumColor) preview.style.background = `linear-gradient(90deg, ${currentAlbumColor}, ${cfg.defaultColor})`;
+        preview.style.display = cfg.followAccentColor ? 'block' : 'none';
+        if (cfg.followAccentColor && currentAlbumColor) preview.style.background = `linear-gradient(90deg, ${currentAlbumColor}, ${cfg.defaultColor})`;
     }
+    // 🚀 v3.5.0: 同步外观新增开关（跟随强调色 / 背景沉浸）
+    const faToggle = document.getElementById('followAccentToggle');
+    if (faToggle) faToggle.checked = cfg.followAccentColor;
+    const biToggle = document.getElementById('bgImmersiveToggle');
+    if (biToggle) biToggle.checked = cfg.bgImmersive;
 }
 
 const cyclePlayMode = () => {
@@ -376,14 +381,34 @@ const cyclePlayMode = () => {
 el.btnMode.onclick = el.immBtnMode.onclick = cyclePlayMode;
 
 function toggleColorMode() {
-    cfg.colorMode = !cfg.colorMode;
+    cfg.followAccentColor = !cfg.followAccentColor;
     updateSettingsUI();
     applyThemeLogic();
     saveSettings();
-    showToast(cfg.colorMode ? "已开启取色跟随" : "已关闭取色跟随", iconSvg('palette'));
+    showToast(cfg.followAccentColor ? "已开启取色跟随" : "已关闭取色跟随", iconSvg('palette'));
 };
 document.getElementById('btnToggleColorMode').onclick = toggleColorMode;
 document.getElementById('btnToggleDarkMode').onclick = toggleDarkMode;
+
+// 🚀 v3.5.0: 设置-外观「跟随强调色」开关（与取色模式同源，统一驱动 --primary 随专辑封面）
+const followAccentToggle = document.getElementById('followAccentToggle');
+if (followAccentToggle) followAccentToggle.addEventListener('change', () => {
+    cfg.followAccentColor = followAccentToggle.checked;
+    updateSettingsUI();
+    applyThemeLogic();
+    saveSettings();
+    showToast(cfg.followAccentColor ? "已开启跟随强调色" : "已关闭跟随强调色", iconSvg('palette'));
+});
+
+// 🚀 v3.5.0: 设置-外观「背景沉浸」开关（专辑封面/自定义背景全屏沉浸 + 夜间半透明黑遮罩叠加）
+const bgImmersiveToggle = document.getElementById('bgImmersiveToggle');
+if (bgImmersiveToggle) bgImmersiveToggle.addEventListener('change', () => {
+    cfg.bgImmersive = bgImmersiveToggle.checked;
+    updateSettingsUI();
+    applyBgImmersive();
+    saveSettings();
+    showToast(cfg.bgImmersive ? "已开启背景沉浸" : "已关闭背景沉浸", iconSvg('images'));
+});
 document.getElementById('blurSlider').oninput = function() {
     cfg.blurAmt = this.value;
     document.getElementById('blurVal').textContent = `${this.value}px`;
@@ -593,7 +618,8 @@ function renderEQPanel() {
     }
     if (_pitchBtn) {
         // 🚀 v3.4.x: SVG 图标 + 文字，避免覆盖按钮内置图标
-        _pitchBtn.innerHTML = preservesPitch ? iconSvg('lock') + ' 保持音调' : iconSvg('music') + ' 允许变调';
+        // 🚀 v3.5.0: 复用 setBtnText helper
+        setBtnText(_pitchBtn, preservesPitch ? 'lock' : 'music', preservesPitch ? '保持音调' : '允许变调');
         _pitchBtn.onclick = togglePitchPreserve;
     }
 
@@ -602,10 +628,11 @@ function renderEQPanel() {
     const _cfSlider = document.getElementById('crossfadeSlider');
     if (_cfBtn) {
         // 🚀 v3.4.x: SVG 图标 + 文字替代 emoji
-        _cfBtn.innerHTML = crossfadeEnabled ? iconSvg('check') + ' 已开启' : iconSvg('pause') + ' 关闭';
+        // 🚀 v3.5.0: 复用 setBtnText helper
+        setBtnText(_cfBtn, crossfadeEnabled ? 'check' : 'pause', crossfadeEnabled ? '已开启' : '关闭');
         _cfBtn.onclick = function() {
             crossfadeEnabled = !crossfadeEnabled;
-            this.innerHTML = crossfadeEnabled ? iconSvg('check') + ' 已开启' : iconSvg('pause') + ' 关闭';
+            setBtnText(this, crossfadeEnabled ? 'check' : 'pause', crossfadeEnabled ? '已开启' : '关闭');
             if (crossfadeEnabled) { cfEnsureContext(); cfPreloadNext(); }
             saveSettings();
             showToast(crossfadeEnabled ? '淡入淡出已开启（实验性功能）' : '淡入淡出已关闭', iconSvg('alert'));
@@ -633,6 +660,8 @@ document.getElementById('bgInput').onchange = (e) => {
         r.onload = async (ev) => {
             cfg.customBgImg = ev.target.result;
             cfg.customBgColor = await extractColor(cfg.customBgImg);
+            // 🚀 v3.4.2: 自定义背景同步采样顶部颜色，用于 WCO 假沉浸
+            cfg.customBgTopColor = await extractTopColor(cfg.customBgImg, 0.2);
             applyThemeLogic(); saveSettings();
             showToast("自定义背景应用成功", iconSvg('images'));
         };
@@ -640,7 +669,7 @@ document.getElementById('bgInput').onchange = (e) => {
     }
 };
 document.getElementById('btnClearBg').onclick = () => {
-    cfg.customBgImg = null; cfg.customBgColor = null;
+    cfg.customBgImg = null; cfg.customBgColor = null; cfg.customBgTopColor = null;
     applyThemeLogic(); saveSettings();
     showToast("已恢复默认", iconSvg('trash'));
 };
@@ -1097,7 +1126,7 @@ function updateLrcAlignUI() {
 const applyThemeLogic = () => {
     let targetColor = cfg.defaultColor; let showImg = false, showColor = false, bgUrl = '';
 
-    if (cfg.colorMode) targetColor = cfg.customBgImg ? (cfg.customBgColor || targetColor) : (currentAlbumColor || targetColor);
+    if (cfg.followAccentColor) targetColor = cfg.customBgImg ? (cfg.customBgColor || targetColor) : (currentAlbumColor || targetColor);
     document.documentElement.style.setProperty('--primary', targetColor);
     // 🚀 v3.0.1b: 同步 RGB 分量
     const rgbP = hexToRgb(targetColor);
@@ -1114,24 +1143,53 @@ const applyThemeLogic = () => {
     targetHue = getHueFromRgb(targetColor);
 
     if (cfg.customBgImg) { showImg = true; bgUrl = cfg.customBgImg; }
-    else if (hasCurrentAlbumArt && !cfg.colorMode) { showImg = true; bgUrl = el.mainArt.src; }
+    else if (hasCurrentAlbumArt && !cfg.followAccentColor) { showImg = true; bgUrl = el.mainArt.src; }
     else showColor = true;
 
     if (showImg) {
         el.bgImg.style.backgroundImage = `url(${bgUrl})`;
         el.bgImg.classList.add('active');
         el.bgColor.classList.remove('active');
+        // 🚀 v3.4.2: 背景图片显示时，把图片顶部颜色同步给 ThemeColor，让 WCO 右上金刚键背景融入页面顶部
+        (async () => {
+            if (typeof ThemeColor === 'undefined') return;
+            let topColor = null;
+            if (cfg.customBgImg) {
+                if (!cfg.customBgTopColor) cfg.customBgTopColor = await extractTopColor(cfg.customBgImg, 0.2);
+                topColor = cfg.customBgTopColor;
+            } else if (hasCurrentAlbumArt) {
+                topColor = currentAlbumTopColor;
+            }
+            ThemeColor.updateTopColor(topColor);
+        })();
     } else if (showColor) {
         // 🚀 v2.5: Canvas 流沙背景只需激活，颜色由 drawFlowingSand 实时渲染
         el.bgColor.classList.add('active');
         el.bgImg.classList.remove('active');
+        if (typeof ThemeColor !== 'undefined') ThemeColor.updateTopColor(null);
     }
+
+    // 🚀 v3.5.0: 背景沉浸遮罩随每次主题/背景刷新重算（确保与当前背景、夜间模式同步）
+    applyBgImmersive();
+};
+
+// 🚀 v3.5.0: 背景沉浸 — 把专辑封面/自定义背景变为全屏沉浸背板，并在夜间模式下叠加半透明黑遮罩。
+// 遮罩采用「分层 alpha-over 合成」：沉浸基础遮罩(baseScrim) 与 夜间黑遮罩(darkScrim) 按
+// 1-(1-a)*(1-b) 叠加计算，保证两者同时存在时不会简单相加溢出，而是正确加深而不丢失背景层次。
+const applyBgImmersive = () => {
+    const on = !!cfg.bgImmersive;
+    document.body.classList.toggle('bg-immersive', on);
+    const baseScrim = on ? 0.38 : 0;
+    const darkScrim = (on && cfg.darkMode) ? 0.45 : 0;
+    const finalAlpha = 1 - (1 - baseScrim) * (1 - darkScrim); // 叠加计算
+    document.documentElement.style.setProperty('--bg-scrim-alpha', finalAlpha.toFixed(3));
 };
 
 function toggleDarkMode() {
     cfg.darkMode = !cfg.darkMode;
     document.body.classList.toggle('dark-mode', cfg.darkMode);
     updateDarkModeUI();
+    applyBgImmersive(); // 🚀 v3.5.0: 夜间模式切换需重算沉浸遮罩叠加
     saveSettings();
     showToast(cfg.darkMode ? "已开启深色/护眼模式" : "已恢复标准模式", cfg.darkMode ? iconSvg('moon') : iconSvg('sun'));
 };

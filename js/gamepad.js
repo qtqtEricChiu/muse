@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Gamepad & Input v3.2.0
+ * MBolka Player - Gamepad & Input v3.5.0
  * 2D focus navigation, keyboard/touch mappings, gamepad polling
  */
 

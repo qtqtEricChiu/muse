@@ -1,5 +1,5 @@
 /*
- * MBolka Player - Utilities v3.2.0
+ * MBolka Player - Utilities v3.5.0
  * Toast, formatting, encoding, settings persistence
  */
 
@@ -25,16 +25,30 @@ const setHeartFilled = (container, filled) => {
   if (use) use.setAttribute('href', filled ? '#icon-heart-filled' : '#icon-heart');
   container.classList.toggle('faved', !!filled);
 };
+// 🚀 v3.5.0: 统一图标切换 helper —— 优先切换按钮内 <use href>，避免覆盖文字/内置图标；
+//           无 <use> 时整段替换为 SVG（可附带文字 label）。供播放/暂停、模式等高频图标切换复用。
+const setBtnIcon = (btn, name, label = '') => {
+  if (!btn) return;
+  const u = btn.querySelector('use');
+  if (u) u.setAttribute('href', `#icon-${name}`);
+  else btn.innerHTML = label ? `${iconSvg(name)} ${label}` : iconSvg(name);
+};
+// 🚀 v3.5.0: 统一图标 + 文案 helper —— 用于「图标 + 文字状态」按钮（如音调、淡入淡出）。
+//           集中 innerHTML 模板，后续改文案只动一处。
+const setBtnText = (btn, iconName, text) => {
+  if (!btn) return;
+  btn.innerHTML = `${iconSvg(iconName)} ${text}`;
+};
 const formatTime = (sec) => { if (!sec || isNaN(sec)) return '0:00'; const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${m}:${s.toString().padStart(2, '0')}`; };
 const decodeText = (str) => { if (!str) return ''; let s = str.replace(/\\u([0-9a-fA-F]{4})/g, (m, g) => String.fromCharCode(parseInt(g, 16))); const txt = document.createElement("textarea"); txt.innerHTML = s; return txt.value; };
 
-const saveSettings = () => {
+const saveSettingsNow = () => {
     try {
         localStorage.setItem('MBolka_Cfg_v3', JSON.stringify({
             // 🚀 核心修复：只保存滑块的物理数值，防止保存淡入淡出时的临时"0"音量
-            colorMode: cfg.colorMode, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
+            followAccentColor: cfg.followAccentColor, bgImmersive: cfg.bgImmersive, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
             isShuffle: isShuffle, isRepeatOne: isRepeatOne,
-            customBgImg: cfg.customBgImg, customBgColor: cfg.customBgColor,
+            customBgImg: cfg.customBgImg, customBgColor: cfg.customBgColor, customBgTopColor: cfg.customBgTopColor,
             darkMode: cfg.darkMode, lrcFontSize: cfg.lrcFontSize,
             lrcLineHeight: cfg.lrcLineHeight, lrcAlign: cfg.lrcAlign,
             themePreset: cfg.themePreset, playbackRate: playbackRate,
@@ -69,17 +83,40 @@ const saveSettings = () => {
         }
     } catch(e){}
 };
+
+// 🚀 v3.5.0: saveSettings 节流 —— 高频调用（滑块 oninput / 连续切换）合并落盘，避免每帧写 localStorage；
+//           首次调用立即落盘（关键变更不丢），窗口内后续调用合并为一次末尾写入，页面隐藏时强制 flush。
+let _saveSettingsTimer = null;
+let _saveSettingsPending = false;
+const saveSettings = () => {
+    _saveSettingsPending = true;
+    saveSettingsNow(); // 立即落盘首次变更
+    if (_saveSettingsTimer) return; // 仍在节流窗口内 → 等待末尾合并写入
+    _saveSettingsTimer = setTimeout(() => {
+        _saveSettingsTimer = null;
+        if (_saveSettingsPending) { _saveSettingsPending = false; saveSettingsNow(); }
+    }, 400);
+};
+const flushSettings = () => {
+    if (_saveSettingsTimer) { clearTimeout(_saveSettingsTimer); _saveSettingsTimer = null; }
+    if (_saveSettingsPending) { _saveSettingsPending = false; saveSettingsNow(); }
+};
+// 页面隐藏/卸载时强制刷盘，避免节流窗口内的末次变更丢失
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSettings(); });
+window.addEventListener('pagehide', flushSettings);
 const loadSettings = () => {
     try {
         const stored = JSON.parse(localStorage.getItem('MBolka_Cfg_v3') || localStorage.getItem('MBolka_Cfg_v2'));
         if (stored) {
-            cfg.colorMode = stored.colorMode ?? false;
+            cfg.followAccentColor = stored.followAccentColor ?? stored.colorMode ?? false;
+            cfg.bgImmersive = stored.bgImmersive ?? false;
             cfg.blurAmt = stored.blurAmt ?? 40;
             audio.volume = stored.vol ?? 0.7;
             isShuffle = stored.isShuffle ?? false;
             isRepeatOne = stored.isRepeatOne ?? false;
             cfg.customBgImg = stored.customBgImg ?? null;
             cfg.customBgColor = stored.customBgColor ?? null;
+            cfg.customBgTopColor = stored.customBgTopColor ?? null;
             cfg.darkMode = stored.darkMode ?? false;
             cfg.lrcFontSize = stored.lrcFontSize ?? 18;
             cfg.lrcLineHeight = stored.lrcLineHeight ?? 2.2;
@@ -167,6 +204,31 @@ const extractColor = (imgSrc) => {
                 resolve(count > 0 ? `rgb(${~~(r/count)},${~~(g/count)},${~~(b/count)})` : null);
             } catch(e) { resolve(null); }
         }; img.onerror = () => resolve(null); img.src = imgSrc;
+    });
+};
+const extractTopColor = (imgSrc, sampleHeight = 0.25) => {
+    return new Promise((resolve) => {
+        if (!imgSrc || imgSrc.startsWith('data:image/svg')) return resolve(null);
+        const img = new Image();
+        img.onload = () => {
+            const cvs = document.createElement('canvas');
+            const w = 64, h = Math.max(1, Math.round(w * sampleHeight));
+            cvs.width = w; cvs.height = h;
+            const ctx = cvs.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, img.width, img.height * sampleHeight, 0, 0, w, h);
+            try {
+                const data = ctx.getImageData(0, 0, w, h).data;
+                let r = 0, g = 0, b = 0, count = 0;
+                for (let i = 0; i < data.length; i += 16) {
+                    if (data[i] > 20 && data[i] < 235) {
+                        r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+                    }
+                }
+                resolve(count > 0 ? `rgb(${~~(r/count)},${~~(g/count)},${~~(b/count)})` : null);
+            } catch (e) { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        img.src = imgSrc;
     });
 };
 const getHueFromRgb = (rgbStr) => {

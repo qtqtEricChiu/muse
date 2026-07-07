@@ -1,4 +1,4 @@
-/* ================= MBolka Player — WCO 标题栏样式 v3.4.1 ================= */
+/* ================= MBolka Player — WCO 标题栏样式 v3.4.2 ================= */
 
 .wco-titlebar {
     position: fixed;
@@ -9,6 +9,8 @@
     z-index: 99999;
     transition: background 0.6s var(--curve-smooth, cubic-bezier(0.22,1,0.36,1));
     overflow: hidden;
+    /* 🚀 v3.4.2: 默认透明，让页面顶部背景自然延伸到标题栏左侧；右侧金刚键背景由 meta theme-color 控制 */
+    background: var(--wco-titlebar-bg, transparent);
 }
 .wco-drag-region {
     position: absolute;
@@ -22,6 +24,8 @@
     gap: 8px;
     -webkit-app-region: drag;
     app-region: drag;
+    /* 🚀 v3.4.2: 在复杂背景上保持曲目标题可读 */
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 .wco-brand {
     font-size: 14px;
