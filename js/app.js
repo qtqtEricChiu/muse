@@ -120,7 +120,7 @@ async function initApp() {
         btnClearCache.onclick = async () => {
             if (typeof clearAllCache === 'function') {
                 await clearAllCache();
-                if (typeof showToast === 'function') showToast('缓存已清理', '✅');
+                if (typeof showToast === 'function') showToast('缓存已清理', iconSvg('check'));
             }
         };
     }
@@ -147,7 +147,7 @@ async function initApp() {
                 enterEnergySaving(EnergyMode.ONE_CLICK);
             } else {
                 exitEnergySaving(EnergyMode.ONE_CLICK);
-                showToast("🔋 一键节能已关闭", "⚡");
+                showToast("一键节能已关闭", iconSvg('zap'));
             }
             saveSettings();
         });
@@ -161,7 +161,7 @@ async function initApp() {
             frameEnergySaving = e.target.checked;
             // 同步兼容旧版 performanceMode
             performanceMode = e.target.checked;
-            showToast(frameEnergySaving ? "🎬 画面节能已开启 (30fps)" : "🎬 画面节能已关闭 (60fps)", "⚡");
+            showToast(frameEnergySaving ? "画面节能已开启 (30fps)" : "画面节能已关闭 (60fps)", iconSvg('zap'));
             saveSettings();
         });
     }
@@ -171,7 +171,7 @@ async function initApp() {
     if (pipToggle) {
         pipToggle.addEventListener('change', (e) => {
             cfg.pipEnergyEnabled = e.target.checked;
-            showToast(cfg.pipEnergyEnabled ? "📺 临时节能已开启" : "📺 临时节能已关闭", "⚡");
+            showToast(cfg.pipEnergyEnabled ? "临时节能已开启" : "临时节能已关闭", iconSvg('zap'));
             saveSettings();
         });
     }

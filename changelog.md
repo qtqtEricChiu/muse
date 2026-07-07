@@ -2,6 +2,129 @@
 
 ---
 
+## v3.4.3 (2026-07-07)
+
+### 🎮 手柄全流程静态修复
+
+- **`js/gamepad.js` 键盘 `d` 深色模式切换失效**：`switch` 中 `d` 被声明两次（先命中 `coverLibNav('right')` 并 `break`，`toggleDarkMode()` 成死代码）。改为 `e.shiftKey ? toggleDarkMode() : coverLibNav('right')`——`Shift+D` 切深色模式，`d`/`→` 保留 coverflow 右导航。
+- **`js/gamepad.js` 键盘 `u`/`f`(非 Shift) 收藏空操作**：`toggleFavorite()` 无参导致 `playlist[undefined]` 直接 `return`。改为 `toggleFavorite(currentIndex)`，收藏快捷键在任意曲目上即时生效。
+- **`js/gamepad.js` 设置滑块焦点下中等幅度拨杆泄漏**：滑块聚焦时左右拨杆（0.2–0.5）仍触发 2D 导航离开滑块。引入 `_sliderFocused` 完全阻止左右导航，仅大角度拨杆做节流提示。
+- **`js/gamepad.js` 手柄连接瞬间误触发**：`gamepadconnected` 时 `prevPadBtns=[]` 致首帧误触发所有"刚按下"动作。改为连接时用当前手柄状态初始化 `prevPadBtns`/`prevPadAxes`。
+- **`js/gamepad.js` PiP 转发空引用**：转发 `pad.axes` 在 `getGamepads()[0]` 为 `null` 时抛错。加 `pad &&` 守卫避免崩溃。
+- **`js/gamepad.js` Menu 键未推栈**：`btns[9]` 开设置未 `_pushModal`。补 `_pushModal('settingsModal', null)`，与体系内其它模态保持一致。
+- **`js/gamepad.js` 设置滑块焦点「卡死」+ 关闭键向下跨段跳滑块（v3.4.3 焦点修复补遗）**：
+  - **卡死根因**：v3.4.2 引入的 `_sliderFocused` 分支只拦截左右并提示按 A，**对上下完全不处理** → 手柄左摇杆在滑块上任何方向都挪不开（键盘方向键走 `moveFocus2D` 直连故正常，故仅手柄复现）。改为：上下仍可 `moveFocus2D` 离开滑块（自然退出），仅左右保留拦截+提示（避免误触离开滑块，调整值仍需先按 A 进微调模式）。
+  - **关闭键→淡入淡出滑块跨段跳**：v3.4.3 把 2D 导航第二阶段带筛选改「横向锁同排 `|dy|`、纵向锁同列 `|dx|`」，但纵向用 `|dx|` 对齐带使「关闭键(右上)与深处 crossfadeSlider 同列」→ 向下直接跨到该滑块。统一回「横纵都按 `|dy|` 筛带」：横向=`|dy|` 仍为交叉轴对齐（保留 v3.4.3 主界面右移修复），纵向=`|dy|`=下行距离带 → 只在本段最近下行元素间选择，不再跨到同列深处滑块。`moveFocus2D` 键盘与左摇杆共用，一并修复。
+- **`js/gamepad.js` 2D 焦点导航普遍修复（离轴元素抢焦点）**：主界面左摇杆向右，本应到同排「歌词」却先跳到下方「PiP」再右才到歌词。根因在 `moveFocus2D()` 第二阶段**带筛选用错了轴**——横向导航按 `minAbsDx`（前进轴最近距离）做带、纵向按 `minAbsDy`，导致「离轴但前进轴更近」的元素（如下方 PiP 比同排歌词水平更近）把真正同排目标排除掉。改为**按对齐轴筛带**：横向锁同排（`|dy|<=tol`）、纵向锁同列（`|dx|<=tol`），`tol=max(40, 对齐轴最近距*1.5)`；带内再由评分（交叉轴权重 2.5×）取前进轴最近者。键盘方向键与左摇杆均经 `moveFocus2D`，一并修复。
+- **`js/gamepad.js` 手柄浮动指示统一补全（PiPⓋ / 帮助⑪）**：`injectGamepadHints()` 原缺失 PiP 按钮（`btnPipQuick`）与帮助按钮（`btnOpenHelpShortcuts`）的键位徽标，导致「看不到 PiP 的手柄键位指示」。新增 `Ⓥ View` / `⑪ R3` 徽标并补 `.pad-view`/`.pad-r3` 配色；PiP 小窗为后台窗口不响应手柄，故不在其内部注入徽标。
+- **`js/gamepad.js` 手柄轮询与转发优化（省电/降开销）**：① 轮询 `pollGamepad` 未连接手柄时自动停转（`_pollRunning`），连接时由 `gamepadconnected` 重启，不再每帧空跑；② 转发 PiP 的 `gamepad-state` 由每帧全量（~60/s）节流到 ~30fps。
+- **`js/gamepad.js` 导航健壮性微调**：① 右摇杆滚动列表时的自动吸附焦点，改为仅当当前焦点已滚出视口才触发，不再与左摇杆导航抢夺焦点；② 设置 Tab 切换后的焦点刷新由固定 `setTimeout(100)` 改为 `requestAnimationFrame` 等待面板重排；③ 清理 `getActiveScrollable` 不可达死分支、B 键冗余 `updateFocusContext`、`moveFocus2D` 死区提为常量 `FOCUS_DEAD_ZONE`、三处早退冗余 `prevPadBtns` 拷贝（统一由 `finally` 同步）。
+
+### 🩹 主界面右上角「列表/歌词/曲库」按键指示不清修复（被键盘快捷键覆盖）
+
+- **症状**：主界面右上角「列表 / 歌词 / 曲库」三个玻璃按钮无手柄时完全看不到任何按键提示；接入手柄后显示的却是键盘字母 `P`/`L`/`G` 而非手柄键位（被键盘快捷键覆盖）；且手柄断连一次后字母永久消失。
+- **根因**：`index.html` 内联了静态 `gamepad-badge pad-p/l/g`（键盘字母），`.gamepad-badge` 默认 `display:none`，仅 `.gamepad-connected` 时显示。`js/gamepad.js` 的 `injectGamepadHints()` 因 `querySelector('.gamepad-badge')` 已存在而守卫跳过，无法注入真正手柄映射 `←`/`RS↕`/`→`。`removeGamepadHints()` 一并删掉静态徽章。
+- **修复**：`index.html` 静态 `gamepad-badge` 改为常驻 `.kbd-hint`，补 `title` 标明键盘+手柄键位；`css/components.css` 新增 `.kbd-hint`（底部小胶囊，手柄接入时降透明度）、`.gamepad-badge.pad-wide`（多字符圆角胶囊容纳 `RS↕`）；为 `.btn-glass` 补 `position: relative`。`js/gamepad.js` `btnToggleLrc` 加 `pad-wide` 类。连接时三个按钮正确注入手柄映射，与键盘提示分居两角。
+
+### 🎨 沉浸舱取色背景实时跟随（视觉修复）
+
+- **症状**：沉浸舱内切换歌曲/取色变化时，跟随专辑封面的取色背景不立即更新，**退出沉浸舱才立即更新**；返回主界面后流沙背景「卡顿一秒才显示」。
+- **根因一（`js/visualizer.js`）**：跟随封面色相的流沙背景 `drawFlowingSand()`（由 `currentHue`←`currentAlbumColor` 驱动）**只在主界面分支（`!isImmersiveMode`）调用**；进入沉浸舱走 `isImmersiveMode` 分支后流沙画布不再重绘 → 封面色更新后画面冻结，`currentHue` 每帧都在过渡只是画布没重绘；退出走主界面分支才用已过渡好的新色相重绘，于是「退出才更新」。此外沉浸舱自身光晕背景（`#immersive-bg-canvas`）原本硬编码灰色 `rgba(30,30,40)`，根本不跟随封面色（与 changelog「沉浸模式背景跟随专辑取色」既定设计不符，疑似回归）。
+- **根因二（PWA Service Worker 缓存）**：`sw.js` 用 `CacheFirst` 且 `CACHE_NAME` 写死 `'mbolka-v3.3.3'`，`install` 不重跑 → 已缓存旧 `js/visualizer.js` 被永久优先返回，源码改动在浏览器里不生效（导致「改了也没用/还有卡顿」）。`build.js` 生成的 `dist/sw.js` 同为 `CacheFirst` 写死 `v3.4.1`。
+- **修复**：
+  1. `js/visualizer.js`：① 沉浸舱分支内同步重绘流沙背景（关取色时清空画布，与主界面一致）；② 沉浸光晕背景改用 `hsla(currentHue,…)` 跟随封面色相，每帧平滑过渡、实时刷新；**仅取色模式开启时**跟随封面色相，关闭时回落原中性灰（与主页关取色一致，避免关取色出现彩虹自转）。
+  2. `sw.js` + `build.js`：缓存策略改为 **Network-First（带缓存回退）**、缓存名升 `v3.4.3`，在线始终回源（源码改动刷新即生效），离线/失败回退缓存；仅缓存同源成功响应。
+  3. `js/visualizer.js` + `js/ui-core.js`：退出沉浸舱时调用新增 `forceMainRedraw()` 强制主界面流沙下一帧重绘，消除「返回主界面流沙卡顿一秒才显示」。
+- **SW 接管提示**：SW 改动后需让新 SW 接管（DevTools→Application→Service Workers 勾选 Update on reload 后刷新，或 Unregister 后刷新；普通刷新可能需两次）。之后 Network-First 下单次刷新即见最新源码。
+
+### 🩹 主界面「进入沉浸舱」按钮 hover 频闪修复
+
+- **症状**：主界面将光标悬停在「进入沉浸舱」频谱容器（`#btnEnterImmersive`）上时，按钮高亮/光标出现**频繁闪烁**，无法正常稳定显示 hover 态。
+- **根因（`css/base-layout.css` / `css/style.css` + `js/visualizer.js`）**：`.vis-canvas-container` 基础态**无边框**，仅 `:hover` 时新增 `border: 1px solid`。由于 `#spectrumCanvasMain` 为 `width:100%;height:100%`（相对容器**内容盒**），而全局 `box-sizing: border-box` 下出现 1px 边框会使内容盒收缩 1px；叠加容器 `transition: 0.3s` 让边框宽度在 0→1px 间**逐帧动画过渡**，内容盒尺寸在 hover 期间持续变化 → 绑定在 canvas 上的 `ResizeObserver` 每帧触发 → `resizeMainCanvas()` 每帧重设 `canvas.width/height`（重置即清空画布）并强制重绘 → 频谱/高亮**逐帧重绘闪烁**。若边框收缩引发的布局位移使光标瞬间移出元素，还会丢失 `:hover` 反向触发，形成持续抖动循环。
+- **修复**：基础态预留 `border: 1px solid transparent`，`:hover` 仅改 `border-color`（尺寸恒定不变）→ 内容盒不再因 hover 收缩 → `ResizeObserver` 不再每帧误触发 → 频闪消除。视觉 hover 效果（背景提亮 + 白色描边）完全保留。`css/base-layout.css` 与 `css/style.css` 两份相同规则同步修正。
+
+### 📼 长音频(>15min)断点续播修复
+
+- **需求**：音频时长 >15min 认定为长音频（播客/有声书），自动记录播放进度；下次播放（切歌/随机到）自动从进度点续播；进度落在最后 5 秒则记为 0，下次从头播放。
+- **原逻辑失效（dead code）根因（`js/audio-core.js`）**：
+  1. 恢复侧读取 `song.duration || song.file._duration`，但**播放列表项从未被赋值 `duration`/`_duration`** → `dur` 恒为 `0` → `dur > 900` 永远 false，**续播从未触发**。
+  2. 即便 `dur` 有值，恢复时 `audio.currentTime` 在 `audio.src` 刚设置、元数据未就绪时赋值，会被浏览器重置为 0。
+  3. 保存只在 `timeupdate` 每 10 秒一次，**暂停/切歌/自然结束不立即保存**；最后 5 秒未显式记 0（仅靠恢复时映射，未落到 10 秒窗口则丢失）。
+- **修复（`js/audio-core.js`）**：
+  1. 新增统一 helper `saveLongAudioProgress()` 与 `applyLongAudioResume(audioEl)`：键 `'MBolka_PlayPos_' + 文件名`（同文件跨会话稳定）。
+  2. 续播改在 `audio.onloadedmetadata`（元数据就绪后）触发，此时 `currentTime` 才能可靠设置；使用 `audio.duration`（真实时长）判断 `>900`，不再依赖未赋值的 `song.duration`。
+  3. 最后 5 秒统一判定：保存时 `t = currentTime >= dur-5 ? 0 : currentTime`；恢复时 `resume = saved.t > dur-5 ? 0 : saved.t`，两端一致，确保「最后 5 秒→下次从头」。
+  4. 保存时机补全：① `timeupdate` 每 10 秒（节流）；② **暂停**（`togglePlay`）立即保存；③ **切歌/上一首**（`goNext`/`goPrev`）切换前保存；④ **自然结束**（`onended`）保存。覆盖「<10s 窗口即切走/暂停」边界，进度不再丢失。
+- **覆盖范围**：手动切歌 / 随机到 / 上一首 / 暂停恢复 / 自然结束均生效（均走主 `audio` 槽的 `onloadedmetadata`）。注：交叉淡变进行中由 `cfAudioB` 槽自动续播的下一首不触发续播（属窄边界，未绑定 `cfAudioB` 以避免误写进度键）。
+
+### 🪟 设置选项卡"变回单页下滑"实为 SW 缓存旧构建（非代码回归）
+
+- **现象**：设置弹窗的选项卡区隔失效，所有分组（音频/外观/触觉/性能/高级）在同一页下滑显示。
+- **核查结论**：源码（`index.html` 的 `settings-tab-bar`/`data-tab-group`/`settings-body`、`js/ui-core.js` 的 `initSettingsTabs()`、`css/modals.css` 的 `.settings-panel{display:none}`）与 `dist/bundle.min.js` **均完整包含且正确实现**标签页分离逻辑——不是代码回归。
+- **真正根因**：Service Worker 把**旧的构建产物**一直喂给浏览器。部署用的 `dist/sw.js` 此前停留在 `v3.4.1` 的 `CacheFirst`，会**永久锁定**安装该 SW 时缓存的 `bundle.min.js`/`index.html`；若缓存版本与当前不一致（或缓存于 tabs 尚未就绪/不同步的时期），就表现为"单页下滑"。根 `sw.js` 虽已在前面改为 `v3.4.3` Network-First，但 `dist/` 目录本身从未重建，故部署态仍被旧 SW 钉死。
+- **修复**：重新运行 `node build.js` 重建 `dist/`——`bundle.min.js`(162KB)、`style.min.css`、`index.html` 均从当前正确源码生成；生成的 `dist/sw.js` 现为 `v3.4.3` **Network-First** 且 `activate` 会清理旧缓存、`skipWaiting`+`clients.claim()` 立即接管。源码（根 `sw.js`）与部署（`dist/sw.js`）现已一致为 Network-First v3.4.3。
+- **交付提示（关键）**：SW 仅在自身脚本内容变化时更新。部署新 `dist/` 后需让浏览器装上新版 SW：DevTools→Application→Service Workers 勾选 **Update on reload** 后刷新，或 **Unregister** 后刷新；普通刷新可能需两次（首次更新 SW、第二次拉新 bundle）。之后 Network-First 下单次刷新即见最新构建（含本版全部修复与设置选项卡）。
+
+### 🆕 版本号更新
+- v3.4.2 → v3.4.3
+
+---
+
+## v3.4.2 (2026-07-07)
+
+### 🪟 PWA / WCO 标题栏修复（Windows Chrome）
+
+#### 1｜WCO 标题栏完全窗口水平居中
+- **`css/wco.css`**：`.wco-titlebar` 原用 `env(titlebar-area-x, 0)` + `env(titlebar-area-width)`，被 OS 安全区约束（自动避开右侧系统金刚键），`justify-content: center` 只居中受限盒子 → 标题贴左。
+- 改为 `left: 0; width: 100vw` 撑满整窗，`.wco-drag-region` 用 `position: absolute` 铺满父级，`justify-content: center` 对整窗中线居中 → 标题完全水平居中；整窗可拖（`app-region: drag` 在 `.wco-drag-region` 上）。
+
+#### 2｜修复取色模式下 OS 顶 bar 锁死紫色
+- **`js/theme-color.js`**：v3.4.1 曾把 WCO active 时的 `<meta name="theme-color">` 写死为 `#180219`，导致 Windows Chrome 的 OS 沉浸顶 bar（其颜色 = `meta theme-color`）跟随定成紫色，封面取色模式失效。
+- 修正：移除 WCO 写死分支，`meta theme-color` **始终跟随**封面色 / 主题默认色 / 深色模式（`_applyColor()` 优先级：封面色 > 深色模式 `#0e0c16` > `cfg.defaultColor` > 兜底紫 `#180219`）。
+- **机制澄清**：MBolka 自绘 `.wco-titlebar` 永远 `display:none`，OS 接管整条标题区域，故 `meta theme-color` 即 OS 顶 bar 颜色，应随封面色实时沉浸（v3.4.1 的「隐藏固定 #180219」逻辑已废弃）。
+
+#### 3｜清理失效死规则
+- **`css/wco.css`**：移除 `body.wco-active .wco-titlebar { background: #180219 }`——`.wco-titlebar` 永远不参与渲染，该背景规则无意义。
+
+#### 4｜设置-音频均衡器预设改为下拉式菜单（与触觉-映射模式一致）
+- **`js/ui-core.js` `renderEQPanel()`**：原「8 个预设按钮」阵列改为 `custom-select-wrap` 自定义下拉（`.custom-select-trigger` + `.custom-select-dropdown` + `.custom-select-option`），与设置-触觉的「映射模式 / 节流间隔」下拉完全同构、同样式、同键盘/手柄交互（共用 `initCustomDropdownFor`）。
+- 下拉值由 `EQ_PRESET_LABELS` 驱动（平直/流行/摇滚/古典/人声/重低音/电子/爵士），手动调节任一 EQ 频段滑块后预设下拉自动回落「自定义 (手动调节)」并取消 `selected` 态。
+- 设置页按钮阵列密度下降，箭头 SVG 与主按钮一致，视觉统一。
+
+#### 5｜手柄：设置滑块焦点下左右拨左摇杆 → toast 提示进入微调
+- **`js/gamepad.js` `pollGamepad()` 左摇杆分支（设置浮窗 `else` 路径）**：当焦点停在设置页任意 `input[type=range]` 滑块、且未处于滑块微调模式时，检测到左摇杆左右拨动（`axes[0] < -0.5 || > 0.5`）即弹 toast「点击 Ⓐ 进入滑块微调（←→ 调整）」（节流 1.5s）。
+- 同时阻止左右导航离开滑块，避免误触焦点漂移；按 A 进入 `sliderFineMode` 后方向键/左摇杆调整值、B 退出（既有微调逻辑复用）。
+
+#### 6｜手柄右摇杆调音量联动主界面百分比数字
+- **根因**：手柄右摇杆调音量走 `adjustVolume()` → `cfSetVolume()`，原只更新滑块 `value`，百分比 `#volPercent` 仅在 `volSlider.oninput` 里更新，手柄路径不经过 `oninput` → 数字不动。
+- **`js/audio-core.js` `cfSetVolume()`**：把百分比同步逻辑移入 `cfSetVolume`，主界面 `#volPercent` + 沉浸界面 `immVolPercent`（当前无对应元素，安全 no-op）均覆盖；清理 `oninput` 冗余更新。
+
+#### 7｜UI 图标去 emoji 化（SVG sprite 替换按钮 emoji）
+- **`js/audio-core.js` / `ui-core.js` / `loader.js` / `cover-lib.js` / `pip.js` + `css/components.css`**：play/pause、pitch、crossfade、dark mode、网络状态、统计、收藏、睡眠定时、无封面占位、播放整张专辑等原本用 `textContent='⏸'/'❤'/'🌙'` 覆盖的内置图标，改为切换内置 `<use href="#icon-...">` 或 `iconSvg()` + 文字，不再覆盖按钮图标。
+- **`js/pip.js`**：创建 PiP 窗口时把主文档 SVG `<defs>` 克隆进 PiP 独立 document，使 `<use href="#icon-...">` 可正常渲染；控制栏 + 黑胶占位全部换 SVG。
+- 注释里的版本标记 emoji（🔋/📺/🎬/⚡）刻意保留。
+
+#### 8｜手柄右摇杆左右调音量改为无级（类无级）调节
+- **原问题**：`js/gamepad.js` 右摇杆水平调音量走「150ms 门槛 + 固定 ±0.02 步进」，与偏转量无关 → 顿挫、不连贯，且偏一点也是 2% 跳变。
+- **`js/gamepad.js` `pollGamepad()` 右摇杆分支**：改为**按偏转量与帧时间连续累加**——`rate = 0.6 * mag * (0.5 + mag)`（`mag = |axes[2]|`），每帧增量 `= sign(x) * rate * dt`（`dt` 为相邻帧秒数，帧率无关）；死区由 0.3 降到 0.12，偏角越小变化越细腻，松手即停。
+  - 满偏（mag=1）约 0.9/s 走完全程，轻推（mag≈0.12）近乎微调；表现类无级、可停在任何音量。
+- **`js/audio-core.js`**：新增 `adjustVolumeContinuous(delta)` 与防抖保存 `_scheduleVolSave()`；`cfSetVolume(vol, skipSave=false)` 增加 `skipSave` 参数——连续路径传 `true` 走 400ms 防抖保存，避免每帧 `localStorage` 落盘（原 `volSlider.oninput` 与离散 `adjustVolume` 仍即时保存）。
+
+#### 9｜修复手柄右摇杆上下滚歌词「几乎失效」
+- **现象**：右摇杆上下滚主界面歌词栏几乎不动；滚轮/触摸正常。
+- **根因①（主因）**：`js/gamepad.js` 右摇杆垂直分支滚歌词时只调了 `_lrcScrollBlurClear()`（清模糊），**未置 `isUserScrollingLyrics = true`**；而 `js/audio-core.js` 的 `syncLyrics()` 在每次 `timeupdate` 都会「若 `!isUserScrollingLyrics` 就 `scrollTo(..., smooth)` 跟到当前行」→ 手柄每帧的滚动被自动跟随平滑地拉回，互相打架。滚轮路径走 `handleUserScroll()` 会置该标志，故正常。
+- **根因②**：`.lrc-viewport` (`css/style.css` L236) 带 `scroll-behavior: smooth`，逐帧 `scrollTop +=` 被平滑动画拖慢、叠加抵消，进一步显得无效。
+- **修复**：`js/gamepad.js` 新增 `_rsLrcMarkScrolling()`——滚歌词时置 `isUserScrollingLyrics = true` 抑制自动跟随、临时把 `el.lrcView.style.scrollBehavior='auto'` 关掉 smooth，停止 1.5s 后复位并 `syncLyrics()` 重新对齐；`_lrcScrollBlurClear()` 保留。浮窗（非歌词）滚动路径不受影响。
+
+### 🏷️ 歌词创作信息正则扩充
+
+- **`js/audio-core.js` `CREDIT_PAT`**：新增 `混音室`（混音工作室后）、`音乐设计`（音乐监督后）词条；`母带处理` 此前已存在。
+- **`js/audio-core.js` `CREDIT_MULTI_PAT`**：两处角色清单同步补入 `混音室`、`母带处理`、`音乐设计`，支持多角色合并格式（如 `混音室/母带处理：`、`编曲/音乐设计：`）。
+- 注释补充 v2.8.13p5 变更记录。
+
+### 🆕 版本号更新
+- `v3.4.1` → `v3.4.2`
+
 ## v3.4.1 (2026-07-07)
 
 ### 🪟 PWA / WCO 标题栏调整（Windows Chrome）
@@ -21,6 +144,13 @@
 
 #### 4｜修复无封面残留上一张封面色
 - **`js/audio-core.js` `loadSong()`**：原「无专辑封面」分支漏调 `ThemeColor.update()`，导致残留上一张封面颜色。改为 if/else 之后统一调用 `ThemeColor.update(currentAlbumColor)`，两种分支均正确刷新。
+
+#### 5｜线上部署模式切换为 GitHub Actions 自动构建
+- **GitHub Pages Source** 由「Deploy from a branch（直接服务 main 根目录源码）」改为 **GitHub Actions**：push `main` 触发工作流，从源码自动构建 `dist/` 并部署，源码改动需等 Actions 跑完才上线。
+- **新增 `.github/workflows/deploy.yml`**：`setup-node 20 → npm install → npm run build → upload-pages-artifact(dist) → deploy-pages` 全流程。
+- **`build.js` 补全打包链**：复制 `favicon.ico` / `icons/*` / `manifest.json`，并生成 dist 专用相对路径 `sw.js`（预缓存 `bundle.min.js` / `style.min.css` / `index.html` / `icons/*` / `favicon.ico`，子路径 `/muse/` 安全；原 root `sw.js` 绝对路径在 dist 下会全部预缓存失败）。
+- **`package.json`** 新增 `build` 脚本与 `terser` / `clean-css` 依赖。
+- **`.gitignore` 目录改名 `.dev-docs/`** 并新建真正的 `.gitignore` 文件（忽略 `dist/` / `node_modules/` / `package-lock.json` / `_serve_cf.js` / `.dev-docs/`），构建产物不再误入版本库。
 
 ### 🆕 版本号更新
 - `v3.4.0` → `v3.4.1`
@@ -463,57 +593,6 @@
 
 ---
 
-## v2.8.13 (2026-06-05)
-
-### 🔥 沉浸模式进度条点击修复
-
-**问题**：点击进度条（约0分03秒前后）自动跳转到0分48秒前后，疑似无论点到哪里，进度都会调整到后约45秒出的问题。
-
-**修复方案**：
-- 修改 `handleABSeek()` 函数中使用 `getBoundingClientRect().width` 替代 `container.offsetWidth`，统一计算方式避免偏差
-- 修改 `bindProgressBar()` 函数，添加 `resize` 和视图切换时清除 `cachedRect` 的机制，避免缓存过时导致的点击位置计算错误
-
-### 🔥 歌词创作信息显示优化
-
-**修复方案**：
-- 修复 `.lrc-credits` 容器为左对齐，确保每种创作人独立一行
-- 固定宽度，超出时截断文本（不换行，溢出显示省略号）
-- `.lrc-credits-row` 设置为不换行，确保独立一行
-
-### 🔥 创作信息正则扩充
-
-**修复方案**：
-- 更新 `CREDIT_PAT` 添加 `录音棚` 等新条目
-- 更新 `CREDIT_MULTI_PAT` 支持多角色格式（如 `制作人/作曲/编曲：`）
-
-### 📱 移动端优化
-
-**新增功能**：
-- 添加 CSS 去除按钮点击时的蓝色高亮
-- 添加竖屏自动进入沉浸模式逻辑（仅限移动设备）
-
-### 🔧 IndexedDB/LocalStorage 优化
-
-**优化方案**：
-- 添加 `cleanupOldMetadata()` 函数，清理30天以前的旧元数据缓存
-
-### 🔥 flowField 大数组存储问题检查
-
-**检查结果**：
-- `flowField` 大数组未被存储到 IndexedDB 或 LocalStorage
-- 修复 `flowField` 的重复声明问题
-
-### 🔊 音频输出设备选择（Windows）
-
-**新增功能**：
-- 在设置面板中添加音频输出设备选择下拉菜单（仅 Windows Chrome/Edge 支持）
-- 使用 `navigator.mediaDevices.enumerateDevices()` 枚举音频输出设备
-- 使用 `audio.setSinkId(deviceId)` 切换音频输出设备
-- 支持保存用户选择到 localStorage，下次启动时自动恢复
-- 添加"刷新设备列表"按钮，方便用户更新设备列表
-
----
-
 ## v2.8.13p4 (2026-06-05)
 
 ### 🔥 创作信息 CSS 彻底重写 — 允许换行、不再溢出
@@ -651,6 +730,97 @@ CREDIT_MULTI_PAT 角色列表同步扩充，支持多身份组合格式。
 
 ---
 
+## v2.8.13 (2026-06-05)
+
+### 🔥 沉浸模式进度条点击修复
+
+**问题**：点击进度条（约0分03秒前后）自动跳转到0分48秒前后，疑似无论点到哪里，进度都会调整到后约45秒出的问题。
+
+**修复方案**：
+- 修改 `handleABSeek()` 函数中使用 `getBoundingClientRect().width` 替代 `container.offsetWidth`，统一计算方式避免偏差
+- 修改 `bindProgressBar()` 函数，添加 `resize` 和视图切换时清除 `cachedRect` 的机制，避免缓存过时导致的点击位置计算错误
+
+### 🔥 歌词创作信息显示优化
+
+**修复方案**：
+- 修复 `.lrc-credits` 容器为左对齐，确保每种创作人独立一行
+- 固定宽度，超出时截断文本（不换行，溢出显示省略号）
+- `.lrc-credits-row` 设置为不换行，确保独立一行
+
+### 🔥 创作信息正则扩充
+
+**修复方案**：
+- 更新 `CREDIT_PAT` 添加 `录音棚` 等新条目
+- 更新 `CREDIT_MULTI_PAT` 支持多角色格式（如 `制作人/作曲/编曲：`）
+
+### 📱 移动端优化
+
+**新增功能**：
+- 添加 CSS 去除按钮点击时的蓝色高亮
+- 添加竖屏自动进入沉浸模式逻辑（仅限移动设备）
+
+### 🔧 IndexedDB/LocalStorage 优化
+
+**优化方案**：
+- 添加 `cleanupOldMetadata()` 函数，清理30天以前的旧元数据缓存
+
+### 🔥 flowField 大数组存储问题检查
+
+**检查结果**：
+- `flowField` 大数组未被存储到 IndexedDB 或 LocalStorage
+- 修复 `flowField` 的重复声明问题
+
+### 🔊 音频输出设备选择（Windows）
+
+**新增功能**：
+- 在设置面板中添加音频输出设备选择下拉菜单（仅 Windows Chrome/Edge 支持）
+- 使用 `navigator.mediaDevices.enumerateDevices()` 枚举音频输出设备
+- 使用 `audio.setSinkId(deviceId)` 切换音频输出设备
+- 支持保存用户选择到 localStorage，下次启动时自动恢复
+- 添加"刷新设备列表"按钮，方便用户更新设备列表
+
+---
+
+
+## v2.8.12p3 (2026-06-04)
+
+### 🏷️ 多角色合并格式创作信息检测（CREDIT_MULTI_PAT）
+
+**问题**：如 `词/曲：某人`、`编曲/混音/制作：某人` 等用 `/` 分隔的多角色合并格式，因 `CREDIT_PAT` 不匹配 `词/曲` 或 `编曲/混音/制作` 组合键，被漏识别为歌词行。
+
+**修复**（`js/app.js` ~L1436）：
+- 新增 `CREDIT_MULTI_PAT`：匹配 `角色名(/角色名)+[：:\s]` 模式（如 `词/曲：`、`编曲/混音/制作：`、`Lyrics/Composed by`）
+- `isCredit()` 更新为 `CREDIT_PAT || CREDIT_MULTI_PAT || EN_CREDIT_PAT || OA_OC_PAT`
+- `CREDIT_MULTI_PAT` 先于 `EN_CREDIT_PAT` 检测，避免中文多角色被英文误匹配
+
+### 🎨 创作信息容器纵向堆叠布局（真正独立成行）
+
+**根因**：p2 中 `.lrc-credits` 容器未声明 `display: flex; flex-direction: column`，仅靠 `.lrc-credits-row` 自身的 `display: flex` 不足以阻止兄弟行横向并排——浏览器可能将多个 `inline` 级兄弟挤到同一行。
+
+**修复**：
+- `.lrc-credits` 添加 `display: flex; flex-direction: column; align-items: center; gap: 6px; box-sizing: border-box`
+- `.lrc-credits-row` 增加 `width: 100%` 占满容器宽度
+- `.lrc-credits-tag` 添加 `flex-shrink: 0` 防止标签被压缩
+- `.lrc-credits-val` 添加 `flex: 1; text-align: left` 优化超长名单的占位与换行
+
+**涉及文件**：`css/base-layout.css`、`js/app.js`、`index.html`（版本号标题）
+
+---
+
+## v2.8.12p2 (2026-06-04)
+
+### 🩹 创作信息卡片 CSS 紧急修复
+
+**问题**：v2.8.12 为控制超长名单宽度，将 `.lrc-credits-row` 从 `display: flex; flex-wrap: wrap` 错误改为 `display: inline`，导致所有创作信息行坍塌为内联文本流，**逐行换行完全丢失**——所有词/曲/编/录信息挤作一团。
+
+**修复**：
+- `.lrc-credits-row` 还原 `display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px`，恢复每行独立 flex 布局
+- `.lrc-credits-row` 新增 `max-width: 100%`，配合 `.lrc-credits-val { min-width: 0; word-break: break-word }` 实现真正的"不撑爆、自然换行"
+- `.lrc-credits` 最大宽度改为 `max-width: 100%`（其在 `.col-lyrics` padding 内已天然受约束）
+
+**涉及文件**：`css/base-layout.css`、`index.html`（版本号标题）
+
+---
 
 ## v2.8.12 (2026-06-04)
 
@@ -694,46 +864,6 @@ CREDIT_MULTI_PAT 角色列表同步扩充，支持多身份组合格式。
 - `.lrc-credits-row` 保持 `display: flex; flex-wrap: wrap`（每行独立换行）+ 添加 `max-width: 100%`
 - `.lrc-credits-val` 添加 `word-break: break-word; overflow-wrap: break-word; min-width: 0`，通过 `min-width: 0` 允许 flex 子元素在必要时收缩换行
 - `.lrc-credits-tag` 保留 `white-space: nowrap`（标签不折断）
-
----
-
-## v2.8.12p2 (2026-06-04)
-
-### 🩹 创作信息卡片 CSS 紧急修复
-
-**问题**：v2.8.12 为控制超长名单宽度，将 `.lrc-credits-row` 从 `display: flex; flex-wrap: wrap` 错误改为 `display: inline`，导致所有创作信息行坍塌为内联文本流，**逐行换行完全丢失**——所有词/曲/编/录信息挤作一团。
-
-**修复**：
-- `.lrc-credits-row` 还原 `display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px`，恢复每行独立 flex 布局
-- `.lrc-credits-row` 新增 `max-width: 100%`，配合 `.lrc-credits-val { min-width: 0; word-break: break-word }` 实现真正的"不撑爆、自然换行"
-- `.lrc-credits` 最大宽度改为 `max-width: 100%`（其在 `.col-lyrics` padding 内已天然受约束）
-
-**涉及文件**：`css/base-layout.css`、`index.html`（版本号标题）
-
----
-
-## v2.8.12p3 (2026-06-04)
-
-### 🏷️ 多角色合并格式创作信息检测（CREDIT_MULTI_PAT）
-
-**问题**：如 `词/曲：某人`、`编曲/混音/制作：某人` 等用 `/` 分隔的多角色合并格式，因 `CREDIT_PAT` 不匹配 `词/曲` 或 `编曲/混音/制作` 组合键，被漏识别为歌词行。
-
-**修复**（`js/app.js` ~L1436）：
-- 新增 `CREDIT_MULTI_PAT`：匹配 `角色名(/角色名)+[：:\s]` 模式（如 `词/曲：`、`编曲/混音/制作：`、`Lyrics/Composed by`）
-- `isCredit()` 更新为 `CREDIT_PAT || CREDIT_MULTI_PAT || EN_CREDIT_PAT || OA_OC_PAT`
-- `CREDIT_MULTI_PAT` 先于 `EN_CREDIT_PAT` 检测，避免中文多角色被英文误匹配
-
-### 🎨 创作信息容器纵向堆叠布局（真正独立成行）
-
-**根因**：p2 中 `.lrc-credits` 容器未声明 `display: flex; flex-direction: column`，仅靠 `.lrc-credits-row` 自身的 `display: flex` 不足以阻止兄弟行横向并排——浏览器可能将多个 `inline` 级兄弟挤到同一行。
-
-**修复**：
-- `.lrc-credits` 添加 `display: flex; flex-direction: column; align-items: center; gap: 6px; box-sizing: border-box`
-- `.lrc-credits-row` 增加 `width: 100%` 占满容器宽度
-- `.lrc-credits-tag` 添加 `flex-shrink: 0` 防止标签被压缩
-- `.lrc-credits-val` 添加 `flex: 1; text-align: left` 优化超长名单的占位与换行
-
-**涉及文件**：`css/base-layout.css`、`js/app.js`、`index.html`（版本号标题）
 
 ---
 

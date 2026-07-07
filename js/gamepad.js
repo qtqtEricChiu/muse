@@ -7,13 +7,18 @@
 let _comboState = {};
 let _seekModeActive = false;
 let _seekLastTime = 0;
-let _rightStickLastTime = 0;
+let _rsVolLastTime = 0;          // 🚀 v3.4.2: 右摇杆音量连续调节的帧时间基准（dt 累加，去固定步进）
 let _rightStickScrollTime = 0;
 let _lrcBlurRestoreTimer = null;
 let _rsFocusTimer = null;       // 🚀 v3.2.2: 右摇杆焦点延迟吸附
 let _rsLastScrollTime = 0;
 let _rsAccelStartTime = 0;       // 🚀 v3.3.0: 右摇杆加速度计时起点
 let _cfAccelStartTime = 0;       // 🚀 v3.3.4: 曲库 coverflow 左摇杆横向滚动加速度计时起点
+let _sliderHintLastTime = 0;      // 🚀 v3.4.x: 设置滑块焦点下左右拨杆提示 toast 节流
+let _rsLrcStopTimer = null;       // 🚀 v3.4.2: 右摇杆滚动歌词时抑制自动跟随的复位计时
+const FOCUS_DEAD_ZONE = 30;       // 🚀 v3.4.3: 2D 导航同排/同列死区常量（原 moveFocus2D 内联 30）
+let _pipStateLastTime = 0;        // 🚀 v3.4.3: PiP 手柄状态转发节流时间基准（~30fps）
+let _pollRunning = false;         // 🚀 v3.4.3: 手柄轮询运行标志（断开时停转省去空帧）
 
 // 🩹 v3.2.3 P0: 惰性缓存 scrollable 引用，避免每帧 querySelectorAll 触发 reflow
 let _cachedScrollable = null;
@@ -42,12 +47,6 @@ function getActiveScrollable() {
                 || topModal.querySelector('.album-detail-panel')
                 || topModal.querySelector('.modal-content');
         }
-    }
-    // 🩹 v3.2.3: 回退检查专辑详情 overlay（仅当真正打开时，避免常驻 DOM 误判成滚动目标 → 歌词右摇杆滚动失效）
-    if (!_cachedScrollable) {
-        const albumDetail = document.querySelector('#albumDetailOverlay.open .album-detail-panel')
-            || document.querySelector('#albumDetailOverlay.open');
-        if (albumDetail) _cachedScrollable = albumDetail;
     }
     _scrollableTimestamp = now;
     return _cachedScrollable;
@@ -204,7 +203,7 @@ const moveFocus2D = (dir) => {
         const dx = tarX - curX;
         const dy = tarY - curY;
         let isOpposite = false;
-        const DEAD = 30; // 🚀 v3.3.4: 同排/同列死区，导航方向须与当前元素明显错开，避免卡在 header 同一排（下不去卡片网格）
+        const DEAD = FOCUS_DEAD_ZONE; // 🚀 v3.3.4: 同排/同列死区，导航方向须与当前元素明显错开，避免卡在 header 同一排（下不去卡片网格）
         switch(dir) {
             case 'left':  if (dx >= -DEAD) isOpposite = true; break;   // 排除同列（dx≈0）元素
             case 'right': if (dx <= DEAD) isOpposite = true; break;    // 排除同列
@@ -217,17 +216,18 @@ const moveFocus2D = (dir) => {
 
     if (candidates.length === 0) return;
 
-    // 第二阶段：最近行/列优先（避免跳过中间按钮跳到远处滑块）
-    let pool;
-    if (dir === 'up' || dir === 'down') {
-        const minAbsDy = Math.min(...candidates.map(c => Math.abs(c.dy)));
-        const bandCandidates = candidates.filter(c => Math.abs(c.dy) <= minAbsDy * 1.5);
-        pool = bandCandidates.length > 0 ? bandCandidates : candidates;
-    } else {
-        const minAbsDx = Math.min(...candidates.map(c => Math.abs(c.dx)));
-        const bandCandidates = candidates.filter(c => Math.abs(c.dx) <= minAbsDx * 1.5);
-        pool = bandCandidates.length > 0 ? bandCandidates : candidates;
-    }
+    // 第二阶段：优先「对齐」候选（按交叉轴筛带）—— 横向导航锁同排、纵向导航锁同列，
+    //   避免被「离轴但前进轴更近」的元素抢走（例：向右时下方 PiP 比同排歌词水平更近却错位，导致焦点乱跳）。
+    //   ⚠️ 原实现误用「前进轴最近距离」做带：横向用 minAbsDx、纵向用 minAbsDy，
+    //      会把真正同排/同列的目标排除掉。改为按对齐轴（横向按 |dy|、纵向按 |dx|）筛带即修复。
+    // 第二阶段：按 |dy| 筛带 —— 横向=锁同排(交叉轴对齐)、纵向=锁最近下行(前进轴)，二者统一收敛到 |dy|
+    //   • 横向：修复「右移时下方 PiP 比同排歌词更近却错位抢焦点」(v3.4.3 原修复，保留)
+    //   • 纵向：修复「关闭键向下直接跳到同列深处滑块」的跨段跳——v3.4.3 误用 |dx| 对齐带导致该回归，
+    //           改回 |dy|(=下行距离) 带后，纵向只在本段最近下行元素间选择，不再跨到深处滑块。
+    const minAbsDy = Math.min(...candidates.map(c => Math.abs(c.dy)));
+    const tol = Math.max(40, minAbsDy * 1.5);
+    const band = candidates.filter(c => Math.abs(c.dy) <= tol);
+    const pool = band.length ? band : candidates;
 
     // 第三阶段：评分
     let bestTargetIdx = -1;
@@ -247,7 +247,7 @@ const moveFocus2D = (dir) => {
         }
         const area = c.targetRect.width * c.targetRect.height;
         score -= Math.log(area) * 0.5;
-        // 🚀 v3.2.2: 同容器奖励 — 垂直导航时优先留在当前滚动容器内
+        // 🚀 v3.2.2: 同容器奖励 — 垂直导航优先留在当前滚动容器内（横向同理，避免从列表中跳出）
         const currentContainer = currentEl.closest(_scrollableContainers);
         const targetEl = focusableElements[c.idx];
         if (currentContainer && targetEl && targetEl.closest(_scrollableContainers) === currentContainer) {
@@ -321,8 +321,6 @@ const activateFocus = () => {
                     trackEls[trackIdx].click();
                 }
             }
-        } else if (focused.classList.contains('eq-preset-btn')) {
-            focused.click();
         } else {
             focused.click();
         }
@@ -351,7 +349,7 @@ window.addEventListener('keydown', (e) => {
         case 'w': case 'arrowup': e.preventDefault(); moveFocus2D('up'); break;
         case 's': case 'arrowdown': e.preventDefault(); moveFocus2D('down'); break;
         case 'a': case 'arrowleft': e.preventDefault(); coverLibNav('left'); break;
-        case 'd': case 'arrowright': e.preventDefault(); coverLibNav('right'); break;
+        case 'd': case 'arrowright': e.preventDefault(); e.shiftKey ? toggleDarkMode() : coverLibNav('right'); break;
 
         case 'j': audio.currentTime -= 10; break;
         case 'k': audio.currentTime += 10; break;
@@ -359,10 +357,8 @@ window.addEventListener('keydown', (e) => {
         case 'm': case 'r': cyclePlayMode(); break;
         case 'c': case 'y': toggleColorMode(); break;
         // 🚀 v2.8: U = 收藏/取消收藏, Shift+F = 全屏
-        case 'u': e.preventDefault(); toggleFavorite(); break;
-        case 'f': e.shiftKey ? toggleFullscreen() : (e.preventDefault(), toggleFavorite()); break;
-        // 🚀 v2.8: D = 深色模式切换
-        case 'd': toggleDarkMode(); break;
+        case 'u': e.preventDefault(); toggleFavorite(currentIndex); break;
+        case 'f': e.shiftKey ? toggleFullscreen() : (e.preventDefault(), toggleFavorite(currentIndex)); break;
         case 'l': el.btnToggleLrc.click(); break;
         case 'p':
             closeAllModals();
@@ -427,11 +423,11 @@ document.addEventListener('touchend', (e) => {
         if (e.changedTouches[0].clientX < screenW * 0.4) {
             // 左侧双击 - 快退10秒
             audio.currentTime = Math.max(0, audio.currentTime - 10);
-            showToast("⏪ 快退 10秒");
+            showToast("快退 10秒", iconSvg('rewind'));
         } else {
             // 右侧双击 - 快进10秒
             audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
-            showToast("⏩ 快进 10秒");
+            showToast("快进 10秒", iconSvg('fast-forward'));
         }
     }
 
@@ -461,11 +457,13 @@ function injectGamepadHints() {
         { id: 'imm-btnNext',     tag: 'RB',   cls: 'pad-rb', tip: '下一首' },
         { id: 'btnSettings',     tag: '☰',    cls: 'pad-menu', tip: '设置 (Menu)' },
         { id: 'btnFavQuick',     tag: 'Ⓨ',    cls: 'pad-y',  tip: '收藏 (Y)' },
-        { id: 'btnToggleLrc',    tag: 'RS↕',  cls: 'pad-rs', tip: '右摇杆上下=滚动歌词' },
+        { id: 'btnToggleLrc',    tag: 'RS↕',  cls: 'pad-rs pad-wide', tip: '右摇杆上下=滚动歌词' },
         { id: 'btnEnterImmersive', tag: '↓',  cls: 'pad-dpad', tip: '沉浸舱 (十字键↓)' },
         { id: 'btnExitImmersive',  tag: '↓',  cls: 'pad-dpad', tip: '退出沉浸 (十字键↓)' },
         { id: 'btnToggleList',   tag: '←',    cls: 'pad-dpad', tip: '播放列表 (十字键←)' },
         { id: 'btnCoverLibrary', tag: '→',    cls: 'pad-dpad', tip: '曲库 (十字键→)' },
+        { id: 'btnPipQuick',     tag: 'Ⓥ',    cls: 'pad-view', tip: '画中画 (View)' },
+        { id: 'btnOpenHelpShortcuts', tag: '⑪', cls: 'pad-r3', tip: '快捷键帮助 (R3)' },
     ];
     hints.forEach(h => {
         const el = document.getElementById(h.id);
@@ -512,16 +510,37 @@ function _lrcScrollBlurClear() {
         lines.forEach(l => l.style.filter = '');
     }, 800);
 }
+// 🚀 v3.4.2: 右摇杆滚动歌词时抑制自动跟随 + 关闭 smooth 滚动
+//   复用 wheel/touch 的同一套「用户滚动中」语义：isUserScrollingLyrics=true 期间 syncLyrics 不抢滚；
+//   停止 1.5s 后复位并重新对齐到当前行。scroll-behavior 临时改 auto，避免逐帧 scrollTop 被平滑动画拖慢。
+function _rsLrcMarkScrolling() {
+    isUserScrollingLyrics = true;
+    el.lrcView.style.scrollBehavior = 'auto';
+    clearTimeout(_rsLrcStopTimer);
+    _rsLrcStopTimer = setTimeout(() => {
+        isUserScrollingLyrics = false;
+        el.lrcView.style.scrollBehavior = '';
+        syncLyrics();
+    }, 1500);
+}
 function removeGamepadHints() {
     document.body.classList.remove('gamepad-connected');
     document.querySelectorAll('.gamepad-badge').forEach(b => b.remove());
 }
 window.addEventListener("gamepadconnected", () => {
     gamepadConnected = true;
-    el.padStatus.innerHTML = `🎮`;
+    // 🩹 v3.4.x: 用当前手柄真实按键/摇杆状态初始化，避免连接瞬间因 prevPadBtns=[] 误触发所有"刚按下"动作
+    const gp = navigator.getGamepads ? Array.from(navigator.getGamepads()).find(p => p) : null;
+    if (gp) {
+        prevPadBtns = gp.buttons.map(b => b.pressed);
+        prevPadAxes = Array.from(gp.axes);
+    }
+    el.padStatus.innerHTML = iconSvg('gamepad');
     el.padStatus.title = '手柄已连接 · ⓐ确认 · ⓑ返回';
     el.padStatus.style.color = 'var(--primary)';
     injectGamepadHints();
+    // 🚀 v3.4.3: 手柄接入时若轮询已停转则重启（断开后会自动停转省电）
+    if (!_pollRunning) { _pollRunning = true; requestAnimationFrame(pollGamepad); }
     // 🚀 v3.0.0: 检测震动支持
     if (isRumbleSupported()) {
         if (typeof initVibration === 'function') initVibration();
@@ -529,7 +548,7 @@ window.addEventListener("gamepadconnected", () => {
 });
 window.addEventListener("gamepaddisconnected", () => {
     gamepadConnected = false;
-    el.padStatus.innerHTML = `⌨️`;
+    el.padStatus.innerHTML = iconSvg('keyboard');
     el.padStatus.title = '等待手柄接入';
     el.padStatus.style.color = 'var(--text-sub)';
     removeGamepadHints();
@@ -553,13 +572,11 @@ const pollGamepad = () => {
             if (sliderFineMode) {
                 sliderFineMode = false;
                 currentSlider = null;
-                showToast("🎯 退出滑块微调");
+                showToast("退出滑块微调", iconSvg('target'));
                 updateFocusContext();
-                prevPadBtns = btns.slice();
-                return;
+                return; // prevPadBtns/prevPadAxes 由 finally 统一同步
             }
-            const closed = handleGlobalClose();
-            if (closed && typeof updateFocusContext === 'function') updateFocusContext(); // 🩹 v3.3.4: 关闭后恢复主界面焦点
+            const closed = handleGlobalClose(); // 🚀 v3.4.3: handleGlobalClose 内部已调度 updateFocusContext（ui-core.js:135），此处不再重复
             if (!closed && isImmersiveMode) {
                 toggleImmersiveMode();
             }
@@ -569,8 +586,7 @@ const pollGamepad = () => {
         if (btns[0] && !prevPadBtns[0]) {
             // 如果已在微调模式，A键不做任何事（方向键负责调整）
             if (sliderFineMode) {
-                prevPadBtns = btns.slice();
-                return;
+                return; // prevPadBtns/prevPadAxes 由 finally 统一同步
             }
             // 🩹 v2.8.8: 元素类型感知 — 滑块→微调、复选框→切换、下拉→聚焦
             if (currentFocusIndex >= 0 && focusableElements[currentFocusIndex]) {
@@ -579,7 +595,7 @@ const pollGamepad = () => {
                     // 滑块 → 进入微调模式
                     sliderFineMode = true;
                     currentSlider = target;
-                    showToast("🎯 滑块微调模式 · ⬅➡调整 · Ⓑ退出");
+                    showToast("滑块微调模式 · ⬅➡调整 · Ⓑ退出", iconSvg('target'));
                 } else if (target.type === 'checkbox') {
                     target.checked = !target.checked;
                     target.dispatchEvent(new Event('change', { bubbles: true }));
@@ -613,9 +629,7 @@ const pollGamepad = () => {
                 lastNavTime = Date.now();
             }
 
-            prevPadBtns = btns.slice();
-            prevPadAxes = Array.from(pad.axes);
-            return; // 微调模式下跳过后续焦点导航
+            return; // 微调模式下跳过后续焦点导航；prevPadBtns/prevPadAxes 由 finally 统一同步
         }
 
         // 🚀 v3.0.2: X=播放暂停 / Y=收藏（单功能，无长按/双击）
@@ -658,11 +672,11 @@ const pollGamepad = () => {
         // 🚀 v3.0.2: LT/RT 短按 = 快退/快进 5 秒（LT+RT 保留 Seek 模式）
         if (btns[6] && !prevPadBtns[6]) {
             audio.currentTime = Math.max(0, audio.currentTime - 5);
-            showToast("⏪ 快退 5秒");
+            showToast("快退 5秒", iconSvg('rewind'));
         }
         if (btns[7] && !prevPadBtns[7]) {
             audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
-            showToast("⏩ 快进 5秒");
+            showToast("快进 5秒", iconSvg('fast-forward'));
         }
 
         // 🚀 v3.0.2: View=PiP / Menu=设置
@@ -670,6 +684,7 @@ const pollGamepad = () => {
         if (btns[9] && !prevPadBtns[9]) {
             closeAllModals();
             el.settingsModal.classList.add('open');
+            if (typeof _pushModal === 'function') _pushModal('settingsModal', null); // 🩹 v3.3.4: 推栈，确保 B 键逐级返回
             renderThemePresets();
             renderEQPanel();
             updateFocusContext();
@@ -753,24 +768,49 @@ const pollGamepad = () => {
                 if (stickY < -0.5) { moveFocus2D('up'); lastNavTime = Date.now(); }
                 else if (stickY > 0.5) { moveFocus2D('down'); lastNavTime = Date.now(); }
             }
-        } else if (Date.now() - lastNavTime > 200 && !(btns[6] && btns[7])) {
-            // 网格模式 / 其它浮窗 —— 2D 导航（含网格卡片左右/上下漫游）
-            if (stickY < -0.5) { moveFocus2D('up'); lastNavTime = Date.now(); }
-            else if (stickY > 0.5) { moveFocus2D('down'); lastNavTime = Date.now(); }
-            else if (stickX < -0.5) { moveFocus2D('left'); lastNavTime = Date.now(); }
-            else if (stickX > 0.5) { moveFocus2D('right'); lastNavTime = Date.now(); }
+        } else {
+            // 🚀 v3.4.x: 焦点在设置滑块上且左右拨动左摇杆 → 提示按 A 进入滑块微调
+            const _focusEl = (currentFocusIndex >= 0) ? focusableElements[currentFocusIndex] : null;
+            const _sliderFocused = _focusEl && _focusEl.type === 'range'
+                && el.settingsModal.classList.contains('open') && !sliderFineMode;
+            if (_sliderFocused) {
+                // 🩹 v3.4.3 修复：焦点在设置滑块上时「卡死、任何方向都挪不开」
+                //   原实现只拦截左右并提示按 A，但对上下完全不处理 → 焦点被困在滑块。
+                //   现改为：上下仍可离开滑块做 2D 导航（自然退出），仅左右保留拦截+提示（避免误触离开滑块）。
+                if (Date.now() - lastNavTime > 200 && !(btns[6] && btns[7])) {
+                    if (stickY < -0.5) { moveFocus2D('up'); lastNavTime = Date.now(); }
+                    else if (stickY > 0.5) { moveFocus2D('down'); lastNavTime = Date.now(); }
+                    else if (stickX < -0.5 || stickX > 0.5) {
+                        // 未进微调模式时，左右不离开滑块，提示按 A 进入微调
+                        if (Date.now() - _sliderHintLastTime > 1500) {
+                            _sliderHintLastTime = Date.now();
+                            showToast('点击 Ⓐ 进入滑块微调（←→ 调整）', iconSvg('target'));
+                        }
+                    }
+                }
+            } else if (Date.now() - lastNavTime > 200 && !(btns[6] && btns[7])) {
+                // 网格模式 / 其它浮窗 —— 2D 导航（含网格卡片左右/上下漫游）
+                if (stickY < -0.5) { moveFocus2D('up'); lastNavTime = Date.now(); }
+                else if (stickY > 0.5) { moveFocus2D('down'); lastNavTime = Date.now(); }
+                else if (stickX < -0.5) { moveFocus2D('left'); lastNavTime = Date.now(); }
+                else if (stickX > 0.5) { moveFocus2D('right'); lastNavTime = Date.now(); }
+            }
         }
 
         // 🚀 v3.2.2: 右摇杆 — 水平=音量, 垂直=滚动+延迟焦点吸附
         const rightStickX = pad.axes[2] || 0;
         const rightStickY = pad.axes[3] || 0;
-        if (Date.now() - _rightStickLastTime > 150) {
-            if (Math.abs(rightStickX) > 0.3) {
-                const volDelta = rightStickX > 0 ? 0.02 : -0.02;
-                adjustVolume(volDelta);
-                _rightStickLastTime = Date.now();
-            }
+        // 🚀 v3.4.2: 右摇杆水平 = 音量，无级/类无级调节 —— 按偏转量与帧时间连续累加
+        //   去掉原固定 ±0.02 + 150ms 门槛的步进感；偏角越大变化越快，松手即停，表现更连贯
+        const rsNow = Date.now();
+        if (_rsVolLastTime === 0) _rsVolLastTime = rsNow;
+        const rsDt = (rsNow - _rsVolLastTime) / 1000; // 秒，帧率无关
+        if (Math.abs(rightStickX) > 0.12) {
+            const mag = Math.abs(rightStickX);
+            const rate = 0.6 * mag * (0.5 + mag);     // 满偏≈0.9/s，偏角越小变化越细腻
+            adjustVolumeContinuous(Math.sign(rightStickX) * rate * rsDt);
         }
+        _rsVolLastTime = rsNow;
         // 🚀 v3.3.4: 右摇杆垂直滚动（页面 + 歌词），全程带加速度（拨动越久越快）
         if (Math.abs(rightStickY) > 0.2) {
             const now = Date.now();
@@ -789,12 +829,24 @@ const pollGamepad = () => {
             if (rsTarget) {
                 rsTarget.scrollTop += rightStickY * speed;
                 if (isLrc) {
+                    // 🚀 v3.4.2 修复：右摇杆滚歌词「几乎失效」
+                    //   原仅清模糊，未置 isUserScrollingLyrics，导致 syncLyrics 每次 timeupdate
+                    //   都平滑滚回当前行与手柄输入互相打架；同时关掉 scroll-behavior:smooth
+                    //   避免逐帧 scrollTop 叠加被平滑动画拖慢。
+                    _rsLrcMarkScrolling();
                     _lrcScrollBlurClear();
                 } else {
                     clearTimeout(_rsFocusTimer);
                     // 🩹 v3.2.3 P1: 限制候选数为 50 个/找到 5 个即停，减少 getBoundingClientRect 调用
                     _rsFocusTimer = setTimeout(() => {
                         if (!rsTarget) return;
+                        // 🚀 v3.4.3: 仅当当前焦点已滚出视口时才自动吸附，避免与左摇杆导航抢夺焦点
+                        const curFocus = (currentFocusIndex >= 0) ? focusableElements[currentFocusIndex] : null;
+                        if (curFocus && typeof curFocus.getBoundingClientRect === 'function') {
+                            const r = curFocus.getBoundingClientRect();
+                            const vw = window.innerWidth, vh = window.innerHeight;
+                            if (r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw) return;
+                        }
                         const cr = rsTarget.getBoundingClientRect();
                         const visible = [];
                         const maxScan = Math.min(focusableElements.length, 50);
@@ -826,7 +878,7 @@ const pollGamepad = () => {
         if (btns[6] && btns[7]) {
             if (!_seekModeActive) {
                 _seekModeActive = true;
-                showToast('🎯 按住左摇杆←→控制进度，松开退出', '⏩');
+                showToast('按住左摇杆←→控制进度，松开退出', iconSvg('fast-forward'));
                 el.progAreaMain?.classList.add('seek-active');
             }
             if (pad.axes.length >= 2) {
@@ -843,31 +895,37 @@ const pollGamepad = () => {
         } else if (_seekModeActive) {
             _seekModeActive = false;
             el.progAreaMain?.classList.remove('seek-active');
-            showToast('✅ Seek 完成', '⏩');
+            showToast('Seek 完成', iconSvg('fast-forward'));
         }
 
         prevPadBtns = btns.slice();
         prevPadAxes = Array.from(pad.axes);
     }
 
-    // 🚀 v3.0.0: 转发 gamepad 状态到 PiP 窗口
-    if (typeof pipWindow !== 'undefined' && pipWindow && pipWindow.closed === false) {
-        try {
-            pipWindow.postMessage({
-                type: 'gamepad-state',
-                buttons: btns.slice(),
-                axes: Array.from(pad.axes)
-            }, '*');
-        } catch(e) {}
+    // 🚀 v3.0.0: 转发 gamepad 状态到 PiP 窗口；🚀 v3.4.3: 节流到 ~30fps，避免每帧 ~60/s 的 postMessage 开销
+    if (pad && typeof pipWindow !== 'undefined' && pipWindow && pipWindow.closed === false) {
+        const _pipNow = Date.now();
+        if (_pipNow - _pipStateLastTime > 33) {
+            _pipStateLastTime = _pipNow;
+            try {
+                pipWindow.postMessage({
+                    type: 'gamepad-state',
+                    buttons: btns.slice(),
+                    axes: Array.from(pad.axes)
+                }, '*');
+            } catch(e) {}
+        }
     }
     } catch (err) {
-        // 🛡️ v3.3.1: 单帧异常隔离 — 任何按钮/焦点处理出错都不应拖垮整个手柄轮询循环
+        // 🛡 v3.3.1: 单帧异常隔离 — 任何按钮/焦点处理出错都不应拖垮整个手柄轮询循环
         console.error('[pollGamepad] 帧异常已被隔离，手柄循环继续运行：', err);
     } finally {
-        // 始终同步上一帧按键状态并续排下一帧，确保循环不会因异常而永久死亡
+        // 始终同步上一帧按键状态，确保循环不会因异常而永久死亡
         try { if (btns && btns.length) prevPadBtns = btns.slice(); } catch (_) {}
         try { if (pad && pad.axes) prevPadAxes = Array.from(pad.axes); } catch (_) {}
-        requestAnimationFrame(pollGamepad);
+        // 🚀 v3.4.3: 仅在手柄连接时续排下一帧；未连接则停转，省去空帧（连接时由 gamepadconnected 重启）
+        if (gamepadConnected) requestAnimationFrame(pollGamepad);
+        else _pollRunning = false;
     }
 };
 
@@ -879,21 +937,21 @@ function switchSettingsTab(direction) {
     const currentIdx = Array.from(tabs).indexOf(activeTab);
     const newIdx = (currentIdx + direction + tabs.length) % tabs.length;
     tabs[newIdx].click();
-    showToast(`📑 ${tabs[newIdx].textContent.trim()}`);
-    // 🚀 v3.0.1: 切换后自动聚焦新面板第一个元素
-    setTimeout(() => {
+    showToast(`${tabs[newIdx].textContent.trim()}`, iconSvg('file-text'));
+    // 🚀 v3.0.1: 切换后自动聚焦新面板第一个元素；🚀 v3.4.3: 改用 rAF 等待面板重排后再取焦点，避免固定延时效脆
+    requestAnimationFrame(() => {
         updateFocusContext();
         if (focusableElements.length > 0) setFocus(0);
-    }, 100);
+    });
 }
 
 // 🩹 v2.8.8: 辅助函数 — 切换焦点模式（正常 ↔ 微调优先）
 let focusMode = 'normal';
 function toggleFocusMode() {
     focusMode = focusMode === 'normal' ? 'fine' : 'normal';
-    showToast(`🎯 焦点模式: ${focusMode === 'normal' ? '正常导航' : '微调优先'}`);
+    showToast(`焦点模式: ${focusMode === 'normal' ? '正常导航' : '微调优先'}`, iconSvg('target'));
 }
-requestAnimationFrame(pollGamepad);
+_pollRunning = true; requestAnimationFrame(pollGamepad);
 
 // 🚀 v3.2.2: 播放列表 Tab 切换（全部 ↔ 收藏）
 // 🩹 v3.2.3: 使用 playlist-tab-bar 驱动切换

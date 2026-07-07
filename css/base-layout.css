@@ -136,8 +136,9 @@
 .track-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; line-height: 1.2; text-shadow: 0 4px 12px rgba(0,0,0,0.3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; user-select: text; cursor: text;}
 .track-artist { font-size: 18px; color: var(--text-sub); font-weight: 500; user-select: text; cursor: text; }
 
-.vis-canvas-container { width: 100%; height: 70px; background: rgba(0,0,0,0.2); border-radius: 16px; margin-bottom: -10px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden;}
-.vis-canvas-container:hover { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);}
+/* 🩹 v3.4.3: 基础态预留 1px 透明边框，hover 仅改边框色（不改尺寸），避免内容盒收缩触发 ResizeObserver 每帧重设 canvas 导致的频闪 */
+.vis-canvas-container { width: 100%; height: 70px; background: rgba(0,0,0,0.2); border-radius: 16px; margin-bottom: -10px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; border: 1px solid transparent;}
+.vis-canvas-container:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);}
 #spectrumCanvasMain { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; }
 .vis-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; opacity: 0; transition: 0.3s; text-shadow: 0 2px 5px #000; letter-spacing: 1px;}
 .vis-canvas-container:hover .vis-hint { opacity: 1; }

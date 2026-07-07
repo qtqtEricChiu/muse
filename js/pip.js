@@ -77,7 +77,7 @@ function applyEnergySaving(enable, triggerMode = EnergyMode.NONE) {
 
         // 🔋 一键节能时显示特定提示
         if (triggerMode === EnergyMode.ONE_CLICK || (triggerMode & EnergyMode.ONE_CLICK)) {
-            showToast("🔋 一键节能已开启", "⚡");
+            showToast("一键节能已开启", iconSvg('zap'));
         }
     } else {
         // 恢复歌词高频同步
@@ -92,7 +92,7 @@ function applyEnergySaving(enable, triggerMode = EnergyMode.NONE) {
         cfg.rumbleEnabled = true;
 
         pipTempEnergySaving = false;
-        showToast("🔋 节能模式已退出", "⚡");
+        showToast("节能模式已退出", iconSvg('zap'));
     }
 }
 
@@ -115,7 +115,7 @@ async function togglePip() {
     }
 
     if (!('documentPictureInPicture' in window)) {
-        showToast("⚠️ 浏览器不支持画中画功能");
+        showToast("浏览器不支持画中画功能", iconSvg('alert'));
         return;
     }
 
@@ -182,8 +182,14 @@ async function togglePip() {
                 .pip-line-next { font-size: clamp(11px, 1.5vw, 15px) !important; }
                 .pip-fallback { flex-direction: row !important; }
             }
+            .pip-btn .ui-ico { width: 18px; height: 18px; margin: 0; }
+            .pip-fav-btn.faved { color: #ff6b6b; }
         `;
         pipHead.appendChild(pipExtraStyle);
+
+        // 🚀 v3.4.x: 复制主文档的 SVG 图标定义到 PiP 窗口，使 <use href="#icon-..."> 可正常渲染
+        const mainIconSvg = document.querySelector('svg > defs');
+        if (mainIconSvg && mainIconSvg.parentElement) pipHead.appendChild(mainIconSvg.parentElement.cloneNode(true));
 
         // 2. 构建PiP HTML结构（将歌词容器和降级容器都写死在DOM里）
         pipBody.innerHTML = `
@@ -210,10 +216,10 @@ async function togglePip() {
                 <div class="pip-controls-overlay">
                     <div class="pip-track-info" id="pipTrackInfo"></div>
                     <div class="pip-btn-group">
-                        <button class="pip-btn" id="pipPrev" title="上一首">⏮</button>
-                        <button class="pip-btn pip-play-btn" id="pipPlay" title="播放/暂停">▶</button>
-                        <button class="pip-btn" id="pipNext" title="下一首">⏭</button>
-                        <button class="pip-btn pip-fav-btn" id="pipFav" title="收藏">🩶</button>
+                        <button class="pip-btn" id="pipPrev" title="上一首">${iconSvg('prev')}</button>
+                        <button class="pip-btn pip-play-btn" id="pipPlay" title="播放/暂停">${iconSvg('play')}</button>
+                        <button class="pip-btn" id="pipNext" title="下一首">${iconSvg('next')}</button>
+                        <button class="pip-btn pip-fav-btn" id="pipFav" title="收藏">${iconSvg('heart')}</button>
                     </div>
                 </div>
 
@@ -227,10 +233,10 @@ async function togglePip() {
         pipWindow.document.getElementById('pipPrev').onclick = () => goPrev();
         pipWindow.document.getElementById('pipPlay').onclick = () => {
             togglePlay();
-            // 同步更新按钮文字
+            // 同步更新按钮图标
             const btn = pipWindow.document.getElementById('pipPlay');
             if (btn && !pipWindow.closed) {
-                btn.textContent = isPlaying ? '⏸' : '▶';
+                btn.innerHTML = iconSvg(isPlaying ? 'pause' : 'play');
             }
         };
         pipWindow.document.getElementById('pipNext').onclick = () => goNext();
@@ -240,16 +246,20 @@ async function togglePip() {
                 const s = playlist[currentIndex];
                 const favBtn = pipWindow.document.getElementById('pipFav');
                 if (favBtn && s && !pipWindow.closed) {
-                    if (favorites.has(s.file.name)) {
-                        favBtn.classList.add('faved');
-                        favBtn.textContent = '❤️';
-                    } else {
-                        favBtn.classList.remove('faved');
-                        favBtn.textContent = '🩶';
-                    }
+                    // 🚀 v3.4.x: 收藏态用实心红心（heart-filled），未收藏保持描边
+                    setHeartFilled(favBtn, favorites.has(s.file.name));
                 }
             }
         };
+
+        // 🚀 v3.4.x: PiP 打开时按当前曲目初始化收藏红心（实心/描边）
+        {
+            const s = playlist[currentIndex];
+            const favBtn = pipWindow.document.getElementById('pipFav');
+            if (favBtn && s && !pipWindow.closed) {
+                setHeartFilled(favBtn, favorites.has(s.file.name));
+            }
+        }
 
         // 4. 更新PiP界面的核心函数
         let pipLastCurr = '', pipLastNext = '';
@@ -269,7 +279,7 @@ async function togglePip() {
                 const progFill = pipWindow.document.getElementById('pipProgFill');
                 if (progFill) progFill.style.width = progress + '%';
                 const playBtn = pipWindow.document.getElementById('pipPlay');
-                if (playBtn) playBtn.textContent = isPlaying ? '⏸' : '▶';
+                if (playBtn) playBtn.innerHTML = iconSvg(isPlaying ? 'pause' : 'play');
 
                 // 2. 动态更新背景和封面 (解决封面不刷新的问题)
                 const bg = pipWindow.document.getElementById('pipBg');
@@ -281,8 +291,8 @@ async function togglePip() {
                     }
                 } else {
                     if (bg) bg.style.backgroundImage = 'none';
-                    if (vinylWrap && vinylWrap.innerHTML.indexOf('🎵') === -1) {
-                        vinylWrap.innerHTML = `<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a1a,#333);display:flex;align-items:center;justify-content:center;font-size:24px;">🎵</div>`;
+                    if (vinylWrap && !vinylWrap.querySelector('.pip-vinyl-icon')) {
+                        vinylWrap.innerHTML = `<div class="pip-vinyl-icon" style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a1a,#333);display:flex;align-items:center;justify-content:center;font-size:24px;"><svg class="ui-ico" style="width:36px;height:36px;opacity:0.5;margin:0;"><use href="#icon-music"/></svg></div>`;
                     }
                 }
 
@@ -407,10 +417,10 @@ async function togglePip() {
         });
 
         updatePipQuickBtn();
-        showToast("📺 画中画已开启");
+        showToast("画中画已开启", iconSvg('tv'));
 
     } catch(e) {
-        showToast("❌ 画中画启动失败");
+        showToast("画中画启动失败", iconSvg('x'));
         pipWindow = null;
     }
 }

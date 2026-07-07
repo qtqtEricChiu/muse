@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBolka Player - Ultimate Nexus v3.4.1</title>
+    <title>MBolka Player - Ultimate Nexus v3.4.3</title>
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
@@ -40,7 +40,7 @@
                     if (installing) installing.addEventListener('statechange', () => {
                         // 仅当已有旧版本控制页面时才提示更新（避免首次安装即刷新）
                         if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-                            if (typeof showToast === 'function') showToast('🚀 已更新到新版本，正在刷新…', '✨');
+                            if (typeof showToast === 'function') showToast('<svg class="ui-ico"><use href="#icon-rocket"/></svg> 已更新到新版本，正在刷新…', '<svg class="ui-ico"><use href="#icon-sparkles"/></svg>');
                         }
                     });
                 });
@@ -74,6 +74,9 @@
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
     </symbol>
     <symbol id="icon-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </symbol>
+    <symbol id="icon-heart-filled" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
     </symbol>
     <symbol id="icon-prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -110,13 +113,229 @@
       <line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/>
       <rect x="2" y="6" width="20" height="12" rx="2"/>
     </symbol>
-  </defs>
+      <symbol id="icon-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 8h.01" />
+  <path d="M12 12h.01" />
+  <path d="M14 8h.01" />
+  <path d="M16 12h.01" />
+  <path d="M18 8h.01" />
+  <path d="M6 8h.01" />
+  <path d="M7 16h10" />
+  <path d="M8 12h.01" />
+  <rect width="20" height="16" x="2" y="4" rx="2" />
+    </symbol>
+    <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+    </symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+  <path d="M12 16v-4" />
+  <path d="M12 8h.01" />
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18" />
+  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+  <line x1="10" x2="10" y1="11" y2="17" />
+  <line x1="14" x2="14" y1="11" y2="17" />
+    </symbol>
+    <symbol id="icon-ban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+  <path d="m4.9 4.9 14.2 14.2" />
+    </symbol>
+    <symbol id="icon-images" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 22H4a2 2 0 0 1-2-2V6" />
+  <path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18" />
+  <circle cx="12" cy="8" r="2" />
+  <rect width="16" height="16" x="6" y="2" rx="2" />
+    </symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  <polyline points="7 10 12 15 17 10" />
+  <line x1="12" x2="12" y1="15" y2="3" />
+    </symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+  <path d="M3 3v5h5" />
+    </symbol>
+    <symbol id="icon-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="21" x2="14" y1="4" y2="4" />
+  <line x1="10" x2="3" y1="4" y2="4" />
+  <line x1="21" x2="12" y1="12" y2="12" />
+  <line x1="8" x2="3" y1="12" y2="12" />
+  <line x1="21" x2="16" y1="20" y2="20" />
+  <line x1="12" x2="3" y1="20" y2="20" />
+  <line x1="14" x2="14" y1="2" y2="6" />
+  <line x1="8" x2="8" y1="10" y2="14" />
+  <line x1="16" x2="16" y1="18" y2="22" />
+    </symbol>
+    <symbol id="icon-fast-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="13 19 22 12 13 5 13 19" />
+  <polygon points="2 19 11 12 2 5 2 19" />
+    </symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </symbol>
+    <symbol id="icon-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+  <path d="M12 9v4" />
+  <path d="M12 17h.01" />
+    </symbol>
+    <symbol id="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+  <rect x="6" y="4" width="4" height="16" rx="1" />
+    </symbol>
+    <symbol id="icon-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+  <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+    </symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+  <polyline points="12 6 12 12 16 14" />
+    </symbol>
+    <symbol id="icon-alarm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="13" r="8" />
+  <path d="M12 9v4l2 2" />
+  <path d="M5 3 2 6" />
+  <path d="m22 6-3-3" />
+  <path d="M6.38 18.7 4 21" />
+  <path d="M17.64 18.67 20 21" />
+    </symbol>
+    <symbol id="icon-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+    </symbol>
+    <symbol id="icon-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="16" height="10" x="2" y="7" rx="2" ry="2" />
+  <line x1="22" x2="22" y1="11" y2="13" />
+    </symbol>
+    <symbol id="icon-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M7 3v18" />
+  <path d="M3 7.5h4" />
+  <path d="M3 12h18" />
+  <path d="M3 16.5h4" />
+  <path d="M17 3v18" />
+  <path d="M17 7.5h4" />
+  <path d="M17 16.5h4" />
+    </symbol>
+    <symbol id="icon-tv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="20" height="15" x="2" y="7" rx="2" ry="2" />
+  <polyline points="17 2 12 7 7 2" />
+    </symbol>
+    <symbol id="icon-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+  <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+  <circle cx="12" cy="12" r="2" />
+  <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+  <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
+    </symbol>
+    <symbol id="icon-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </symbol>
+    <symbol id="icon-bar-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+  <rect x="7" y="13" width="9" height="4" rx="1" />
+  <rect x="7" y="5" width="12" height="4" rx="1" />
+    </symbol>
+    <symbol id="icon-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    </symbol>
+    <symbol id="icon-eraser" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+  <path d="M22 21H7" />
+  <path d="m5 11 9 9" />
+    </symbol>
+    <symbol id="icon-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="20" height="14" x="2" y="3" rx="2" />
+  <line x1="8" x2="16" y1="21" y2="21" />
+  <line x1="12" x2="12" y1="17" y2="21" />
+    </symbol>
+    <symbol id="icon-mouse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="7" />
+  <path d="M12 6v4" />
+    </symbol>
+    <symbol id="icon-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+  <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+  <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+  <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+    </symbol>
+    <symbol id="icon-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+      <path d="M20 3v4" />
+      <path d="M22 5h-4" />
+      <path d="M4 17v2" />
+      <path d="M5 18H3" />
+    </symbol>
+    <symbol id="icon-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+    </symbol>
+    <symbol id="icon-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m18 14 4 4-4 4" />
+      <path d="m18 2 4 4-4 4" />
+      <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22" />
+      <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" />
+      <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
+    </symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </symbol>
+    <symbol id="icon-square" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+    </symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
+    </symbol>
+    <symbol id="icon-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+      <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+    </symbol>
+    <symbol id="icon-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+      <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+      <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+      <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+    </symbol>
+    <symbol id="icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <path d="M17 21v-7H7v7" />
+      <path d="M7 3v4h8" />
+    </symbol>
+    <symbol id="icon-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </symbol>
+    <symbol id="icon-rewind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="11 19 2 12 11 5 11 19" />
+      <polygon points="22 19 13 12 22 5 22 19" />
+    </symbol>
+    </defs>
 </svg>
 
-    <!-- 🚀 v3.2.0: WCO 标题栏 — Windows Chrome PWA 下融入系统标题区域 -->
+    <!-- 🚀 v3.4.2: WCO 标题栏 — Windows Chrome PWA 下融入系统标题区域（整窗水平居中 + 跟随封面色沉浸） -->
     <div id="wco-titlebar" class="wco-titlebar" style="display:none;">
         <div class="wco-drag-region">
-            <span class="wco-brand">♪</span>
+            <span class="wco-brand"><svg class="ui-ico"><use href="#icon-music"/></svg></span>
             <span class="wco-track-title" id="wcoTrackTitle">MBolka Player</span>
         </div>
     </div>
@@ -133,9 +352,9 @@
             <div class="header">
                 <div class="brand"><svg id="logoIcon" class="brand-icon"><use href="#icon-music"/></svg> MBolka Player</div>
                 <div class="nav-actions">
-                    <button class="btn-glass focusable" id="btnToggleList" aria-label="打开播放列表"><svg class="btn-icon"><use href="#icon-list"/></svg> 列表<span class="gamepad-badge pad-p">P</span></button>
-                    <button class="btn-glass focusable" id="btnToggleLrc" aria-label="切换歌词显示"><svg class="btn-icon"><use href="#icon-lyrics"/></svg> 歌词<span class="gamepad-badge pad-l">L</span></button>
-                    <button class="btn-glass focusable" id="btnCoverLibrary" title="曲库" aria-label="打开曲库"><svg class="btn-icon"><use href="#icon-library"/></svg> 曲库<span class="gamepad-badge pad-g">G</span></button>
+                    <button class="btn-glass focusable" id="btnToggleList" aria-label="打开播放列表" title="播放列表 (快捷键 P / 手柄 十字键←)"><svg class="btn-icon"><use href="#icon-list"/></svg> 列表<span class="kbd-hint">P</span></button>
+                    <button class="btn-glass focusable" id="btnToggleLrc" aria-label="切换歌词显示" title="歌词 (快捷键 L / 手柄 右摇杆上下滚动)"><svg class="btn-icon"><use href="#icon-lyrics"/></svg> 歌词<span class="kbd-hint">L</span></button>
+                    <button class="btn-glass focusable" id="btnCoverLibrary" title="曲库 (快捷键 G / 手柄 十字键→)" aria-label="打开曲库"><svg class="btn-icon"><use href="#icon-library"/></svg> 曲库<span class="kbd-hint">G</span></button>
                     <button class="btn-glass focusable" id="btnSettings" aria-label="打开设置"><svg class="btn-icon"><use href="#icon-settings"/></svg> 设置</button>
                     <input type="file" id="folderInput" webkitdirectory directory multiple>
                 </div>
@@ -146,7 +365,7 @@
             <div class="content-grid" style="position:relative;">
                 <!-- 空状态引导 -->
                 <div class="empty-state" id="emptyState">
-                    <div class="icon-wrap">🎵</div>
+                    <div class="icon-wrap"><svg class="ui-ico"><use href="#icon-music"/></svg></div>
                     <p>拖拽音乐文件夹到此处</p>
                     <p class="sub">或按 Ctrl+O 打开文件夹 / 前往设置页载入</p>
                     <p class="sub" style="font-size:11px;">支持 MP3 / FLAC / WAV / M4A / OGG + LRC / CUE</p>
@@ -210,8 +429,8 @@
                 <div id="fileInfo">就绪</div>
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span id="networkStatus" class="network-status online" title="网络状态"></span>
-                    <span id="sleepTimerDisplay" class="sleep-timer-display" title="睡眠定时">🌙</span>
-                    <span id="gamepadStatus">⌨️</span>
+                    <span id="sleepTimerDisplay" class="sleep-timer-display" title="睡眠定时"><svg class="ui-ico"><use href="#icon-moon"/></svg></span>
+                    <span id="gamepadStatus"><svg class="ui-ico"><use href="#icon-keyboard"/></svg></span>
 
                 </div>
             </div>
@@ -230,7 +449,7 @@
                     </div>
                 </div>
                 <div class="imm-header-actions">
-                    <button class="imm-icon-btn focusable" id="btnExitImmersive" title="返回主界面">✖</button>
+                    <button class="imm-icon-btn focusable" id="btnExitImmersive" title="返回主界面"><svg class="ui-ico"><use href="#icon-x"/></svg></button>
                 </div>
             </div>
 
@@ -269,13 +488,13 @@
 
     <!-- ================= 右键菜单 ================= -->
     <div class="context-menu" id="contextMenu">
-        <div class="ctx-item focusable" tabindex="0" data-action="play">▶ 播放</div>
+        <div class="ctx-item focusable" tabindex="0" data-action="play"><svg class="ui-ico"><use href="#icon-play"/></svg> 播放</div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item focusable" tabindex="0" data-action="info">ℹ️ 文件信息</div>
-        <div class="ctx-item focusable" tabindex="0" data-action="favorite">❤️ 收藏/取消</div>
+        <div class="ctx-item focusable" tabindex="0" data-action="info"><svg class="ui-ico"><use href="#icon-info"/></svg> 文件信息</div>
+        <div class="ctx-item focusable" tabindex="0" data-action="favorite"><svg class="ui-ico"><use href="#icon-heart"/></svg> 收藏/取消</div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item danger focusable" tabindex="0" data-action="remove">🗑️ 从列表移除</div>
-        <div class="ctx-item danger focusable" tabindex="0" data-action="clear">🚫 清空列表</div>
+        <div class="ctx-item danger focusable" tabindex="0" data-action="remove"><svg class="ui-ico"><use href="#icon-trash"/></svg> 从列表移除</div>
+        <div class="ctx-item danger focusable" tabindex="0" data-action="clear"><svg class="ui-ico"><use href="#icon-ban"/></svg> 清空列表</div>
     </div>
 
     <!-- ================= 弹窗组件 ================= -->
@@ -283,9 +502,9 @@
     <div class="modal-overlay" id="coverLibraryModal" role="dialog" aria-modal="true" aria-label="曲库">
         <div class="modal-content cover-lib-modal-content" style="width:100%;max-height:92vh;">
             <div class="cover-lib-header">
-                <h2 style="font-size:20px;">🖼️ 曲库</h2>
+                <h2 style="font-size:20px;"><svg class="ui-ico"><use href="#icon-images"/></svg> 曲库</h2>
                 <div style="display:flex;gap:8px;">
-                    <button class="btn-glass focusable" id="btnImportPlaylist" style="font-size:12px;" title="导入播放列表JSON">📥 导入</button>
+                    <button class="btn-glass focusable" id="btnImportPlaylist" style="font-size:12px;" title="导入播放列表JSON"><svg class="ui-ico"><use href="#icon-download"/></svg> 导入</button>
                     <button class="btn-glass focusable" id="btnCloseCoverLib" style="padding: 6px 12px;">关闭</button>
                 </div>
             </div>
@@ -295,7 +514,7 @@
                 <button class="cover-lib-tab focusable" data-mode="recent" tabindex="0">最近添加</button>
             </div>
             <div class="search-container">
-                <input type="text" class="search-input focusable" id="coverLibSearch" tabindex="0" placeholder="🔍 搜索专辑/艺术家...">
+                <input type="text" class="search-input focusable" id="coverLibSearch" tabindex="0" placeholder="搜索专辑 / 艺术家...">
             </div>
             <div class="cover-lib-grid" id="coverLibGrid"></div>
         </div>
@@ -320,8 +539,8 @@
             <!-- 搜索框 -->
             <div class="search-container">
                 <input type="text" class="search-input" id="searchInput" placeholder="搜索标题/艺术家/专辑...">
-                <button class="btn-glass focusable" id="btnExportM3U" tabindex="0" style="font-size:12px;padding:8px 12px;" title="导出 M3U">📥 M3U</button>
-                <button class="btn-glass focusable" id="btnExportJSON" tabindex="0" style="font-size:12px;padding:8px 12px;" title="导出 JSON">📥 JSON</button>
+                <button class="btn-glass focusable" id="btnExportM3U" tabindex="0" style="font-size:12px;padding:8px 12px;" title="导出 M3U"><svg class="ui-ico"><use href="#icon-download"/></svg> M3U</button>
+                <button class="btn-glass focusable" id="btnExportJSON" tabindex="0" style="font-size:12px;padding:8px 12px;" title="导出 JSON"><svg class="ui-ico"><use href="#icon-download"/></svg> JSON</button>
             </div>
             <!-- 封面墙容器（保留隐藏，兼容旧引用不报错） -->
             <div class="cover-wall-container" id="coverWallContainer" style="display:none;"></div>
@@ -336,7 +555,7 @@
     <div class="modal-overlay" id="settingsModal" role="dialog" aria-modal="true" aria-label="设置">
         <div class="modal-content settings-modal-content" style="max-height:90vh;">
             <div class="modal-header">
-                <h2 style="font-size: 20px;">⚙️ 设置</h2>
+                <h2 style="font-size: 20px;"><svg class="ui-ico"><use href="#icon-settings"/></svg> 设置</h2>
                 <button class="btn-glass focusable" id="btnCloseSettings" style="padding: 6px 12px;">关闭</button>
             </div>
             <!-- 🚀 v3.0.2: 顶部横向标签 + 可滚动内容 -->
@@ -350,67 +569,67 @@
                 </div>
                 <div class="settings-body">
                     <div class="drawer-box" style="background:rgba(232,184,75,0.08);border-color:rgba(232,184,75,0.2);" data-tab-group="0">
-                <div class="drawer-title">📁 载入音乐 (Ctrl+O)</div>
-                <button class="btn-glass focusable" id="btnLoadFolder" style="width:100%;justify-content:center;background:var(--primary);color:var(--text-on-primary);border:none;padding:14px;">📁 打开文件夹</button>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-folder"/></svg> 载入音乐 (Ctrl+O)</div>
+                <button class="btn-glass focusable" id="btnLoadFolder" style="width:100%;justify-content:center;background:var(--primary);color:var(--text-on-primary);border:none;padding:14px;"><svg class="ui-ico"><use href="#icon-folder"/></svg> 打开文件夹</button>
                 <p style="font-size:11px;color:var(--text-sub);text-align:center;margin:8px 0 0;">支持 MP3 / FLAC / WAV / M4A / OGG + LRC / VTT / CUE</p>
             </div>
 
             <div class="drawer-box" style="background:rgba(232,184,75,0.06);border-color:rgba(232,184,75,0.15);" data-tab-group="1">
-                <div class="drawer-title">🎨 封面取色</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 封面取色</div>
                 <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">自动提取专辑封面颜色作为主题色</p>
-                <button class="btn-glass focusable" id="btnToggleColorMode" style="width: 100%; justify-content: center; margin-bottom: 8px;">🎨 <span id="colorModeLabel">开启取色</span> (Y / C)</button>
+                <button class="btn-glass focusable" id="btnToggleColorMode" style="width: 100%; justify-content: center; margin-bottom: 8px;"><svg class="ui-ico"><use href="#icon-palette"/></svg> <span id="colorModeLabel">开启取色</span> (Y / C)</button>
                 <div id="colorModePreview" style="display:none;height:8px;border-radius:4px;margin-top:8px;transition:background 0.5s;"></div>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🎨 主题色</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 主题色</div>
                 <div class="theme-preset-grid" id="themePresetGrid"></div>
                 <p style="font-size:11px;color:var(--text-sub);margin-top:8px;">提示：取色模式开启时，专辑封面颜色自动覆盖预设主题</p>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🖼️ 背景图片</div>
-                <button class="btn-glass focusable" id="btnSetBg" style="width: 100%; justify-content: center; margin-bottom: 10px;">🖼️ 上传图片</button>
-                <button class="btn-glass focusable" id="btnClearBg" style="width: 100%; justify-content: center; color: #ff6b6b; border-color: rgba(255,107,107,0.3);">🔄 恢复默认</button>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-images"/></svg> 背景图片</div>
+                <button class="btn-glass focusable" id="btnSetBg" style="width: 100%; justify-content: center; margin-bottom: 10px;"><svg class="ui-ico"><use href="#icon-images"/></svg> 上传图片</button>
+                <button class="btn-glass focusable" id="btnClearBg" style="width: 100%; justify-content: center; color: #ff6b6b; border-color: rgba(255,107,107,0.3);"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 恢复默认</button>
                 <input type="file" id="bgInput" accept="image/*">
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🌗 显示调节</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-moon"/></svg> 显示调节</div>
                 <button class="btn-glass focusable" id="btnToggleDarkMode" style="width: 100%; justify-content: center; margin-bottom: 15px;"><svg class="btn-icon"><use href="#icon-moon"/></svg> 深色模式</button>
                 <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 8px;">背景模糊强度: <span id="blurVal">40px</span></div>
                 <input type="range" class="focusable" id="blurSlider" min="0" max="100" value="40">
             </div>
             <div class="drawer-box" id="audioOutputBox" style="display:none;">
-                <div class="drawer-title">🔊 音频输出设备</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-volume"/></svg> 音频输出设备</div>
                 <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">选择音频输出设备（仅 Windows Chrome/Edge 支持）</p>
                 <select id="audioOutputSelect" class="settings-select focusable" style="width:100%;margin-bottom:8px;">
                     <option value="">默认设备</option>
                 </select>
-                <button class="btn-glass focusable" id="btnRefreshAudioDevices" style="width:100%;justify-content:center;font-size:12px;">🔄 刷新设备列表</button>
+                <button class="btn-glass focusable" id="btnRefreshAudioDevices" style="width:100%;justify-content:center;font-size:12px;"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 刷新设备列表</button>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🎛 均衡器</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-sliders"/></svg> 均衡器</div>
                 <div id="eqPanelContainer"></div>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">⏩ 播放速度与音调</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-fast-forward"/></svg> 播放速度与音调</div>
                 <div class="speed-pitch-row">
                     <label>速度</label>
                     <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.05" value="1.00" class="focusable">
                     <span class="val" id="speedVal">1.00x</span>
                 </div>
-                <button class="btn-glass focusable" id="btnTogglePitch" style="width:100%;justify-content:center;margin-top:8px;">🔒 保持音调</button>
+                <button class="btn-glass focusable" id="btnTogglePitch" style="width:100%;justify-content:center;margin-top:8px;"><svg class="ui-ico"><use href="#icon-lock"/></svg> 保持音调</button>
             </div>
             <div class="drawer-box" data-tab-group="0">
-                <div class="drawer-title">🔄 淡入淡出切歌</div>
-                <div style="font-size:11px;color:var(--warn,#e8a840);margin-bottom:8px;">⚠ 实验性功能，可能无法正常生效，不推荐开启</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 淡入淡出切歌</div>
+                <div style="font-size:11px;color:var(--warn,#e8a840);margin-bottom:8px;"><svg class="ui-ico"><use href="#icon-alert"/></svg> 实验性功能，可能无法正常生效，不推荐开启</div>
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <button class="btn-glass focusable" id="btnToggleCrossfade" style="flex:1;justify-content:center;">⏸ 关闭</button>
+                    <button class="btn-glass focusable" id="btnToggleCrossfade" style="flex:1;justify-content:center;"><svg class="ui-ico"><use href="#icon-pause"/></svg> 关闭</button>
                     <span style="font-size:13px;color:var(--text-sub);">时长:</span>
                     <input type="range" id="crossfadeSlider" class="focusable" min="1" max="8" step="0.5" value="3" style="width:100px;">
                     <span id="crossfadeVal" style="font-size:13px;color:var(--primary);">3.0s</span>
                 </div>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">📝 歌词显示</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-file-text"/></svg> 歌词显示</div>
                 <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 4px;">字号: <span id="lrcFontSizeVal">18px</span></div>
                 <input type="range" class="focusable" id="lrcFontSizeSlider" min="12" max="32" value="18" style="margin-bottom:12px;">
                 <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 4px;">行距: <span id="lrcLineHeightVal">2.2</span></div>
@@ -426,7 +645,7 @@
                     <button class="btn-glass focusable" id="btnLrcAlignTop" style="flex:1;justify-content:center;">偏上</button>
                 </div>
                 <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size:13px;color:var(--text-sub);">⏱ 歌词偏移:</span>
+                    <span style="font-size:13px;color:var(--text-sub);"><svg class="ui-ico"><use href="#icon-clock"/></svg> 歌词偏移:</span>
                     <button class="btn-glass focusable" id="btnLrcOffsetMinusFine" tabindex="0" style="padding:6px 10px;">-0.1s</button>
                     <button class="btn-glass focusable" id="btnLrcOffsetMinus" tabindex="0" style="padding:6px 12px;">-0.5s</button>
                     <span id="lrcOffsetVal" style="font-size:13px;color:var(--primary);">0.0s</span>
@@ -435,7 +654,7 @@
                 </div>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">⏰ 睡眠定时 (Alt+T)</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-alarm"/></svg> 睡眠定时 (Alt+T)</div>
                 <div class="sleep-timer-btns">
                     <button class="btn-glass focusable" id="btnSleep15" tabindex="0">15分钟</button>
                     <button class="btn-glass focusable" id="btnSleep30" tabindex="0">30分钟</button>
@@ -444,12 +663,12 @@
                 </div>
             </div>
             <div class="drawer-box" style="background:rgba(255,193,7,0.06);border-color:rgba(255,193,7,0.15);">
-                <div class="drawer-title">⚡ 节能模式</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-zap"/></svg> 节能模式</div>
                 
                 <!-- 一键节能：去除所有可视化动效，保持正常亮度 -->
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
                     <div>
-                        <span style="font-size:14px;color:var(--text-main);">🔋 一键节能</span>
+                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-battery"/></svg> 一键节能</span>
                         <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">去除所有动效，保持正常亮度</p>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
@@ -461,7 +680,7 @@
                 <!-- 画面节能：仅将动画降至30帧 -->
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
                     <div>
-                        <span style="font-size:14px;color:var(--text-main);">🎬 画面节能</span>
+                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-film"/></svg> 画面节能</span>
                         <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">动画降至30帧，保留视觉效果</p>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
@@ -473,7 +692,7 @@
                 <!-- 临时节能：启动画中画时自动优化 -->
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
                     <div>
-                        <span style="font-size:14px;color:var(--text-main);">📺 临时节能</span>
+                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-tv"/></svg> 临时节能</span>
                         <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">启动画中画时自动优化主界面</p>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
@@ -484,14 +703,14 @@
             </div>
             <!-- 震动反馈 -->
             <div class="drawer-box" id="rumbleSettingsBox">
-                <div class="drawer-title">💥 震动反馈</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-zap"/></svg> 震动反馈</div>
                 <div class="settings-row">
                     <span>震动输出</span>
                     <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="rumbleToggle"><span class="toggle-slider"></span></label>
                 </div>
                 <!-- 🚀 v3.0.2: 设置页实时震动指示器 -->
                 <div id="settingsRumbleIndicator" style="display:none;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.08);">
-                  <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">📡 实时震动反馈</div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;"><svg class="ui-ico"><use href="#icon-radio"/></svg> 实时震动反馈</div>
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
                     <span style="width:48px;font-size:11px;color:rgba(255,255,255,0.45);">强震</span>
                     <div style="flex:1;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
@@ -563,7 +782,7 @@
                     </div>
                 </div>
                 <div style="margin-top:10px;padding:8px 10px;background:rgba(68,204,255,0.08);border-radius:10px;border:1px solid rgba(68,204,255,0.2);">
-                    <div class="drawer-title" style="font-size:13px;">🔧 马达独立控制</div>
+                    <div class="drawer-title" style="font-size:13px;"><svg class="ui-ico"><use href="#icon-wrench"/></svg> 马达独立控制</div>
                     <div class="settings-row">
                         <span style="color:#ff9944;">Strong Motor</span>
                         <input type="range" id="rumbleStrongGainSlider" class="focusable" min="0" max="3" step="0.1" value="2.0" style="flex:1;">
@@ -583,28 +802,28 @@
                         <input type="range" id="rumbleGainSlider" class="focusable" min="0" max="2" step="0.05" value="1.0" style="flex:1;">
                         <span id="rumbleGainVal" style="width:45px;text-align:right;font-size:12px;color:#fff;">100%</span>
                     </div>
-                    <button class="btn-glass focusable" id="btnTestRumble" tabindex="0" style="width:100%;justify-content:center;border-color:rgba(154,200,226,0.3);margin-top:12px;">💥 测试震动 (500ms)</button>
+                    <button class="btn-glass focusable" id="btnTestRumble" tabindex="0" style="width:100%;justify-content:center;border-color:rgba(154,200,226,0.3);margin-top:12px;"><svg class="ui-ico"><use href="#icon-zap"/></svg> 测试震动 (500ms)</button>
                 </div>
             </div>
             <!-- 📊 播放统计（单列） -->
             <div class="drawer-box">
-                <div class="drawer-title">📊 播放统计 (T)</div>
-                <button class="btn-glass focusable" id="btnShowStats" style="width:100%;justify-content:center;">📊 查看统计</button>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-bar-chart"/></svg> 播放统计 (T)</div>
+                <button class="btn-glass focusable" id="btnShowStats" style="width:100%;justify-content:center;"><svg class="ui-ico"><use href="#icon-bar-chart"/></svg> 查看统计</button>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">📋 调试工具</div>
-                <button class="btn-glass focusable" id="btnExportLogs" style="width:100%;justify-content:center;">📋 导出日志</button>
-                <button class="btn-glass focusable" id="btnClearCache" style="width:100%;justify-content:center;margin-top:8px;border-color:rgba(255,107,107,0.3);color:#ff6b6b;">🧹 清理缓存</button>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-clipboard"/></svg> 调试工具</div>
+                <button class="btn-glass focusable" id="btnExportLogs" style="width:100%;justify-content:center;"><svg class="ui-ico"><use href="#icon-clipboard"/></svg> 导出日志</button>
+                <button class="btn-glass focusable" id="btnClearCache" style="width:100%;justify-content:center;margin-top:8px;border-color:rgba(255,107,107,0.3);color:#ff6b6b;"><svg class="ui-ico"><use href="#icon-eraser"/></svg> 清理缓存</button>
                 <p style="font-size:10px;color:var(--text-sub);text-align:center;margin:4px 0 0;">清除元数据缓存和错误日志，释放存储空间</p>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">⌨️ 快捷键大全</div>
-                <button class="btn-glass focusable" id="btnOpenHelpShortcuts" style="width:100%;justify-content:center;">⌨️ 查看快捷键大全</button>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-keyboard"/></svg> 快捷键大全</div>
+                <button class="btn-glass focusable" id="btnOpenHelpShortcuts" style="width:100%;justify-content:center;"><svg class="ui-ico"><use href="#icon-keyboard"/></svg> 查看快捷键大全</button>
                 <p style="font-size:10px;color:var(--text-sub);text-align:center;margin:4px 0 0;">点击打开快捷键帮助面板</p>
             </div>
                 </div>
                 <div class="settings-footer">
-                    ©MocaBolka 2026 v3.4.1<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
+                    ©MocaBolka 2026 v3.4.3<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
                 </div>
             </div>
         </div>
@@ -614,7 +833,7 @@
     <div class="modal-overlay" id="fileInfoModal" role="dialog" aria-modal="true" aria-label="文件信息">
         <div class="modal-content" style="width:420px;">
             <div class="modal-header">
-                <h2 style="font-size:18px;">📄 文件信息</h2>
+                <h2 style="font-size:18px;"><svg class="ui-ico"><use href="#icon-file-text"/></svg> 文件信息</h2>
                 <button class="btn-glass focusable" id="btnCloseFileInfo" style="padding:6px 12px;">关闭</button>
             </div>
             <div id="fileInfoContent" style="font-size:14px; line-height:2; color:var(--text-sub);"></div>
@@ -625,11 +844,11 @@
     <div class="modal-overlay" id="helpModal" role="dialog" aria-modal="true" aria-label="帮助">
         <div class="modal-content" style="width:580px; max-height:80vh;">
             <div class="modal-header">
-                <h2 style="font-size:20px;">⌨️ 快捷键大全</h2>
+                <h2 style="font-size:20px;"><svg class="ui-ico"><use href="#icon-keyboard"/></svg> 快捷键大全</h2>
                 <button class="btn-glass focusable" id="btnCloseHelp" style="padding:6px 12px;">关闭</button>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🎵 播放控制</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-music"/></svg> 播放控制</div>
                 <div class="hotkey-grid">
                     <span><kbd>Space</kbd> / <kbd class="pad">A键</kbd></span><span>播放 / 暂停</span>
                     <span><kbd>← / →</kbd> / <kbd class="pad">LB / RB</kbd></span><span>上一曲 / 下一曲</span>
@@ -643,7 +862,7 @@
                 </div>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🖥️ 界面导航</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-monitor"/></svg> 界面导航</div>
                 <div class="hotkey-grid">
                     <span><kbd>I</kbd> / <kbd class="pad">十字 下</kbd></span><span>切换沉浸模式</span>
                     <span><kbd>Esc</kbd> / <kbd class="pad">B键</kbd></span><span>关闭弹窗 / 退出沉浸</span>
@@ -661,7 +880,7 @@
                 </div>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🎮 手柄操作指引 (接入时按钮会出现ⓐⓑⓧⓨ徽章)</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-gamepad"/></svg> 手柄操作指引 (接入时按钮会出现ⓐⓑⓧⓨ徽章)</div>
                 <div class="hotkey-grid">
                     <span><kbd class="pad">A键</kbd></span><span>播放/暂停 / 确认焦点项</span>
                     <span><kbd class="pad">B键</kbd></span><span>关闭弹窗 / 退出沉浸</span>
@@ -675,7 +894,7 @@
                 </div>
             </div>
             <div class="drawer-box">
-                <div class="drawer-title">🖱️ 鼠标/触屏操作</div>
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-mouse"/></svg> 鼠标/触屏操作</div>
                 <div class="hotkey-grid">
                     <span>右键播放列表项</span><span>上下文菜单(播放/删除/信息)</span>
                     <span>拖拽播放列表项</span><span>调整播放顺序</span>
@@ -718,7 +937,7 @@
     <script src="js/app.js"></script>
     <!-- 12. 震动引擎 (v3.0.0) -->
     <script src="js/vibration.js"></script>
-    <!-- 🚀 v3.2.0: PWA WCO 标题栏 -->
+    <!-- 🚀 v3.4.2: PWA WCO 标题栏 -->
     <link rel="stylesheet" href="css/wco.css">
     <script src="js/theme-color.js"></script>
     <script src="js/wco.js"></script>

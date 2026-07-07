@@ -27,7 +27,7 @@ async function initIDB() {
             idb = null; resolve();
             // 🚀 v3.0.1: 存储空间溢出提示
             if (typeof showToast === 'function') {
-                showToast('⚠️ 本地存储空间不足，元数据缓存已禁用', '💾');
+                showToast('本地存储空间不足，元数据缓存已禁用', iconSvg('save'));
             }
         };
     });
@@ -120,7 +120,7 @@ async function checkAndCleanIfNeeded() {
     if (usage > 50) {
         const deleted = await cleanOldMetadata(14); // 超过 50MB 时只保留 14 天
         if (deleted > 0 && typeof showToast === 'function') {
-            showToast(`已自动清理 ${deleted} 条过期缓存`, '🧹');
+            showToast(`已自动清理 ${deleted} 条过期缓存`, iconSvg('eraser'));
         }
         await cleanOldErrors(100);
     }
@@ -268,7 +268,7 @@ async function pickAndLoadFolder() {
         }
     } catch(e) {
         if (e.name !== 'AbortError') {
-            showToast("❌ 无法访问文件夹，请重试");
+            showToast("无法访问文件夹，请重试", iconSvg('x'));
         }
     }
 }

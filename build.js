@@ -21,7 +21,7 @@ const CSS_FILES = [
 ];
 
 async function build() {
-    console.log('🔨 Building MBolka Player v3.4.1...');
+    console.log('🔨 Building MBolka Player v3.4.3...');
 
     // Create dist directory
     if (!fs.existsSync(DIST)) fs.mkdirSync(DIST, { recursive: true });
@@ -82,9 +82,9 @@ async function build() {
  */
 function genSW(urls) {
     const list = JSON.stringify(urls, null, 12);
-    return `/* MBolka Player v3.4.1 — dist Service Worker (相对路径, 子路径安全) */
-const CACHE_NAME = 'mbolka-v3.4.1';
-const RUNTIME_CACHE = 'mbolka-runtime-v3.4.1';
+    return `/* MBolka Player v3.4.3 — dist Service Worker (相对路径, 子路径安全) */
+const CACHE_NAME = 'mbolka-v3.4.3';
+const RUNTIME_CACHE = 'mbolka-runtime-v3.4.3';
 const CACHE_URLS = ${list};
 
 self.addEventListener('install', e => {
@@ -105,17 +105,22 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const req = e.request;
     if (req.method !== 'GET') return;
-    e.respondWith(caches.match(req).then(cached => {
-        if (cached) return cached;
-        return fetch(req).then(res => {
-            if (res && res.ok && (req.url.startsWith('http://') || req.url.startsWith('https://'))) {
+    // 🔧 v3.4.3: Network-First —— 在线优先回源（源码改动刷新即生效），离线/失败回退缓存
+    e.respondWith(
+        fetch(req).then(res => {
+            if (res && res.ok && isSameOrigin(req.url)) {
                 const copy = res.clone();
                 caches.open(RUNTIME_CACHE).then(c => c.put(req, copy)).catch(() => {});
             }
             return res;
-        }).catch(() => cached || new Response('', {status: 503, statusText: 'Offline'}));
-    }));
+        }).catch(() => caches.match(req).then(cached =>
+            cached || new Response('', { status: 503, statusText: 'Offline' })
+        ))
+    );
 });
+function isSameOrigin(url) {
+    try { return new URL(url).origin === self.location.origin; } catch (_) { return false; }
+}
 `;
 }
 

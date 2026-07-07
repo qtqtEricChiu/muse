@@ -145,7 +145,7 @@ function closeSettings() {
         if (!modal.classList.contains('open')) {
             updateFocusContext();
             saveSettings();
-            showToast("⚙️ 设置已保存");
+            showToast("设置已保存", iconSvg('settings'));
         }
     }, 400);
 }
@@ -264,7 +264,7 @@ document.getElementById('btnShowAll').onclick = () => {
         }
         
         renderPlaylist();
-        showToast("📋 已恢复播放全部歌曲", "🎶");
+        showToast("已恢复播放全部歌曲", iconSvg('music'));
     } else {
         renderPlaylist();
     }
@@ -272,7 +272,7 @@ document.getElementById('btnShowAll').onclick = () => {
 
 document.getElementById('btnShowFavorites').onclick = () => {
     currentViewMode = 'list';
-    document.getElementById('playlistModalTitle').textContent = '❤️ 收藏';
+    document.getElementById('playlistModalTitle').innerHTML = iconSvg('heart') + ' 收藏';
     el.plContainer.innerHTML = '';
     el.coverWallContainer.style.display = 'none';
     el.plContainer.style.display = 'flex';
@@ -281,7 +281,7 @@ document.getElementById('btnShowFavorites').onclick = () => {
         const div = document.createElement('div');
         div.className = `pl-item focusable ${i === currentIndex ? 'active' : ''}`;
         div.dataset.index = i;
-        div.innerHTML = `<span class="pl-title">${escapeHTML(s.title)}</span><span style="font-size:12px;opacity:0.6;">${escapeHTML(s.artist)}</span><span class="favorite-btn faved" data-idx="${i}">❤️</span>`;
+        div.innerHTML = `<span class="pl-title">${escapeHTML(s.title)}</span><span style="font-size:12px;opacity:0.6;">${escapeHTML(s.artist)}</span><span class="favorite-btn faved" data-idx="${i}">${iconSvg('heart-filled')}</span>`;
         div.onclick = (e) => {
             if (e.target.classList.contains('favorite-btn')) { e.stopPropagation(); toggleFavorite(i); return; }
             playAudio(i); closeAllModals();
@@ -332,9 +332,9 @@ el.immExitHint.onclick = toggleImmersiveMode;
 function updateModeUI() {
     let icon, label;
     if (isRepeatOne) {
-        icon = '🔂'; label = '单曲循环';
+        icon = iconSvg('repeat'); label = '单曲循环';
     } else if (isShuffle) {
-        icon = '🔀'; label = '随机';
+        icon = iconSvg('shuffle'); label = '随机';
     } else {
         icon = '⇄'; label = '顺序';
     }
@@ -346,13 +346,13 @@ function updateModeUI() {
 function updateSettingsUI() {
     const btn = document.getElementById('btnToggleColorMode');
     if (btn) {
-        btn.textContent = cfg.colorMode ? '🎨 关闭取色模式 (Y / C)' : '🎨 开启取色模式 (Y / C)';
+        btn.innerHTML = cfg.colorMode ? iconSvg('palette') + ' 关闭取色模式 (Y / C)' : iconSvg('palette') + ' 开启取色模式 (Y / C)';
         btn.style.color = cfg.colorMode ? 'var(--primary)' : '';
         btn.style.borderColor = cfg.colorMode ? 'var(--primary)' : '';
     }
     // 🚀 v2.8: 更新取色模式状态标签与预览条
     const label = document.getElementById('colorModeLabel');
-    if (label) label.textContent = cfg.colorMode ? '✅ 取色模式已激活 · 专辑封面驱动全域色彩' : '☐ 取色模式未激活 · 使用预设主题色';
+    if (label) label.innerHTML = cfg.colorMode ? iconSvg('check') + ' 取色模式已激活 · 专辑封面驱动全域色彩' : iconSvg('square') + ' 取色模式未激活 · 使用预设主题色';
     const preview = document.getElementById('colorModePreview');
     if (preview) {
         preview.style.display = cfg.colorMode ? 'block' : 'none';
@@ -371,7 +371,7 @@ const cyclePlayMode = () => {
     updateModeUI();
     saveSettings();
     const label = isRepeatOne ? '单曲循环' : (isShuffle ? '随机播放' : '顺序播放');
-    showToast(`🔄 ${label}`, isRepeatOne ? '🔂' : (isShuffle ? '🔀' : '⇄'));
+    showToast(`${label}`, isRepeatOne ? iconSvg('repeat') : (isShuffle ? iconSvg('shuffle') : '⇄'));
 };
 el.btnMode.onclick = el.immBtnMode.onclick = cyclePlayMode;
 
@@ -380,7 +380,7 @@ function toggleColorMode() {
     updateSettingsUI();
     applyThemeLogic();
     saveSettings();
-    showToast(cfg.colorMode ? "已开启取色跟随" : "已关闭取色跟随", "🎨");
+    showToast(cfg.colorMode ? "已开启取色跟随" : "已关闭取色跟随", iconSvg('palette'));
 };
 document.getElementById('btnToggleColorMode').onclick = toggleColorMode;
 document.getElementById('btnToggleDarkMode').onclick = toggleDarkMode;
@@ -473,7 +473,7 @@ function applyThemeColorAction(color, name) {
         } catch (e) { }
     }
 
-    if (name) showToast(`🎨 主题已应用: ${name}`);
+    if (name) showToast(`主题已应用: ${name}`, iconSvg('palette'));
 }
 
 // 辅助函数：16进制转RGB
@@ -515,23 +515,41 @@ function renderEQPanel() {
     if (!eqContainer) return;
     eqContainer.innerHTML = '';
 
-    // 预设按钮
-    const presetDiv = document.createElement('div');
-    presetDiv.className = 'eq-preset-btns';
-    const presets = ['flat','pop','rock','classical','vocal','bass','electronic','jazz'];
-    presets.forEach(p => {
-        const btn = document.createElement('button');
-        btn.className = 'eq-preset-btn focusable'; // 🔧 v2.8.1 P3: 添加 focusable 类用于手柄导航
-        btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
-        btn.tabIndex = 0; // 🔧 v2.8.1 P3: 添加 tabIndex 用于键盘导航
-        btn.onclick = () => {
-            setEQPreset(p);
-            document.querySelectorAll('.eq-preset-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        };
-        presetDiv.appendChild(btn);
+    // 预设下拉菜单（替代原按钮阵列，风格与触觉-映射模式一致）
+    const EQ_PRESET_LABELS = {
+        flat: '平直 (Flat)', pop: '流行 (Pop)', rock: '摇滚 (Rock)', classical: '古典 (Classical)',
+        vocal: '人声 (Vocal)', bass: '重低音 (Bass)', electronic: '电子 (Electronic)', jazz: '爵士 (Jazz)'
+    };
+    const EQ_PRESETS = ['flat','pop','rock','classical','vocal','bass','electronic','jazz'];
+    const activePreset = (typeof matchEQPreset === 'function') ? matchEQPreset(eqGains) : 'flat';
+    const presetWrap = document.createElement('div');
+    presetWrap.className = 'eq-preset-row settings-row';
+    presetWrap.innerHTML = `
+        <span>预设</span>
+        <div class="custom-select-wrap" id="eqPresetWrap">
+            <select id="eqPresetSelect" aria-hidden="true" style="display:none;">
+                ${EQ_PRESETS.map(p => `<option value="${p}">${EQ_PRESET_LABELS[p]}</option>`).join('')}
+            </select>
+            <button class="custom-select-trigger focusable" tabindex="0" data-select-id="eqPresetSelect">
+                <span class="custom-select-value">${EQ_PRESET_LABELS[activePreset] || '自定义 (手动调节)'}</span>
+                <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="custom-select-dropdown" data-select-id="eqPresetSelect">
+                ${EQ_PRESETS.map(p => `<button class="custom-select-option" data-value="${p}">${EQ_PRESET_LABELS[p]}</button>`).join('')}
+            </div>
+        </div>
+    `;
+    eqContainer.appendChild(presetWrap);
+
+    const eqPresetSelect = document.getElementById('eqPresetSelect');
+    eqPresetSelect.value = EQ_PRESET_LABELS[activePreset] ? activePreset : '';
+    eqPresetSelect.addEventListener('change', (e) => {
+        if (e.target.value) setEQPreset(e.target.value);
     });
-    eqContainer.appendChild(presetDiv);
+    // 动态生成的下拉需单独绑定事件并同步显示
+    const eqPresetWrap = document.getElementById('eqPresetWrap');
+    initCustomDropdownFor(eqPresetWrap);
+    eqPresetWrap.querySelectorAll('.custom-select-option').forEach(o => o.classList.toggle('selected', o.dataset.value === activePreset));
 
     const panel = document.createElement('div');
     panel.className = 'eq-panel';
@@ -555,6 +573,13 @@ function renderEQPanel() {
             const val = parseFloat(this.value);
             document.getElementById(`eq-val-${i}`).textContent = `${val > 0 ? '+' : ''}${val}dB`;
             setEQBand(i, val);
+            // 🚀 v3.4.x: 手动调节滑块后，预设下拉标记为"自定义"
+            const wrap = document.getElementById('eqPresetWrap');
+            if (wrap) {
+                const v = wrap.querySelector('.custom-select-value');
+                if (v) v.textContent = '自定义 (手动调节)';
+                wrap.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+            }
         };
     }
 
@@ -567,7 +592,8 @@ function renderEQPanel() {
         _speedSlider.oninput = function() { setPlaybackRate(parseFloat(this.value)); };
     }
     if (_pitchBtn) {
-        _pitchBtn.textContent = preservesPitch ? '🔒 保持音调' : '🎵 允许变调';
+        // 🚀 v3.4.x: SVG 图标 + 文字，避免覆盖按钮内置图标
+        _pitchBtn.innerHTML = preservesPitch ? iconSvg('lock') + ' 保持音调' : iconSvg('music') + ' 允许变调';
         _pitchBtn.onclick = togglePitchPreserve;
     }
 
@@ -575,13 +601,14 @@ function renderEQPanel() {
     const _cfBtn = document.getElementById('btnToggleCrossfade');
     const _cfSlider = document.getElementById('crossfadeSlider');
     if (_cfBtn) {
-        _cfBtn.textContent = crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭';
+        // 🚀 v3.4.x: SVG 图标 + 文字替代 emoji
+        _cfBtn.innerHTML = crossfadeEnabled ? iconSvg('check') + ' 已开启' : iconSvg('pause') + ' 关闭';
         _cfBtn.onclick = function() {
             crossfadeEnabled = !crossfadeEnabled;
-            this.textContent = crossfadeEnabled ? '✅ 已开启' : '⏸ 关闭';
+            this.innerHTML = crossfadeEnabled ? iconSvg('check') + ' 已开启' : iconSvg('pause') + ' 关闭';
             if (crossfadeEnabled) { cfEnsureContext(); cfPreloadNext(); }
             saveSettings();
-            showToast(crossfadeEnabled ? '淡入淡出已开启 ⚠ 实验性功能' : '淡入淡出已关闭');
+            showToast(crossfadeEnabled ? '淡入淡出已开启（实验性功能）' : '淡入淡出已关闭', iconSvg('alert'));
         };
     }
     if (_cfSlider) {
@@ -607,7 +634,7 @@ document.getElementById('bgInput').onchange = (e) => {
             cfg.customBgImg = ev.target.result;
             cfg.customBgColor = await extractColor(cfg.customBgImg);
             applyThemeLogic(); saveSettings();
-            showToast("🖼️ 自定义背景应用成功");
+            showToast("自定义背景应用成功", iconSvg('images'));
         };
         r.readAsDataURL(f);
     }
@@ -615,7 +642,7 @@ document.getElementById('bgInput').onchange = (e) => {
 document.getElementById('btnClearBg').onclick = () => {
     cfg.customBgImg = null; cfg.customBgColor = null;
     applyThemeLogic(); saveSettings();
-    showToast("🗑️ 已恢复默认");
+    showToast("已恢复默认", iconSvg('trash'));
 };
 
 // === 统计面板 ===
@@ -627,7 +654,7 @@ function showStatsPanel() {
     modal.innerHTML = `
         <div class="modal-content" style="width:550px;max-height:85vh;">
             <div class="modal-header">
-                <h2 style="font-size:20px;">📊 音乐统计</h2>
+                <h2 style="font-size:20px;">${iconSvg('bar-chart')} 音乐统计</h2>
                 <button class="btn-glass focusable" id="btnCloseStats" tabindex="0" style="padding:6px 12px;">关闭</button>
             </div>
             <div class="stats-grid">
@@ -825,28 +852,28 @@ const handleAudioOutputDeviceChange = (deviceId) => {
                         startDelay: 0, duration: 500,
                         weakMagnitude: 0.5, strongMagnitude: 0.8
                     });
-                    showToast('💥 震动测试 (500ms)');
+                    showToast('震动测试 (500ms)', iconSvg('zap'));
                     return;
                 }
             }
-            showToast('⚠️ 未检测到支持震动的手柄');
+            showToast('未检测到支持震动的手柄', iconSvg('alert'));
         });
     }
 }
 
 // 🚀 v3.0.2: 自定义下拉菜单初始化（替代 native select，手柄友好）
-function initCustomDropdowns() {
-    // 初始：所有选项设 tabindex=-1 避免手柄焦点泄漏到隐藏面板
-    document.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
-
-    // 点击触发器展开/收起
-    document.querySelectorAll('.custom-select-trigger').forEach(trigger => {
+// 🚀 v3.4.x: 抽离单实例绑定 / 显示同步，供静态（触觉）与动态（EQ 预设）下拉复用
+function initCustomDropdownFor(wrap) {
+    if (!wrap || wrap.dataset.inited) return;
+    wrap.dataset.inited = 'true';
+    const trigger = wrap.querySelector('.custom-select-trigger');
+    if (trigger) {
         trigger.addEventListener('click', (e) => {
             e.stopPropagation();
-            const wrap = trigger.closest('.custom-select-wrap');
             const isOpen = wrap.classList.contains('open');
-            // 关闭所有其他下拉
+            // 关闭其它已展开的下拉
             document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
+                if (w === wrap) return;
                 w.classList.remove('open');
                 w.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
             });
@@ -855,11 +882,13 @@ function initCustomDropdowns() {
                 // 展开后选项可被手柄聚焦
                 wrap.querySelectorAll('.custom-select-option').forEach(o => o.removeAttribute('tabindex'));
                 setTimeout(() => updateFocusContext(), 50);
+            } else {
+                wrap.classList.remove('open');
+                wrap.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
             }
         });
-    });
-    // 选项点击
-    document.querySelectorAll('.custom-select-option').forEach(opt => {
+    }
+    wrap.querySelectorAll('.custom-select-option').forEach(opt => {
         opt.addEventListener('click', (e) => {
             e.stopPropagation();
             const dropdown = opt.closest('.custom-select-dropdown');
@@ -867,7 +896,6 @@ function initCustomDropdowns() {
             if (!select) return;
             select.value = opt.dataset.value;
             select.dispatchEvent(new Event('change', { bubbles: true }));
-            const wrap = dropdown.closest('.custom-select-wrap');
             wrap.querySelector('.custom-select-value').textContent = opt.textContent;
             wrap.classList.remove('open');
             dropdown.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
@@ -875,30 +903,40 @@ function initCustomDropdowns() {
             opt.classList.add('selected');
         });
     });
-    // 点击外部关闭
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.custom-select-wrap')) {
-            document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
-                w.classList.remove('open');
-                w.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
-            });
-        }
-    });
-    // 初始同步：从隐藏 select 同步显示值到触发器和 selected 类
-    document.querySelectorAll('.custom-select-wrap').forEach(wrap => {
-        const select = wrap.querySelector('select');
-        const valueEl = wrap.querySelector('.custom-select-value');
-        const options = wrap.querySelectorAll('.custom-select-option');
-        if (select && valueEl) {
-            const selectedOpt = Array.from(select.options).find(o => o.selected);
-            if (selectedOpt) {
-                valueEl.textContent = selectedOpt.textContent;
-                options.forEach(o => {
-                    o.classList.toggle('selected', o.dataset.value === select.value);
+}
+
+// 从隐藏 select 同步显示值到触发器与 selected 类
+function syncCustomSelectDisplay(wrap) {
+    if (!wrap) return;
+    const select = wrap.querySelector('select');
+    const valueEl = wrap.querySelector('.custom-select-value');
+    const options = wrap.querySelectorAll('.custom-select-option');
+    if (select && valueEl) {
+        const matched = Array.from(select.options).find(o => o.value === select.value);
+        if (matched) valueEl.textContent = matched.textContent;
+        options.forEach(o => o.classList.toggle('selected', o.dataset.value === select.value));
+    }
+}
+
+function initCustomDropdowns() {
+    // 初始：所有选项设 tabindex=-1 避免手柄焦点泄漏到隐藏面板
+    document.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
+    // 为每个 wrap 绑定展开/选项点击
+    document.querySelectorAll('.custom-select-wrap').forEach(wrap => initCustomDropdownFor(wrap));
+    // 点击外部关闭（仅绑定一次，避免重复）
+    if (!window.__customSelectOutsideBound) {
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-wrap')) {
+                document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
+                    w.classList.remove('open');
+                    w.querySelectorAll('.custom-select-option').forEach(o => o.setAttribute('tabindex', '-1'));
                 });
             }
-        }
-    });
+        });
+        window.__customSelectOutsideBound = true;
+    }
+    // 初始同步显示值
+    document.querySelectorAll('.custom-select-wrap').forEach(wrap => syncCustomSelectDisplay(wrap));
 }
 
 // 🚀 v3.0.1: 设置标签页切换 — 固定高度 + 切换动画（幂等，首次构建面板，后续仅激活）
@@ -1002,15 +1040,15 @@ function updateNetworkStatus() {
     const el = document.getElementById('networkStatus');
     if (!el) return;
     if (!navigator.onLine) {
-        el.textContent = '📡';
+        el.innerHTML = iconSvg('alert');
         el.className = 'network-status offline';
     } else {
         const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
         if (conn && (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g')) {
-            el.textContent = '📶';
+            el.innerHTML = iconSvg('zap');
             el.className = 'network-status slow';
         } else {
-            el.textContent = '⚡';
+            el.innerHTML = iconSvg('zap');
             el.className = 'network-status online';
         }
     }
@@ -1020,14 +1058,14 @@ function updateNetworkStatus() {
 
 const exportErrorLogs = () => {
     const logs = JSON.parse(localStorage.getItem('MBolka_ErrorLogs') || '[]');
-    if (!logs.length) return showToast("📋 暂无错误日志");
+    if (!logs.length) return showToast("暂无错误日志", iconSvg('clipboard'));
     const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `MBolka_ErrorLogs_${new Date().toISOString().slice(0,10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast("📋 错误日志已导出");
+    showToast("错误日志已导出", iconSvg('clipboard'));
 };
 
 // === 曲库独立面板 (v2.4.0 静态重构) ===
@@ -1095,11 +1133,12 @@ function toggleDarkMode() {
     document.body.classList.toggle('dark-mode', cfg.darkMode);
     updateDarkModeUI();
     saveSettings();
-    showToast(cfg.darkMode ? "🌙 已开启深色/护眼模式" : "☀️ 已恢复标准模式");
+    showToast(cfg.darkMode ? "已开启深色/护眼模式" : "已恢复标准模式", cfg.darkMode ? iconSvg('moon') : iconSvg('sun'));
 };
 function updateDarkModeUI() {
     const btn = document.getElementById('btnToggleDarkMode');
-    if (btn) btn.textContent = cfg.darkMode ? '☀️ 标准模式' : '🌙 深色模式';
+    // 🚀 v3.4.x: SVG 图标 + 文字替代 emoji
+    if (btn) btn.innerHTML = cfg.darkMode ? iconSvg('sun') + ' 标准模式' : iconSvg('moon') + ' 深色模式';
     document.body.classList.toggle('dark-mode', cfg.darkMode);
 }
 
@@ -1114,7 +1153,7 @@ function toggleImmersiveMode() {
         el.viewMain.classList.add('hidden'); el.viewImm.classList.remove('hidden');
         document.body.style.background = 'var(--bg-darker)';
         immCanvasCleared = false;
-        showToast("🚀 已进入沉浸式音乐舱");
+        showToast("已进入沉浸式音乐舱", iconSvg('rocket'));
     } else {
         el.viewImm.classList.add('hidden'); el.viewMain.classList.remove('hidden');
         document.body.style.background = 'var(--bg-dark)';
@@ -1125,6 +1164,8 @@ function toggleImmersiveMode() {
         particles = [];
         ripples = [];
         flowField = []; // 🚀 v2.7-preview2 P1: 释放流场大数组
+        // 🚀 v3.4.3: 返回主界面立即强制流沙背景重绘，避免「返回后卡顿一秒才显示」
+        if (typeof forceMainRedraw === 'function') forceMainRedraw();
     }
     updateFocusContext();
 
@@ -1136,6 +1177,6 @@ function toggleImmersiveMode() {
 }
 
 const toggleFullscreen = () => {
-    if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e=>{}); showToast("⛶ 进入全屏"); }
-    else { if (document.exitFullscreen) document.exitFullscreen(); showToast("⛶ 退出全屏"); }
+    if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e=>{}); showToast("进入全屏", iconSvg('maximize')); }
+    else { if (document.exitFullscreen) document.exitFullscreen(); showToast("退出全屏", iconSvg('minimize')); }
 };

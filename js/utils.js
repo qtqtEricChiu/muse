@@ -15,6 +15,16 @@ const showToast = (msg, icon = '') => {
         // 🩹 v3.2.3: CSS transition 自然处理进出双向，无需强制重排
     }, 1800);
 };
+
+// 🚀 v3.4.x: 生成内联 SVG 图标标记（替换 JS 内残存的 emoji）
+const iconSvg = (name) => `<svg class="ui-ico"><use href="#icon-${name}"/></svg>`;
+// 🚀 v3.4.x: 动态切换收藏红心填充状态（filled=true 实心，false 描边轮廓）
+const setHeartFilled = (container, filled) => {
+  if (!container) return;
+  const use = container.querySelector('use');
+  if (use) use.setAttribute('href', filled ? '#icon-heart-filled' : '#icon-heart');
+  container.classList.toggle('faved', !!filled);
+};
 const formatTime = (sec) => { if (!sec || isNaN(sec)) return '0:00'; const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${m}:${s.toString().padStart(2, '0')}`; };
 const decodeText = (str) => { if (!str) return ''; let s = str.replace(/\\u([0-9a-fA-F]{4})/g, (m, g) => String.fromCharCode(parseInt(g, 16))); const txt = document.createElement("textarea"); txt.innerHTML = s; return txt.value; };
 

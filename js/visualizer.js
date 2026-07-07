@@ -210,6 +210,9 @@ function drawFlowingSand() {
     ctx.fill();
 }
 
+// 🚀 v3.4.3: 供外部（如退出沉浸舱）强制主界面下一帧重绘流沙背景，避免返回瞬间背景迟滞
+function forceMainRedraw() { mainNeedsRedraw = true; }
+
 // === 🚀 核心重构：全域 60FPS 色音同步视觉主循环 ===
 // 🚀 v2.8.2+: 集成 Page Visibility API 优化
 const renderVisLoop = (timestamp) => {
@@ -297,11 +300,15 @@ const renderVisLoop = (timestamp) => {
             if (bassHistory.length > 30) bassHistory.shift();
             const smoothBass = bassHistory.reduce((a,b)=>a+b,0) / bassHistory.length;
 
-            // 沉浸光晕背景
+            // 🚀 v3.4.3: 沉浸光晕背景跟随专辑封面色相（currentHue 每帧平滑过渡），
+            // 修复沉浸舱下「跟随专辑封面的取色背景」不实时更新、退出才刷新的问题。
+            // 仅在取色模式开启时跟随封面色相；关闭时保持原中性灰（与主页关取色一致）。
+            const useAlbumHue = cfg.colorMode;
+            const immHue = Math.round(currentHue);
             const bgGrad = ctx.createRadialGradient(W*0.3, H*0.3, 0, W*0.5, H*0.5, Math.max(W,H)*0.7);
-            bgGrad.addColorStop(0, `rgba(30,30,40,${0.2 + smoothBass/255*0.2})`);
-            bgGrad.addColorStop(0.4, `rgba(20,20,30,${0.1 + midAvg/255*0.12})`);
-            bgGrad.addColorStop(0.7, 'rgba(10,10,20,0.06)');
+            bgGrad.addColorStop(0, useAlbumHue ? `hsla(${immHue}, 60%, ${14 + smoothBass/255*10}%, ${0.32 + smoothBass/255*0.2})` : `rgba(30,30,40,${0.2 + smoothBass/255*0.2})`);
+            bgGrad.addColorStop(0.4, useAlbumHue ? `hsla(${(immHue+25)%360}, 55%, 11%, ${0.18 + midAvg/255*0.12})` : `rgba(20,20,30,${0.1 + midAvg/255*0.12})`);
+            bgGrad.addColorStop(0.7, useAlbumHue ? `hsla(${(immHue+45)%360}, 50%, 7%, 0.1)` : 'rgba(10,10,20,0.06)');
             bgGrad.addColorStop(1, 'rgba(3,3,10,1)');
             ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, W, H);
@@ -310,9 +317,9 @@ const renderVisLoop = (timestamp) => {
             const coreX = W * 0.5 + Math.sin(visTime * 0.3) * W * 0.05;
             const coreY = H * 0.5 + Math.cos(visTime * 0.4) * H * 0.05;
             const coreGrad = ctx.createRadialGradient(coreX, coreY, 0, coreX, coreY, 350 + smoothBass*1.5);
-            coreGrad.addColorStop(0, `rgba(180,190,210,${0.4 + smoothBass/255*0.3})`);
-            coreGrad.addColorStop(0.3, 'rgba(140,150,180,0.2)');
-            coreGrad.addColorStop(0.7, 'rgba(80,90,110,0.05)');
+            coreGrad.addColorStop(0, useAlbumHue ? `hsla(${immHue}, 75%, ${52 + smoothBass/255*16}%, ${0.38 + smoothBass/255*0.3})` : `rgba(180,190,210,${0.4 + smoothBass/255*0.3})`);
+            coreGrad.addColorStop(0.3, useAlbumHue ? `hsla(${immHue}, 65%, 38%, 0.18)` : 'rgba(140,150,180,0.2)');
+            coreGrad.addColorStop(0.7, useAlbumHue ? `hsla(${immHue}, 55%, 24%, 0.05)` : 'rgba(80,90,110,0.05)');
             coreGrad.addColorStop(1, 'transparent');
             ctx.fillStyle = coreGrad;
             ctx.fillRect(0, 0, W, H);
@@ -423,6 +430,16 @@ const renderVisLoop = (timestamp) => {
             stillGrad.addColorStop(1, 'rgba(3,3,10,1)');
             ctx.fillStyle = stillGrad;
             ctx.fillRect(0, 0, W, H);
+        }
+
+        // 🚀 v3.4.3: 沉浸舱下同步重绘流沙取色背景。
+        // 原仅主界面分支调用 drawFlowingSand()，沉浸舱分支不重绘 → 封面色更新后背景冻结，
+        // 退出沉浸舱走主界面分支才立即刷新（currentHue 每帧已在过渡，只是画布未重绘）。
+        if (cfg.colorMode) {
+            drawFlowingSand();
+        } else if (el.bgColor) {
+            if (!bgColorCtx) bgColorCtx = el.bgColor.getContext('2d');
+            if (bgColorCtx) bgColorCtx.clearRect(0, 0, el.bgColor.width, el.bgColor.height);
         }
 
         if (particles.length > particleCount) particles.splice(0, particles.length - particleCount);

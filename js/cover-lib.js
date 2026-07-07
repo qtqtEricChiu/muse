@@ -433,7 +433,7 @@ function renderCoverLibGrid(filter = '') {
                 card.tabIndex = 0;
                 card.innerHTML = `
                     <div class="art-wrap">
-                        ${group.art ? `<img src="${group.art}" loading="lazy">` : '<div style="width:100%;height:100%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:32px;">🎵</div>'}
+                        ${group.art ? `<img src="${group.art}" loading="lazy">` : '<div style="width:100%;height:100%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:32px;"><svg class="ui-ico" style="width:40px;height:40px;opacity:0.35;margin:0;"><use href="#icon-music"/></svg></div>'}
                     </div>
                     <div class="album-name">${(group.title || '').length > 12 ? (group.title||'').slice(0,11)+'…' : (group.title||'')}</div>
                     <div class="album-meta">${group.artist}</div>
@@ -460,9 +460,9 @@ function createCoverCard(group, idx, type) {
 
     card.innerHTML = `
         <div class="art-wrap">
-            ${group.art ? `<img src="${group.art}" loading="lazy">` : '<div style="width:100%;height:100%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:36px;">🎵</div>'}
+            ${group.art ? `<img src="${group.art}" loading="lazy">` : '<div style="width:100%;height:100%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:36px;"><svg class="ui-ico" style="width:44px;height:44px;opacity:0.35;margin:0;"><use href="#icon-music"/></svg></div>'}
             <div class="vinyl-slip"></div>
-            <div class="play-all-btn">▶</div>
+            <div class="play-all-btn">${iconSvg('play')}</div>
         </div>
         ${group.songs.length > 1 ? `<span class="song-count-badge">${group.songs.length}</span>` : ''}
         <div class="album-name" title="${escapeHTML(albumName)}">${albumName.length > 14 ? albumName.slice(0,13)+'…' : albumName}</div>
@@ -485,14 +485,14 @@ function showAlbumDetail(group, parentModal) {
         <div class="album-detail-panel">
             <div class="album-detail-header">
                 <div class="album-detail-cover">
-                    ${group.art ? `<img src="${group.art}">` : '<div style="width:100%;height:100%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:64px;">🎵</div>'}
+                    ${group.art ? `<img src="${group.art}">` : '<div style="width:100%;height:100%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:64px;"><svg class="ui-ico" style="width:64px;height:64px;opacity:0.35;margin:0;"><use href="#icon-music"/></svg></div>'}
                 </div>
                 <div class="album-detail-info">
                     <div class="album-detail-name">${escapeHTML(group.album || '未知专辑')}</div>
                     <div class="album-detail-artist">${escapeHTML(group.artist)}</div>
                     <div class="album-detail-meta">共 ${group.songs.length} 首歌曲</div>
                     <div class="album-detail-actions">
-                        <button class="btn-glass focusable" id="btnPlayAlbum" style="background:var(--primary);color:var(--text-on-primary);border:none;" tabindex="0">▶ 播放整张专辑</button>
+                        <button class="btn-glass focusable" id="btnPlayAlbum" style="background:var(--primary);color:var(--text-on-primary);border:none;" tabindex="0">${iconSvg('play')} 播放整张专辑</button>
                         <button class="btn-glass focusable" id="btnCloseAlbumDetail" tabindex="0">关闭</button>
                     </div>
                 </div>
@@ -558,7 +558,7 @@ function showAlbumDetail(group, parentModal) {
             playAudio(0);
             renderPlaylist();
         });
-        showToast(`🎵 正在播放专辑: ${group.album || '未知'}`);
+        showToast(`正在播放专辑: ${group.album || '未知'}`, iconSvg('music'));
     };
 
     // 关闭详情（🚀 核心改动 4：关闭时，必须重新扫描，让焦点优雅退回到曲库面板中）

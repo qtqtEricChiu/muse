@@ -57,10 +57,11 @@ function parseLyricText(text) {
     // 🔥 v2.8.13p4: 新增 作词、作曲、演唱制作人、录音室、混音工作室、混音师、母带工作室、合音制作、编外合音制作、混音及母带后期 等
     // 🔥 共享英文角色名单（CREDIT_PAT 与 CREDIT_MULTI_PAT 共有，避免重复与不同步）
     const EN_ROLES = 'Remixed|Keyboard|Synthesizer|Bass|Drum|Background|Vocal|Digital|Recording|Mix|All instruments|Drum Programming|Vocal Arrangement|Digital Editing|Recording Engineers|Mix Engineer';
-    const CREDIT_PAT = new RegExp('^(词|曲|作词|作曲|编曲|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|弦乐|所有乐器|录音|录音棚|录音师|录音室|录音工作室|音频编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|艺人及作品管理|监制|出品|发行|词曲|制作|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
+    const CREDIT_PAT = new RegExp('^(词|曲|作词|作曲|编曲|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|弦乐|所有乐器|录音|录音棚|录音师|录音室|录音工作室|音频编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|制作|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
+    // 🔥 v2.8.13p5: 新增 混音室、母带处理、音乐设计 词条（CREDIT_PAT 与 CREDIT_MULTI_PAT 同步）
     // 🔥 v2.8.13p2: 多角色合并格式（用/分隔，如"词/曲"、"编曲/混音/制作"、"Lyrics/Composed by"）
     // 🔥 v2.8.13p4: 角色列表扩展，与 CREDIT_PAT 主要角色同步，新增多身份组合支持
-    const CREDIT_MULTI_PAT = new RegExp('^(词|曲|作词|作曲|编曲|混音|混音师|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带工作室|OP|SP|ISRC|演唱|' + EN_ROLES + ')(\\/(词|曲|作词|作曲|编曲|混音|混音师|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带工作室|OP|SP|ISRC|演唱|' + EN_ROLES + '))+[：:\\s]', 'i');
+    const CREDIT_MULTI_PAT = new RegExp('^(词|曲|作词|作曲|编曲|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|OP|SP|ISRC|演唱|' + EN_ROLES + ')(\\/(词|曲|作词|作曲|编曲|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|OP|SP|ISRC|演唱|' + EN_ROLES + '))+[：:\\s]', 'i');
     const EN_CREDIT_PAT = /^(Lyrics|Composed|Arranged|Produced|Mixed|Recorded|Mastered|Performed|Written)(\s+by)?[：:\s]/i;
     const OA_OC_PAT = /^(OA|OC|OP|SP|ISRC|Arranger|Producer|Presented\s+By)(\(.+?\))?[：:\s]/i;
     const isCredit = (t) => t && (CREDIT_PAT.test(t) || CREDIT_MULTI_PAT.test(t) || EN_CREDIT_PAT.test(t) || OA_OC_PAT.test(t));
@@ -362,7 +363,7 @@ const loadLrc = async (song) => {
                     credHTML += `<span class="lrc-credits-row"><span class="lrc-credits-val">${escapeHTML(cr.value)}</span></span>`;
                 }
             }
-            credDiv.innerHTML = `<div class="lrc-credits-title">🎵 创作信息</div>${credHTML}`;
+            credDiv.innerHTML = `<div class="lrc-credits-title">${iconSvg('music')} 创作信息</div>${credHTML}`;
             el.lrcView.appendChild(credDiv);
         }
 
@@ -422,7 +423,7 @@ function adjustLyricsOffset(delta) {
     lyricsOffset += delta;
     lyricsOffset = Math.round(lyricsOffset * 100) / 100; // 保留2位小数
     saveSettings();
-    showToast(`⏱ 歌词偏移: ${lyricsOffset > 0 ? '+' : ''}${lyricsOffset.toFixed(1)}秒`);
+    showToast(`歌词偏移: ${lyricsOffset > 0 ? '+' : ''}${lyricsOffset.toFixed(1)}秒`, iconSvg('clock'));
     syncLyrics(true);
 }
 
@@ -639,6 +640,24 @@ function setEQBand(bandIdx, gainDb) {
     saveSettings();
 }
 
+// 🚀 v3.4.x: 根据当前各频段增益反推匹配的预设名，无匹配则返回 'custom'
+function matchEQPreset(gains) {
+    const presets = {
+        'flat': [0,0,0,0,0,0,0,0,0,0],
+        'pop': [3,2,1,0,-1,-1,0,1,2,3],
+        'rock': [4,3,2,0,-2,-1,1,2,3,4],
+        'classical': [4,3,1,0,-1,-2,0,1,2,3],
+        'vocal': [-2,-1,0,2,3,2,1,0,-1,-2],
+        'bass': [6,5,3,1,0,-1,-2,-1,0,1],
+        'electronic': [5,3,0,-2,-3,-1,2,4,5,4],
+        'jazz': [3,2,1,0,1,1,0,-1,-1,0]
+    };
+    for (const k in presets) {
+        if (presets[k].every((v, i) => v === gains[i])) return k;
+    }
+    return 'custom';
+}
+
 function setEQPreset(preset) {
     const presets = {
         'flat': [0,0,0,0,0,0,0,0,0,0],
@@ -663,7 +682,7 @@ function setEQPreset(preset) {
         if (val) val.textContent = `${gains[i] > 0 ? '+' : ''}${gains[i]}dB`;
     }
     saveSettings();
-    showToast(`🎛 均衡器: ${preset}`);
+    showToast(`均衡器: ${preset}`, iconSvg('sliders'));
 }
 
 // === 播放速度/升降调控制 ===
@@ -680,7 +699,8 @@ function togglePitchPreserve() {
     preservesPitch = !preservesPitch;
     audio.preservesPitch = preservesPitch;
     const btn = document.getElementById('btnTogglePitch');
-    if (btn) btn.textContent = preservesPitch ? '🔒 保持音调' : '🎵 允许变调';
+    // 🚀 v3.4.x: 用 SVG 图标替换原 emoji，避免覆盖按钮内置图标
+    if (btn) btn.innerHTML = preservesPitch ? iconSvg('lock') + ' 保持音调' : iconSvg('music') + ' 允许变调';
     saveSettings();
     showToast(preservesPitch ? '已锁定音调' : '已允许升降调');
 }
@@ -933,19 +953,11 @@ const playAudio = async (idx) => {
     cfActive = 'A';
     audio.src = song.url;
 
-    // 🚀 v3.1.0: 长音频播放进度恢复（>15min记忆断点）
-    const dur = song.duration || song.file._duration || 0;
-    if (dur > 900) {
-        try {
-            const key = 'MBolka_PlayPos_' + (song.file.name || '');
-            const saved = JSON.parse(localStorage.getItem(key));
-            if (saved && saved.d === dur && saved.t > 1) {
-                const resume = saved.t > dur - 5 ? 0 : saved.t;
-                audio.currentTime = resume;
-                if (resume > 0) showToast(`⏯ 从 ${formatTime(resume)} 续播`);
-            }
-        } catch (_) {}
-    }
+    // 🚀 v3.4.3: 长音频(>15min)断点续播已移至 onloadedmetadata 处理
+    // （原逻辑在 src 刚设置后立刻读取 song.duration，而播放列表项从未携带 duration，
+    //   且此时媒体元数据尚未就绪、currentTime 会被浏览器重置，导致续播从未真正生效）
+
+
 
     // 同步信息到双界面
     el.mainTitle.textContent = el.immTitle.textContent = song.title;
@@ -1026,18 +1038,18 @@ const playAudio = async (idx) => {
         setPlayState(false);
         if (e.name === 'NotAllowedError') {
             // 🩹 v3.2.3: 浏览器自动播放策略拦截 — 监听下一次用户手势自动恢复
-            showToast("🖱 点击页面任意位置开始播放");
+            showToast("点击页面任意位置开始播放", iconSvg('mouse'));
             const resumeOnGesture = async () => {
                 document.removeEventListener('click', resumeOnGesture);
                 document.removeEventListener('keydown', resumeOnGesture);
                 try {
                     await audio.play();
                     setPlayState(true);
-                    showToast("▶ 播放已恢复");
+                    showToast("播放已恢复", iconSvg('play'));
                     if(!audioCtx) { initVis(); initEQ(); }
                     cfPreloadNext();
                 } catch(e2) {
-                    showToast("❌ 播放受阻，请检查音频文件");
+                    showToast("播放受阻，请检查音频文件", iconSvg('x'));
                 }
             };
             document.addEventListener('click', resumeOnGesture);
@@ -1048,14 +1060,23 @@ const playAudio = async (idx) => {
                 document.removeEventListener('keydown', resumeOnGesture);
             }, 15000);
         } else {
-            showToast("❌ 播放受阻");
+            showToast("播放受阻", iconSvg('x'));
         }
     }
 };
 
+// 🚀 v3.4.x: 只切换按钮内置 <use> 的图标，避免 textContent 覆盖掉 SVG 图标
+function _syncPlayIcon(btn, playing) {
+    if (!btn) return;
+    const u = btn.querySelector('use');
+    if (u) u.setAttribute('href', '#icon-' + (playing ? 'pause' : 'play'));
+    else btn.innerHTML = `<svg class="btn-icon"><use href="#icon-${playing ? 'pause' : 'play'}"/></svg>`;
+}
+
 const setPlayState = (playing) => {
     isPlaying = playing;
-    el.btnPlay.textContent = el.immBtnPlay.textContent = playing ? '⏸' : '▶';
+    _syncPlayIcon(el.btnPlay, playing);
+    _syncPlayIcon(el.immBtnPlay, playing);
     el.btnPlay.setAttribute('aria-label', playing ? '暂停' : '播放');
     el.immBtnPlay.setAttribute('aria-label', playing ? '暂停' : '播放');
     if(playing && !audioCtx) { initVis(); initEQ(); }
@@ -1063,7 +1084,10 @@ const setPlayState = (playing) => {
 
 const togglePlay = () => {
     if (!playlist.length) return el.btnLoad.click();
-    if (isPlaying) { audio.pause(); }
+    if (isPlaying) {
+        audio.pause();
+        saveLongAudioProgress(); // 🚀 v3.4.3: 暂停时立即记录长音频进度
+    }
     else {
         audio.play();
         cfPreloadNext(); // 🔥 v2.8.9: 恢复播放后预加载
@@ -1080,6 +1104,8 @@ const goNext = () => {
         setPlayState(true);
         return;
     }
+    // 🚀 v3.4.3: 切歌前记录当前长音频进度（避免 <10s 窗口丢失）
+    saveLongAudioProgress();
     // 🔥 v2.8.9: 交叉淡变进行中时阻止重复触发
     if (cfState !== CfState.IDLE || cfAirLocked) {
         console.log('交叉淡变进行中，跳过 goNext()');
@@ -1091,6 +1117,8 @@ const goNext = () => {
 
 const goPrev = () => {
     if(!playlist.length) return;
+    // 🚀 v3.4.3: 切歌前记录当前长音频进度
+    saveLongAudioProgress();
     if (isRepeatOne) {
         audio.currentTime = 0;
         audio.play();
@@ -1110,7 +1138,7 @@ audio.addEventListener('error', async (e) => {
         song.error = true;
         await logError('PLAY_ERROR', `解码失败: ${audio.error ? audio.error.code : 'unknown'}`, song.file);
         renderPlaylist();
-        showToast(`❌ 解码失败: ${song.title}，自动跳过`, "⚠️");
+        showToast(`解码失败: ${song.title}，自动跳过`, iconSvg('alert'));
     }
     // 🚀 v3.0.1: 音频加载失败状态
     if (el.artBox) el.artBox.classList.add('load-error');
@@ -1124,7 +1152,7 @@ function startABMode() {
     el.btnPlay.classList.add('ab-active');
     el.immBtnPlay.classList.add('ab-active');
     hideABMarkers();
-    showToast("🔁 A-B重复模式: 请先设置A点 (点击进度条)", "🎯");
+    showToast("A-B重复模式: 请先设置A点 (点击进度条)", iconSvg('target'));
 }
 function cancelABMode() {
     abMode = false; abPointA = null; abPointB = null;
@@ -1341,14 +1369,10 @@ audio.ontimeupdate = () => {
             }
         }
         
-        // 🚀 v3.1.0: 长音频(>15min)每10秒记忆播放进度
-        const dur = audio.duration || 0;
-        if (dur > 900 && _pbThrottle < Date.now() - 10000) {
+        // 🚀 v3.4.3: 长音频(>15min)每10秒记忆播放进度（最后5秒记为0，下次从头播放）
+        if (audio.duration > 900 && _pbThrottle < Date.now() - 10000) {
             _pbThrottle = Date.now();
-            try {
-                const key = 'MBolka_PlayPos_' + (playlist[currentIndex]?.file?.name || '');
-                localStorage.setItem(key, JSON.stringify({ t: audio.currentTime, d: dur }));
-            } catch (_) {}
+            saveLongAudioProgress();
         }
         
         // 🚀 v2.7: 节能模式下歌词走低频定时器，跳过此高频回调
@@ -1379,10 +1403,23 @@ audio.onloadedmetadata = () => {
     const immTimeTot = document.getElementById('immTimeTot');
     if (immTimeTot) immTimeTot.textContent = formatTime(audio.duration);
     if (abMode) updateABMarkers();
+    // 🚀 v3.4.3: 媒体元数据就绪后再设置续播点（此时 currentTime 才能可靠生效）
+    applyLongAudioResume(audio);
+};
+
+// 🚀 v3.4.2: 连续(无级)音量调节时的防抖保存，避免每帧写 localStorage（游戏手柄右摇杆连续路径）
+let _volSaveTimer = null;
+const _scheduleVolSave = () => {
+    if (_volSaveTimer) return;
+    _volSaveTimer = setTimeout(() => {
+        _volSaveTimer = null;
+        saveSettings();
+    }, 400);
 };
 
 // 🔥 v2.8.9: 统一音量控制 — 交叉淡变启用时路由到 GainNode，否则直设 audio.volume
-const cfSetVolume = (vol) => {
+// `skipSave` 为 true 时不做即时保存，改为防抖保存（高频连续调节用，避免每帧落盘）
+const cfSetVolume = (vol, skipSave = false) => {
     audio.volume = vol;
     if (audioCtx_cf && cfGainNodeA) {
         cfGainNodeA.gain.cancelScheduledValues(audioCtx_cf.currentTime);
@@ -1394,18 +1431,28 @@ const cfSetVolume = (vol) => {
     }
     el.volSlider.value = vol;
     if (el.immVolSlider) el.immVolSlider.value = vol;
-    saveSettings();
+    // 🚀 v3.4.x: 同步音量百分比数字（主界面 + 沉浸界面），手柄右摇杆调音量时也要刷新
+    const pct = Math.round(vol * 100) + '%';
+    const volPctEl = document.getElementById('volPercent');
+    if (volPctEl) volPctEl.textContent = pct;
+    const immVolPctEl = document.getElementById('immVolPercent');
+    if (immVolPctEl) immVolPctEl.textContent = pct;
+    if (skipSave) _scheduleVolSave();
+    else saveSettings();
 };
 
 // 🔥 v2.8.9: 音量滑块事件 — 统一路由到 cfSetVolume
 el.volSlider.oninput = (e) => {
     cfSetVolume(parseFloat(e.target.value));
-    const pct = document.getElementById('volPercent');
-    if (pct) pct.textContent = Math.round(parseFloat(e.target.value) * 100) + '%';
 };
 const adjustVolume = (delta) => { 
     const newVol = Math.max(0, Math.min(1, audio.volume + delta));
     cfSetVolume(newVol);
+};
+// 🚀 v3.4.2: 无级音量调节入口（游戏手柄右摇杆连续路径）—— 每次累加极小增量，保存走防抖
+const adjustVolumeContinuous = (delta) => {
+    const newVol = Math.max(0, Math.min(1, audio.volume + delta));
+    cfSetVolume(newVol, true);
 };
 
 audio.onended = () => {
@@ -1414,6 +1461,8 @@ audio.onended = () => {
         audio.play();
         return;
     }
+    // 🚀 v3.4.3: 自然结束的长音频记入进度（最后5秒→0，下次从头）
+    saveLongAudioProgress();
     // 🔥 v2.8.9: 运行中的交叉淡变不重复触发
     if (cfState !== CfState.IDLE || cfAirLocked) return;
     goNext();
@@ -1435,7 +1484,7 @@ function setSleepTimer(minutes) {
         sleepTimer = null; sleepEndTime = null;
         stopSleepTimerInterval();
         updateSleepTimerUI();
-        showToast("🌙 睡眠定时已取消");
+        showToast("睡眠定时已取消", iconSvg('moon'));
         return;
     }
     const ms = minutes * 60 * 1000;
@@ -1447,11 +1496,11 @@ function setSleepTimer(minutes) {
         sleepEndTime = null;
         stopSleepTimerInterval();
         updateSleepTimerUI();
-        showToast("🌙 睡眠定时结束，已停止播放");
+        showToast("睡眠定时结束，已停止播放", iconSvg('moon'));
     }, ms);
     startSleepTimerInterval();
     updateSleepTimerUI();
-    showToast(`🌙 睡眠定时: ${minutes} 分钟后停止`);
+    showToast(`睡眠定时: ${minutes} 分钟后停止`, iconSvg('moon'));
 }
 
 function updateSleepTimerUI() {
@@ -1462,14 +1511,14 @@ function updateSleepTimerUI() {
         const mins = Math.floor(remaining / 60000);
         const secs = Math.floor((remaining % 60000) / 1000);
         const timeStr = mins > 0 ? `${mins}:${secs.toString().padStart(2,'0')}` : `${secs}s`;
-        display.textContent = `🌙 ${timeStr}`;
+        display.innerHTML = `${iconSvg('moon')} ${timeStr}`;
         display.className = 'sleep-timer-display active';
         // 最后1分钟红色闪烁
         if (remaining <= 60000 && remaining > 0) {
             display.style.color = (Math.floor(Date.now() / 500) % 2 === 0) ? '#ff6b6b' : 'var(--primary)';
         }
     } else {
-        display.textContent = '🌙 定时';
+        display.innerHTML = `${iconSvg('moon')} 定时`;
         display.className = 'sleep-timer-display';
         display.style.color = '';
     }
@@ -1484,7 +1533,7 @@ function showSleepQuickMenu() {
     menu.style.zIndex = '2000';
     menu.innerHTML = `
         <div class="modal-content" style="width:320px;padding:20px;text-align:center;">
-            <div style="font-size:18px;margin-bottom:16px;">🌙 睡眠定时器</div>
+            <div style="font-size:18px;margin-bottom:16px;">${iconSvg('moon')} 睡眠定时器</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <button class="btn-glass focusable" data-min="15" style="justify-content:center;">15分钟</button>
                 <button class="btn-glass focusable" data-min="30" style="justify-content:center;">30分钟</button>
@@ -1508,7 +1557,7 @@ function showSleepQuickMenu() {
 
 // === 导出/导入 ===
 function exportPlaylist(format = 'json') {
-    if (!playlist.length) return showToast("⚠️ 播放列表为空");
+    if (!playlist.length) return showToast("播放列表为空", iconSvg('alert'));
     let content, filename, mime;
 
     if (format === 'm3u') {
@@ -1538,7 +1587,7 @@ function exportPlaylist(format = 'json') {
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
-    showToast(`📥 已导出: ${filename}`);
+    showToast(`已导出: ${filename}`, iconSvg('download'));
 }
 
 function importPlaylist(file) {
@@ -1548,10 +1597,10 @@ function importPlaylist(file) {
             const data = JSON.parse(e.target.result);
             if (Array.isArray(data)) {
                 // JSON导入 - 只能恢复元数据信息
-                showToast(`📥 已导入 ${data.length} 条记录（需要重新加载音频文件）`);
+                showToast(`已导入 ${data.length} 条记录（需要重新加载音频文件）`, iconSvg('download'));
             }
         } catch {
-            showToast("⚠️ 导入失败：格式不正确");
+            showToast("导入失败：格式不正确", iconSvg('alert'));
         }
     };
     reader.readAsText(file);
@@ -1589,7 +1638,7 @@ function searchPlaylist(query) {
         if (i === currentIndex) classes += ' active';
         div.className = classes;
         div.dataset.index = i;
-        div.innerHTML = `<span class="pl-title">${escapeHTML(s.title)}</span><span style="font-size:12px;opacity:0.6;">${escapeHTML(s.artist)}</span><span class="favorite-btn ${isFav ? 'faved' : ''}" data-idx="${i}">${isFav ? '❤️' : '🩶'}</span>`;
+        div.innerHTML = `<span class="pl-title">${escapeHTML(s.title)}</span><span style="font-size:12px;opacity:0.6;">${escapeHTML(s.artist)}</span><span class="favorite-btn ${isFav ? 'faved' : ''}" data-idx="${i}">${iconSvg(isFav ? 'heart-filled' : 'heart')}</span>`;
         div.onclick = (e) => {
             if (e.target.classList.contains('favorite-btn')) { e.stopPropagation(); toggleFavorite(i); return; }
             playAudio(i); closeAllModals();
@@ -1604,5 +1653,38 @@ let pipWindow = null;
 let pipSyncInterval = null; // 🚀 v2.7-preview2 P1: 提升为模块级变量以支持彻底清理
 let pipHealthCheck = null;   // 🚀 v2.7-preview2 P1: 健康检查兜底
 let _pbThrottle = 0;        // 🚀 v3.1.0: 播放进度持久化节流
+
+// 🚀 v3.4.3: 长音频(>15min)断点续播 — 统一保存/恢复逻辑
+// 键：'MBolka_PlayPos_' + 文件名（同一文件跨会话稳定）；值：{ t: 位置(秒), d: 时长 }
+function saveLongAudioProgress() {
+    const dur = audio.duration || 0;
+    if (dur <= 900) return; // 仅长音频(>15min)记忆
+    try {
+        const fname = playlist[currentIndex]?.file?.name || '';
+        if (!fname) return;
+        const key = 'MBolka_PlayPos_' + fname;
+        // 进度落在最后5秒内 → 记为0（下次从头播放）
+        const t = audio.currentTime >= dur - 5 ? 0 : audio.currentTime;
+        localStorage.setItem(key, JSON.stringify({ t, d: dur }));
+    } catch (_) {}
+}
+
+// 在媒体元数据就绪后调用：恢复长音频续播点（此时设置 currentTime 才可靠，不会被重置）
+function applyLongAudioResume(audioEl) {
+    const dur = audioEl.duration || 0;
+    if (dur <= 900) return;
+    try {
+        const fname = playlist[currentIndex]?.file?.name || '';
+        if (!fname) return;
+        const key = 'MBolka_PlayPos_' + fname;
+        const saved = JSON.parse(localStorage.getItem(key));
+        if (saved && saved.d === dur && saved.t > 1) {
+            const resume = saved.t > dur - 5 ? 0 : saved.t; // 最后5秒→从头
+            audioEl.currentTime = resume;
+            if (resume > 0) showToast(`从 ${formatTime(resume)} 续播`, iconSvg('play'));
+        }
+    } catch (_) {}
+}
+
 
 // 🚀 v2.8.4: 进入指定节能模式（位运算，支持叠加）

@@ -122,7 +122,8 @@ const renderPlaylist = () => {
         favBtn.className = `favorite-btn ${isFav ? 'faved' : ''}`;
         favBtn.dataset.idx = i;
         favBtn.title = '收藏';
-        favBtn.textContent = isFav ? '❤️' : '🩶';
+        // 🚀 v3.4.x: 用 SVG 图标替换 emoji，颜色由 .faved 类控制
+        favBtn.innerHTML = iconSvg(isFav ? 'heart-filled' : 'heart');
         div.appendChild(favBtn);
 
         // 🩹 v3.2.3 P3: onclick/oncontextmenu 已移至事件委托，此处只保留拖拽事件
@@ -181,7 +182,7 @@ const renderPlaylist = () => {
                 else if (currentIndex > fromIdx && currentIndex <= toIdx) currentIndex--;
                 else if (currentIndex < fromIdx && currentIndex >= toIdx) currentIndex++;
                 renderPlaylist();
-                showToast("📋 播放列表已重排");
+                showToast("播放列表已重排", iconSvg('clipboard'));
             }
             div.classList.remove('drag-over');
         };
@@ -230,7 +231,8 @@ function renderCoverWall() {
         } else {
             const noArt = document.createElement('div');
             noArt.className = 'cw-no-art';
-            noArt.textContent = '🎵';
+            // 🚀 v3.4.x: SVG 音乐图标替换 emoji
+            noArt.innerHTML = '<svg class="ui-ico" style="width:40px;height:40px;opacity:0.35;margin:0;"><use href="#icon-music"/></svg>';
             artDiv.appendChild(noArt);
         }
 
@@ -325,7 +327,7 @@ function showFileInfo(idx) {
         <div><b>格式:</b> ${file.name.split('.').pop().toUpperCase()}</div>
         <div><b>时长:</b> ${audio.duration ? formatTime(audio.duration) : '未知'}</div>
         <div><b>有封面:</b> ${song.art ? '是' : '否'}</div>
-        <div><b>收藏:</b> ${favorites.has(file.name) ? '❤️ 已收藏' : '否'}</div>
+        <div><b>收藏:</b> ${favorites.has(file.name) ? iconSvg('heart-filled') + ' 已收藏' : '否'}</div>
     `;
     el.fileInfoContent.innerHTML = info;
     el.fileInfoModal.classList.add('open');
@@ -344,7 +346,7 @@ function removeFromPlaylist(idx) {
         currentIndex--;
     }
     renderPlaylist();
-    showToast(`🗑️ 已移除: ${song.title}`);
+    showToast(`已移除: ${song.title}`, iconSvg('trash'));
 }
 
 function clearPlaylist() {
@@ -358,7 +360,7 @@ function clearPlaylist() {
     document.title = 'MBolka Player - Ultimate Nexus v3.0.1';
     renderPlaylist();
     updateEmptyState();
-    showToast("🚫 播放列表已清空");
+    showToast("播放列表已清空", iconSvg('ban'));
 }
 
 function toggleFavorite(idx) {
@@ -379,13 +381,13 @@ function toggleFavorite(idx) {
 function updateFavQuickBtn() {
     if (!el.btnFavQuick) return;
     const song = playlist[currentIndex];
+    // 🚀 v3.4.x: 按钮内置 heart SVG，仅切换 .faved 类控制颜色，不再覆盖 textContent
     if (song && favorites.has(song.file.name)) {
         el.btnFavQuick.classList.add('faved');
-        el.btnFavQuick.textContent = '❤️';
     } else {
         el.btnFavQuick.classList.remove('faved');
-        el.btnFavQuick.textContent = '🩶';
     }
+    setHeartFilled(el.btnFavQuick, !!(song && favorites.has(song.file.name)));
 }
 
 // 更新首页画中画快捷按钮
@@ -469,7 +471,7 @@ document.addEventListener('drop', async (e) => {
 
     // 如果正在加载中，拒绝新的拖入
     if (isLoadingFiles) {
-        showToast("⚠️ 正在加载中，请稍候再拖入");
+        showToast("正在加载中，请稍候再拖入", iconSvg('alert'));
         return;
     }
 
@@ -505,7 +507,7 @@ let isLoadingFiles = false;
 
 async function processFiles(files) {
     if (isLoadingFiles) {
-        showToast("⚠️ 正在处理中，请稍候...");
+        showToast("正在处理中，请稍候...", iconSvg('alert'));
         return;
     }
     isLoadingFiles = true;
@@ -527,7 +529,7 @@ async function processFiles(files) {
     });
     if (!audios.length) {
         isLoadingFiles = false;
-        return showToast("⚠️ 未发现音频");
+        return showToast("未发现音频", iconSvg('alert'));
     }
 
     el.loadWrap.classList.add('show');
@@ -564,7 +566,7 @@ async function processFiles(files) {
     }
 
     updateEmptyState();
-    showToast(`🚀 首批 ${initLen} 首就绪，随机开播`);
+    showToast(`首批 ${initLen} 首就绪，随机开播`, iconSvg('rocket'));
     isShuffle = true; updateModeUI(); renderPlaylist(); await playAudio(Math.floor(Math.random() * playlist.length));
 
     if (totalCount > initLen) {
@@ -608,7 +610,7 @@ async function processFiles(files) {
                     
                     renderPlaylist();
                     debouncedCoverLibRefresh(); // 最后一次完整刷新
-                    showToast(`✅ 全库 ${totalCount} 首加载完毕`);
+                    showToast(`全库 ${totalCount} 首加载完毕`, iconSvg('check'));
                     isLoadingFiles = false;
                 }, 800);
                 return;
@@ -758,7 +760,7 @@ async function parseCueFile(cueFile) {
         if (tracks.length > 0) {
             if (!window._cueTracks) window._cueTracks = {};
             window._cueTracks[cueFile.name] = tracks;
-            showToast(`📑 CUE 分轨: ${tracks.length} 个曲目已解析`, "🎯");
+            showToast(`CUE 分轨: ${tracks.length} 个曲目已解析`, iconSvg('target'));
         }
     } catch(e) {
         logError('CUE_PARSE', e.message, cueFile);

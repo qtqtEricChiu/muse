@@ -1,6 +1,9 @@
-/* 🚀 v3.0.0: 独立 Service Worker — CacheFirst 离线缓存策略 */
-const CACHE_NAME = 'mbolka-v3.3.3';
-const RUNTIME_CACHE = 'mbolka-runtime-v3.3.3';
+/* 🚀 v3.4.3: 独立 Service Worker — Network-First（带缓存回退）离线缓存策略
+   ⚠️ 原 CacheFirst 会把 js/visualizer.js 等源码永久缓存（CACHE_NAME 写死 v3.3.3，
+    install 不重跑），导致源码修改在浏览器里不生效。改为 Network-First：
+   在线时始终拉取最新源码（开发改动即时可见），离线/失败时回退缓存。 */
+const CACHE_NAME = 'mbolka-v3.4.3';
+const RUNTIME_CACHE = 'mbolka-runtime-v3.4.3';
 const CACHE_URLS = [
     '/', '/index.html',
     '/css/variables.css', '/css/base-layout.css', '/css/style.css',
@@ -37,17 +40,21 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const req = e.request;
     if (req.method !== 'GET') return;
+    // 🔧 v3.4.3: Network-First —— 在线优先回源，源码修改刷新即生效；失败/离线回退缓存
     e.respondWith(
-        caches.match(req).then(cached => {
-            if (cached) return cached;
-            return fetch(req).then(res => {
-                // 🚀 运行时缓存：同源与跨域(CORS) GET 响应均缓存，离线/CDN 抖动时可复用
-                if (res && res.ok && (req.url.startsWith('http://') || req.url.startsWith('https://'))) {
-                    const copy = res.clone();
-                    caches.open(RUNTIME_CACHE).then(c => c.put(req, copy)).catch(() => {});
-                }
-                return res;
-            }).catch(() => cached || new Response('', {status: 503, statusText: 'Offline'}));
-        })
+        fetch(req).then(res => {
+            // 仅缓存同源成功响应，避免误缓存跨域大资源
+            if (res && res.ok && isSameOrigin(req.url)) {
+                const copy = res.clone();
+                caches.open(RUNTIME_CACHE).then(c => c.put(req, copy)).catch(() => {});
+            }
+            return res;
+        }).catch(() => caches.match(req).then(cached =>
+            cached || new Response('', { status: 503, statusText: 'Offline' })
+        ))
     );
 });
+
+function isSameOrigin(url) {
+    try { return new URL(url).origin === self.location.origin; } catch (_) { return false; }
+}
