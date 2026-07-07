@@ -4,6 +4,16 @@
 
 ## v3.5.1 (2026-07-07)
 
+### 🩹 标题栏顶部取色回归修复 + build.js CSS 顺序修复（进度条消失）
+
+### 🔧 build.js CSS 顺序导致「线上构建主页面/沉浸舱进度条不显示进度」
+- **问题**：构建部署后 `dist/style.min.css` 中进度条 `.prog-fill` 不显示进度填充，本地开发正常。
+- **根因**：`build.js` 的 `CSS_FILES` 顺序为 `variables.css → base-layout.css → style.css`，与原始 HTML 的 `style.css → variables.css → base-layout.css` **相反**。`style.css` 与 `base-layout.css` 均有 `.prog-fill` 规则，但 `style.css` 版本 **缺少 `transform-origin: left`** 且 **`width: 0%`**（旧版写法）。原始 HTML 下 `base-layout.css` 后加载覆盖，进度条正常；构建后 `style.css` 后加载反而覆盖了正确的 `base-layout.css` 版本，导致 `transform-origin` 回退到默认 `center`，`width: 0%` 令 `scaleX()` 不可见。
+- **修复**：
+  1. `build.js` `CSS_FILES` 顺序修正为 `style.css → variables.css → base-layout.css → …`，与 HTML 加载顺序一致。
+  2. `css/style.css` 删除与 `base-layout.css` 冲突的 `.prog-fill` 基类规则（仅保留伪元素 `::after` 与其交互态），消除重复定义隐患。
+- **涉及文件**：`build.js`、`css/style.css`。需 `node build.js` 重建 `dist/`。
+
 ### 🩹 标题栏顶部取色回归修复
 
 - **问题**：开启「跟随强调色」后，标题栏 <code>meta theme-color</code> 未按预期显示专辑封面顶部颜色，而是始终显示玫瑰金默认粉色。

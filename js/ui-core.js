@@ -1166,12 +1166,15 @@ const applyThemeLogic = () => {
         // 🚀 v2.5: Canvas 流沙背景只需激活，颜色由 drawFlowingSand 实时渲染
         el.bgColor.classList.add('active');
         el.bgImg.classList.remove('active');
-        // 🩹 v3.5.0: 不在此清除顶部取色——audio-core.js loadSong() 已从专辑封面提取并设置
-        //           ThemeColor.updateTopColor(null);  // <-- 删除：这行会覆盖 audio-core.js 设置的顶部取色
+        // 🩹 v3.5.1: 不在此清除顶部取色——audio-core.js loadSong() 已从专辑封面提取并设置
+        //           且已有 DOM <img> 兜底采样（extractTopColorFromElement）
+        //           ThemeColor.updateTopColor(null);  // <-- 删除
     }
 
     // 🚀 v3.5.0: 背景沉浸遮罩随每次主题/背景刷新重算（确保与当前背景、夜间模式同步）
     applyBgImmersive();
+    // 🩹 v3.5.1: 确保最终刷新 theme-color（配合 audio-core 的顶部取色 + followAccentColor 路径）
+    if (typeof ThemeColor !== 'undefined') ThemeColor.refresh();
 };
 
 // 🚀 v3.5.0: 背景沉浸 — 把专辑封面/自定义背景变为全屏沉浸背板，并在夜间模式下叠加半透明黑遮罩。

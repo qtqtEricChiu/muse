@@ -990,9 +990,17 @@ const playAudio = async (idx) => {
     // 🚀 v3.2.2: 标题栏配色统一处理——有封面取色，无封面/取色失败回调默认色
     //           （隐藏标题栏时 ThemeColor 内部强制 #180219）
     // 🚀 v3.4.2: 同时把顶部取色传给 ThemeColor，让 WCO 右上金刚键背景跟随页面顶部
+    // 🩹 v3.5.1: 兜底从已加载的 DOM <img> 直接采样（避免 new Image() 对 blob URL 加载失败）
     if (typeof ThemeColor !== 'undefined') {
         ThemeColor.update(currentAlbumColor);
-        ThemeColor.updateTopColor(currentAlbumTopColor);
+        // 先用 async 提取的结果（可能为 null）
+        let safeTopColor = currentAlbumTopColor;
+        // 如果 async 提取失败但有 DOM img，直接采样兜底
+        if (!safeTopColor && hasCurrentAlbumArt && el.mainArt && el.mainArt.complete) {
+            safeTopColor = extractTopColorFromElement(el.mainArt, 0.2);
+            if (safeTopColor) currentAlbumTopColor = safeTopColor; // 缓存更新
+        }
+        ThemeColor.updateTopColor(safeTopColor);
     }
 
     // 🚀 v3.2.2: 实时同步 WCO 标题栏曲目标题（随切歌即时更新）

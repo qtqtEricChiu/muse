@@ -15,8 +15,8 @@ const JS_FILES = [
     'theme-color.js', 'wco.js'
 ];
 const CSS_FILES = [
-    'variables.css', 'base-layout.css', 'style.css',
-    'immersive.css', 'modals.css', 'components.css', 'cover-lib.css',
+    'style.css', 'variables.css', 'base-layout.css',
+    'immersive.css', 'modals.css', 'cover-lib.css', 'components.css',
     'wco.css'
 ];
 

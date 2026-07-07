@@ -235,6 +235,27 @@ const extractTopColor = (imgSrc, sampleHeight = 0.25) => {
         img.src = imgSrc;
     });
 };
+
+// 🚀 v3.5.1: 从已加载的 DOM <img> 元素直接提取顶部颜色——避免 new Image() 对 blob URL 可能加载失败（CORS/revoke）
+const extractTopColorFromElement = (imgEl, sampleHeight = 0.25) => {
+    if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) return null;
+    try {
+        const cvs = document.createElement('canvas');
+        const w = 64, h = Math.max(1, Math.round(w * sampleHeight));
+        cvs.width = w; cvs.height = h;
+        const ctx = cvs.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(imgEl, 0, 0, imgEl.naturalWidth, Math.round(imgEl.naturalHeight * sampleHeight), 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 16) {
+            if (data[i] > 20 && data[i] < 235) {
+                r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+            }
+        }
+        return count > 0 ? `rgb(${~~(r/count)},${~~(g/count)},${~~(b/count)})` : null;
+    } catch (e) { return null; }
+};
+
 const getHueFromRgb = (rgbStr) => {
     if (!rgbStr) return 210; const match = rgbStr.match(/\d+/g); if (!match) return 210;
     let r = parseInt(match[0])/255, g = parseInt(match[1])/255, b = parseInt(match[2])/255;

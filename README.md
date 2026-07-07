@@ -179,9 +179,10 @@
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
 
-### v3.5.1 (2026-07-07) — 标题栏顶部取色回归修复
+### v3.5.1 (2026-07-07) — 标题栏顶部取色回归修复 + build CSS 顺序修复
 
-- **修复「跟随强调色」开启时标题栏未取顶部颜色**：`applyThemeLogic()` `showColor` 分支原无条件调用 `ThemeColor.updateTopColor(null)`，覆盖了 `audio-core.js` 从专辑封面提取的顶部取色；现删除该行，顶部取色正确保留并驱动 `meta theme-color`
+- **标题栏顶部取色回归修复**：`applyThemeLogic()` `showColor` 分支原无条件调用 `ThemeColor.updateTopColor(null)`，覆盖了 `audio-core.js` 从专辑封面提取的顶部取色；已删除该行，并新增 `extractTopColorFromElement()` 从 DOM `<img>` 兜底采样。末尾追加 `ThemeColor.refresh()` 确保最终落盘
+- **build CSS 顺序导致进度条消失修复**：`build.js` `CSS_FILES` 顺序与 HTML 不一致，导致构建后 `style.css` 的错误 `.prog-fill` 规则（缺 `transform-origin:left`、`width:0%`）覆盖了 `base-layout.css` 的正确规则；已修复顺序并清理 `style.css` 冲突规则
 
 ### v3.5.0 (2026-07-07) — 设置-外观新选项 + 歌词栏结构修复 + 性能优化 + WCO 假沉浸
 
