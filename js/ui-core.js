@@ -1,5 +1,5 @@
-/*
- * MBolka Player - UI Core v3.5.0
+﻿/*
+ * MBolka Player - UI Core v3.5.1
  * Modal management, button bindings, settings UI, theme presets, EQ panel, stats, BG settings
  */
 
@@ -1166,7 +1166,8 @@ const applyThemeLogic = () => {
         // 🚀 v2.5: Canvas 流沙背景只需激活，颜色由 drawFlowingSand 实时渲染
         el.bgColor.classList.add('active');
         el.bgImg.classList.remove('active');
-        if (typeof ThemeColor !== 'undefined') ThemeColor.updateTopColor(null);
+        // 🩹 v3.5.0: 不在此清除顶部取色——audio-core.js loadSong() 已从专辑封面提取并设置
+        //           ThemeColor.updateTopColor(null);  // <-- 删除：这行会覆盖 audio-core.js 设置的顶部取色
     }
 
     // 🚀 v3.5.0: 背景沉浸遮罩随每次主题/背景刷新重算（确保与当前背景、夜间模式同步）

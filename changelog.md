@@ -2,6 +2,36 @@
 
 ---
 
+## v3.5.1 (2026-07-07)
+
+### 🩹 标题栏顶部取色回归修复
+
+- **问题**：开启「跟随强调色」后，标题栏 <code>meta theme-color</code> 未按预期显示专辑封面顶部颜色，而是始终显示玫瑰金默认粉色。
+- **根因**（`js/ui-core.js` `applyThemeLogic()` ~L1169）：当 `cfg.followAccentColor` 开启时，背景走流沙 Canvas（`showColor`）分支而非背景图片（`showImg`）分支。该分支原无条件调用 `ThemeColor.updateTopColor(null)`，**覆盖**了 `js/audio-core.js` `loadSong()` 中从专辑封面提取并设置的顶部取色（流程：`extractTopColor()`→`ThemeColor.updateTopColor(topColor)`→`applyThemeLogic()`→`updateTopColor(null)` 清空）。
+- **修复**：删除 `showColor` 分支中的 `ThemeColor.updateTopColor(null)` 调用。顶部取色由 `audio-core.js` 统一管理，无需在 `applyThemeLogic()` 中干预。
+- **涉及文件**：`js/ui-core.js`
+
+### 🎨 歌词栏动画精修 + 创作信息正则补全
+
+- **动画更灵动（`css/base-layout.css` + `css/style.css`）**：
+  - 激活行 `transform: scale(1.05) translateY(-3px)` 微抬升，营造「弹出」感。
+  - 新增 `@keyframes lrcGlowPulse` 呼吸辉光动画：text-shadow 在 3s 内循环明暗脉动，跟随主题色 `rgba(var(--primary-rgb), …)`，解决「辉光静态呆板」问题。
+  - `transform` 过渡曲线改为 `cubic-bezier(0.34, 1.56, 0.64, 1)` 弹簧曲线（过冲后回弹），非线性灵动感。
+  - hover 状态加 `transform: scale(0.97)` 微放大反馈，悬停不再只是去模糊。
+- **hover 颜色回滚**：水母蓝 `rgba(154,200,226,0.8)` 被用户反馈「太丑」，改回 `rgba(255,255,255,0.8)` 白色。
+- **创作信息正则补全（`js/audio-core.js`）**：从用户截图补充 7 个缺失角色标识到 `CREDIT_PAT` 与 `CREDIT_MULTI_PAT`：
+  - `弦乐编写` / `弦乐监制` — 弦乐编排相关
+  - `主唱录音` / `弦乐录音` — 录音细分角色
+  - `音乐编辑` — 与已有 `音频编辑` 区分
+  - `制作统筹` — 与已有 `音乐统筹` 区分
+  - `混音母带` — 与已有 `混音及母带后期` 区分
+
+### 🆕 版本号更新
+- `v3.5.0` → `v3.5.1`
+- 更新位置：`index.html`（标题 + 页脚版权）、`package.json`、`sw.js`、`build.js`（SW 缓存键 `mbolka-v3.5.0`→`mbolka-v3.5.1`）
+
+---
+
 ## v3.5.0 (2026-07-07)
 
 ### ⚡ 性能与可维护性优化（P0 + P1 全量落地）
@@ -92,10 +122,18 @@
   3. 激活行字号从 `calc(var(--lrc-font-size) * 1.44)` 降为 `* 1.2`，消除 44% 跳变造成的布局抖动；`transform: scale(1.05)` + `font-weight: 700` + 辉光已足够区分。
   4. 激活行颜色从 `#fff` 改为 `rgba(255,248,240,0.95)` + 辉光换为 `rgba(var(--primary-rgb), …)` 跟随主题色。
   5. 恢复缺失的 `.lrc-line.active + .lrc-line` 规则（下一句不模糊 + opacity 0.75 + scale 0.98）。
-  6. hover 文字色从白冷光改为 `rgba(154,200,226,0.8)`（水母蓝）更温暖。
+  6. ~~hover 文字色从白冷光改为 `rgba(154,200,226,0.8)`（水母蓝）更温暖。~~（v3.5.1 已回滚为白色）
   7. 添加 `.lrc-viewport::-webkit-scrollbar` 薄型滚动条（4px 宽，12% 白 thumb），与玻璃态美学一致。
   8. 同步更新 `style.css` 中对应规则（保持两份 CSS 一致）。
   9. 同步更新 `.lyrics-align-top .lrc-line.active` 的激活色与辉光。
+  10. 激活行 `transform` 使用弹簧曲线 `cubic-bezier(0.34, 1.56, 0.64, 1)` + `translateY(-3px)` 微抬升 + `lrcGlowPulse` 呼吸辉光动画（v3.5.1 补全）。
+
+### 🩹 音量百分比显示同步修复
+
+- **问题**：刷新页面后，音量滑块已正确恢复到上次记忆的音量（如 100%），但滑块右侧的百分比数字仍显示 HTML 默认的 `70%`。
+- **根因**：`js/utils.js` `loadSettings()` 在恢复 `audio.volume` 后仅同步了 `volSlider` 的 `value`，未同步 `#volPercent` / `#immVolPercent` 的文本。
+- **修复**：在 `loadSettings()` 初始化双端音量滑块后，同时设置 `volPercent.textContent = ${Math.round(audio.volume * 100)}%`（沉浸界面 `immVolPercent` 同补）。
+- **涉及文件**：`js/utils.js`
 
 ### 🆕 版本号更新
 - `v3.4.3` → `v3.5.0`

@@ -1,5 +1,5 @@
-/*
- * MBolka Player - Utilities v3.5.0
+﻿/*
+ * MBolka Player - Utilities v3.5.1
  * Toast, formatting, encoding, settings persistence
  */
 
@@ -160,9 +160,13 @@ const loadSettings = () => {
             if (frameToggle) frameToggle.checked = cfg.frameEnergyEnabled;
             const pipToggle = document.getElementById('pipEnergyToggle');
             if (pipToggle) pipToggle.checked = cfg.pipEnergyEnabled;
-            // 🚀 同时初始化双端滑块
+            // 同时初始化双端滑块与百分比显示（修复刷新后音量条数字滞留默认 70%）
             el.volSlider.value = audio.volume;
             if (el.immVolSlider) el.immVolSlider.value = audio.volume;
+            const volPercent = document.getElementById('volPercent');
+            if (volPercent) volPercent.textContent = `${Math.round(audio.volume * 100)}%`;
+            const immVolPercent = document.getElementById('immVolPercent');
+            if (immVolPercent) immVolPercent.textContent = `${Math.round(audio.volume * 100)}%`;
             document.getElementById('blurSlider').value = cfg.blurAmt;
             document.getElementById('blurVal').textContent = `${cfg.blurAmt}px`;
             document.getElementById('lrcFontSizeSlider').value = cfg.lrcFontSize;

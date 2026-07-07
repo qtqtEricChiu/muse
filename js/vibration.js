@@ -1,5 +1,5 @@
-/*
- * MBolka Player - Vibration Engine v3.5.0
+﻿/*
+ * MBolka Player - Vibration Engine v3.5.1
  * Audio-to-rumble mapping via Gamepad API dual-rumble
  */
 

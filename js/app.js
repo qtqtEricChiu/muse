@@ -1,5 +1,5 @@
-/*
- * MBolka Player - Entry Point v3.5.0
+﻿/*
+ * MBolka Player - Entry Point v3.5.1
  * Namespace export, initialization, event binding
  * All modules loaded via index.html <script> tags before this file
  */

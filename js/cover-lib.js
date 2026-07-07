@@ -1,5 +1,5 @@
-/*
- * MBolka Player - Cover Library v3.5.0
+﻿/*
+ * MBolka Player - Cover Library v3.5.1
  * Album/artist/recent grid views, album detail panel
  */
 

@@ -1,5 +1,5 @@
-/*
- * MBolka Player - Picture-in-Picture v3.5.0
+﻿/*
+ * MBolka Player - Picture-in-Picture v3.5.1
  * Energy saving system (EnergyMode bitfield), PiP window management
  */
 

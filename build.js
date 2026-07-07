@@ -65,7 +65,7 @@ const META_WORKER_TEMPLATE =
 "}\n";
 
 async function build() {
-    console.log('🔨 Building MBolka Player v3.5.0...');
+    console.log('🔨 Building MBolka Player v3.5.1...');
 
     // Create dist directory
     if (!fs.existsSync(DIST)) fs.mkdirSync(DIST, { recursive: true });
@@ -138,9 +138,9 @@ async function build() {
  */
 function genSW(urls) {
     const list = JSON.stringify(urls, null, 12);
-    return `/* MBolka Player v3.5.0 — dist Service Worker (相对路径, 子路径安全) */
-const CACHE_NAME = 'mbolka-v3.5.0';
-const RUNTIME_CACHE = 'mbolka-runtime-v3.5.0';
+    return `/* MBolka Player v3.5.1 — dist Service Worker (相对路径, 子路径安全) */
+const CACHE_NAME = 'mbolka-v3.5.1';
+const RUNTIME_CACHE = 'mbolka-runtime-v3.5.1';
 const CACHE_URLS = ${list};
 
 self.addEventListener('install', e => {
@@ -161,7 +161,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const req = e.request;
     if (req.method !== 'GET') return;
-    // 🔧 v3.5.0: Network-First —— 在线优先回源（源码改动刷新即生效），离线/失败回退缓存
+    // 🔧 v3.5.1: Network-First —— 在线优先回源（源码改动刷新即生效），离线/失败回退缓存
     e.respondWith(
         fetch(req).then(res => {
             if (res && res.ok && isSameOrigin(req.url)) {

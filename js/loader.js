@@ -1,5 +1,5 @@
-/*
- * MBolka Player - File Loader v3.5.0
+﻿/*
+ * MBolka Player - File Loader v3.5.1
  * Metadata parsing, playlist rendering, cover wall, file processing, drag-drop, CUE parsing
  */
 
@@ -444,7 +444,7 @@ function clearPlaylist() {
     audio.src = '';
     el.mainTitle.textContent = 'MBolka Player Ultimate';
     el.mainArtist.textContent = '等待载入音乐...';
-    document.title = 'MBolka Player - Ultimate Nexus v3.5.0';
+    document.title = 'MBolka Player - Ultimate Nexus v3.5.1';
     renderPlaylist();
     updateEmptyState();
     showToast("播放列表已清空", iconSvg('ban'));

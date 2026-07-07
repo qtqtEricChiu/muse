@@ -1,5 +1,5 @@
-/*
- * MBolka Player — Window Controls Overlay Manager v3.5.0
+﻿/*
+ * MBolka Player — Window Controls Overlay Manager v3.5.1
  * WCO 标题栏：显示当前曲目 + 拖拽窗口
  * 🚀 v3.2.2: 显隐切换时刷新 PWA theme-color；enable 时同步当前曲目
  */

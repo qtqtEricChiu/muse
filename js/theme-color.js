@@ -1,5 +1,5 @@
-/*
- * MBolka Player — Theme Color Manager v3.5.0
+﻿/*
+ * MBolka Player — Theme Color Manager v3.5.1
  * 动态更新 <meta name="theme-color">（控制 Windows Chrome PWA 系统顶 bar / WCO 右上金刚键背景色）
  * 🚀 v3.4.2: 新增顶部取色支持。当背景图片存在时，优先使用图片顶部附近颜色作为 theme-color，
  * 使 WCO 模式下系统窗口控制按钮（右上金刚键）的背景与页面顶部背景融合，达成假沉浸效果。

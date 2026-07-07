@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.5.0
+# MBolka Player - Ultimate Nexus v3.5.1
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.5.0-blue)
+![Version](https://img.shields.io/badge/version-3.5.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -179,10 +179,15 @@
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
 
+### v3.5.1 (2026-07-07) — 标题栏顶部取色回归修复
+
+- **修复「跟随强调色」开启时标题栏未取顶部颜色**：`applyThemeLogic()` `showColor` 分支原无条件调用 `ThemeColor.updateTopColor(null)`，覆盖了 `audio-core.js` 从专辑封面提取的顶部取色；现删除该行，顶部取色正确保留并驱动 `meta theme-color`
+
 ### v3.5.0 (2026-07-07) — 设置-外观新选项 + 歌词栏结构修复 + 性能优化 + WCO 假沉浸
 
 - **歌词栏 CSS 结构性 Bug 修复**：修复 `base-layout.css` 中 `.lrc-line` 大括号过早闭合导致 7 条关键属性（`word-break`/`user-select:text`/`transform:scale(0.95)`/`padding` 等）成为孤儿代码完全失效的问题；缩小激活行字号跳变（*1.44→*1.2）消除布局抖动、恢复下一句不模糊的视觉梯队、新增歌词栏专属薄型滚动条、激活行颜色改用主题色辉光
 - **设置-外观新选项**：「跟随强调色」与「背景沉浸」两个独立开关。跟随强调色与取色模式同源驱动全域强调色；背景沉浸让专辑封面/自定义背景全屏沉浸，夜间模式自动叠加半透明黑遮罩（alpha-over 分层合成 `1-(1-a)*(1-b)`）
+- **音量百分比显示同步修复**：修复刷新后音量滑块已正确恢复到记忆值，但右侧 `#volPercent` 仍显示默认 70% 的 bug；`loadSettings()` 现在同步主界面与沉浸界面的百分比文字
 - **曲库搜索防抖 (P0-1)**：`#coverLibSearch` 输入改为 180ms 防抖，连续击键只触发一次全量重渲染
 - **`saveSettings` 节流落盘 (P1-1)**：首次调用立即落盘、400ms 节流窗口内合并写入，页面隐藏/卸载强制 `flushSettings()`；37 处调用方自动受益
 - **统一图标切换 helper `setBtnIcon` (P1-4)**：优先切换 `<use href>`，无 `<use>` 时整段替换 SVG，消除内联 SVG 字符串重复
@@ -706,7 +711,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.5.0
+MBolka Player v3.5.1
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -770,4 +775,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.5.0**
+**© MocaBolka 2026 | v3.5.1**

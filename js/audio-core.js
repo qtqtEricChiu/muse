@@ -1,5 +1,5 @@
-/*
- * MBolka Player - Audio Core v3.5.0
+﻿/*
+ * MBolka Player - Audio Core v3.5.1
  * Lyrics engine (chain+pair), EQ (28 presets), crossfade v2.8.9,
  * playback control, AB repeat, progress bar, sleep timer, export/import
  */
@@ -57,11 +57,12 @@ function parseLyricText(text) {
     // 🔥 v2.8.13p4: 新增 作词、作曲、演唱制作人、录音室、混音工作室、混音师、母带工作室、合音制作、编外合音制作、混音及母带后期 等
     // 🔥 共享英文角色名单（CREDIT_PAT 与 CREDIT_MULTI_PAT 共有，避免重复与不同步）
     const EN_ROLES = 'Remixed|Keyboard|Synthesizer|Bass|Drum|Background|Vocal|Digital|Recording|Mix|All instruments|Drum Programming|Vocal Arrangement|Digital Editing|Recording Engineers|Mix Engineer';
-    const CREDIT_PAT = new RegExp('^(词|曲|作词|作曲|编曲|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|弦乐|所有乐器|录音|录音棚|录音师|录音室|录音工作室|音频编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|制作|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
+    const CREDIT_PAT = new RegExp('^(词|曲|作词|作曲|编曲|定位制作人|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|制作统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|弦乐|弦乐编写|弦乐监制|所有乐器|录音|录音棚|录音师|录音室|录音工作室|主唱录音|弦乐录音|音频编辑|音乐编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|混音母带|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|制作|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
     // 🔥 v2.8.13p5: 新增 混音室、母带处理、音乐设计 词条（CREDIT_PAT 与 CREDIT_MULTI_PAT 同步）
+    // 🔥 v3.5.0: 新增 弦乐编写/弦乐监制/主唱录音/弦乐录音/音乐编辑/制作统筹/混音母带
     // 🔥 v2.8.13p2: 多角色合并格式（用/分隔，如"词/曲"、"编曲/混音/制作"、"Lyrics/Composed by"）
     // 🔥 v2.8.13p4: 角色列表扩展，与 CREDIT_PAT 主要角色同步，新增多身份组合支持
-    const CREDIT_MULTI_PAT = new RegExp('^(词|曲|作词|作曲|编曲|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|OP|SP|ISRC|演唱|' + EN_ROLES + ')(\\/(词|曲|作词|作曲|编曲|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|OP|SP|ISRC|演唱|' + EN_ROLES + '))+[：:\\s]', 'i');
+    const CREDIT_MULTI_PAT = new RegExp('^(词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|' + EN_ROLES + ')(\\/(词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|' + EN_ROLES + '))+[：:\\s]', 'i');
     const EN_CREDIT_PAT = /^(Lyrics|Composed|Arranged|Produced|Mixed|Recorded|Mastered|Performed|Written)(\s+by)?[：:\s]/i;
     const OA_OC_PAT = /^(OA|OC|OP|SP|ISRC|Arranger|Producer|Presented\s+By)(\(.+?\))?[：:\s]/i;
     const isCredit = (t) => t && (CREDIT_PAT.test(t) || CREDIT_MULTI_PAT.test(t) || EN_CREDIT_PAT.test(t) || OA_OC_PAT.test(t));

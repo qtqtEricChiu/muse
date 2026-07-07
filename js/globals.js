@@ -1,10 +1,10 @@
-/*
- * MBolka Player - Globals v3.5.0
+﻿/*
+ * MBolka Player - Globals v3.5.1
  * Worker inline, state variables, LUTs, EnergyMode enum, cfg, el references
  */
 
 /**
- * MBolka Player - Ultimate Nexus v3.5.0
+ * MBolka Player - Ultimate Nexus v3.5.1
  * Main Application Logic
  * 
  * 🔥 v2.8.10 全球发行版：
