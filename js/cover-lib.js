@@ -83,6 +83,8 @@ function showCoverLibrary() {
     // 🚀 v3.3.4: 按模式刷新焦点（coverflow=仅头部居中即焦点；网格=头部+卡片纳入 2D 导航）
     setTimeout(() => {
         refreshCoverLibAfterRender();
+        // 🔥 v3.6.5: 封面库打开后自动定位到当前播放专辑（按专辑默认视图）
+        if (typeof focusCurrentAlbumInCoverLib === 'function') focusCurrentAlbumInCoverLib();
     }, 200);
 }
 
@@ -329,6 +331,45 @@ function getCoverLibCenterCard() {
 function coverLibMoveCenter(dir) {
     enterCoverflowFlat(); // 进入平坦模式，防抖 350ms 后恢复 3D
     setCoverLibCenter(coverLibCenter + dir);
+}
+
+// 🔥 v3.6.5: 打开曲库（按专辑默认视图）自动定位到当前正在播放的专辑
+//   仅在 album 模式生效；找到当前曲目 album 对应的卡片索引，
+//   必要时强制窗口化渲染追加上去，再平滑居中到该专辑。
+function focusCurrentAlbumInCoverLib() {
+    if (typeof coverLibSortMode === 'undefined' || coverLibSortMode !== 'album') return; // 仅「按专辑」视图定位
+    const cur = playlist[currentIndex];
+    if (!cur || !cur.album) return;                       // 无当前曲目 / 无专辑信息则不定位
+    if (!_clEntries || !_clEntries.length) return;
+    const curAlbum = cur.album;
+    // 在已分组的 entries 中按专辑名查找当前专辑索引
+    let targetIdx = -1;
+    for (let i = 0; i < _clEntries.length; i++) {
+        const g = _clEntries[i][1];
+        if (g && g.album === curAlbum) { targetIdx = i; break; }
+    }
+    if (targetIdx < 0) return;
+
+    const grid = document.getElementById('coverLibGrid');
+    if (!grid) return;
+
+    // 窗口化渲染：确保目标索引卡片已挂载（否则强制追加渲染到该位置）
+    const need = targetIdx + 1;
+    if (_clRendered < need) {
+        // 🚀 直接请求渲染到目标位置（含余量），在飞则累积到 _clPendingTarget 续挂
+        renderCoverLibMore(need - _clRendered + CL_CHUNK);
+    }
+
+    // 轮询等待卡片挂载后居中（渲染为分帧异步，避免立即调用时卡片尚未入 DOM）
+    const tryCenter = (attempt) => {
+        const cards = grid.querySelectorAll('.cover-lib-card');
+        if (cards.length > targetIdx) {
+            setCoverLibCenter(targetIdx);
+        } else if (attempt < 50) {
+            setTimeout(() => tryCenter(attempt + 1), 30);
+        }
+    };
+    tryCenter(0);
 }
 
 // 把"封面点击"统一为：点中心=打开，点非中心=先居中

@@ -24,7 +24,7 @@ const CSS_FILES = [
 // 模板内容与 js/meta-worker.js 完全一致；CDN 链接 (jsmediatags@3.9.8) 也保持一致
 const META_WORKER_TEMPLATE =
 "/**\n" +
-" * MBolka Player - 元数据解析 Worker (P1-3, v3.6.3)\n" +
+" * MBolka Player - 元数据解析 Worker (P1-3, v3.6.6)\n" +
 " * 后台线程中用 jsmediatags 解析音乐文件标签，主线程只收结果。\n" +
 " * 通信协议：\n" +
 " *   -> postMessage({ key: String, file: File })\n" +
@@ -65,7 +65,7 @@ const META_WORKER_TEMPLATE =
 "}\n";
 
 async function build() {
-    console.log('🔨 Building MBolka Player v3.6.3...');
+    console.log('🔨 Building MBolka Player v3.6.6...');
 
     // Create dist directory
     if (!fs.existsSync(DIST)) fs.mkdirSync(DIST, { recursive: true });

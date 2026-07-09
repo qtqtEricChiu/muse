@@ -1,6 +1,8 @@
 ﻿/*
- * MBolka Player — Window Controls Overlay Manager v3.6.3
- * WCO 标题栏：显示当前曲目 + 拖拽窗口
+ * MBolka Player — Window Controls Overlay Manager v3.6.5
+ * WCO 标题栏：透明拖拽区 + 右侧系统窗口控制按钮（暗色去饱和）呈现
+ * 🚀 v3.6.5: 取消导航按钮迁移与原 header 隐藏，维持用户原布局；
+ *   左侧标题栏仅作透明拖拽区，右侧金刚键背景由 theme-color.js 注入暗色去饱和值。
  * 🚀 v3.2.2: 显隐切换时刷新 PWA theme-color；enable 时同步当前曲目
  */
 
@@ -8,9 +10,6 @@ const WCO = (() => {
     let _titlebar = null;
     let _trackTitleEl = null;
     let _enabled = false;
-    let _appHeader = null;
-    let _navActions = null;
-    let _wcoNav = null;
 
     function init() {
         _titlebar = document.getElementById('wco-titlebar');
@@ -36,12 +35,8 @@ const WCO = (() => {
         _enabled = true;
         _titlebar.style.display = 'flex';
         document.body.classList.add('wco-active');
-        // 🚀 v3.6.4: 将顶部导航按钮迁入 WCO 标题栏，实现伪沉浸统一
-        if (!_appHeader) _appHeader = document.querySelector('.header');
-        if (!_navActions) _navActions = document.querySelector('.nav-actions');
-        if (!_wcoNav) _wcoNav = document.getElementById('wcoNav');
-        if (_navActions && _wcoNav) _wcoNav.appendChild(_navActions);
-        if (_appHeader) _appHeader.classList.add('wco-moved');
+        // 🚀 v3.6.5: 不再迁移导航按钮 / 隐藏原 header —— 维持用户原设计，
+        // 仅将左侧标题栏作为透明拖拽区，右侧系统按钮由 meta theme-color 暗色呈现。
         _syncTrackTitle();
         // 🚀 v3.2.2: 启用时立即同步当前正在播放的曲目
         _syncCurrentTrack();
@@ -52,11 +47,6 @@ const WCO = (() => {
         _enabled = false;
         _titlebar.style.display = 'none';
         document.body.classList.remove('wco-active');
-        // 🚀 v3.6.4: 恢复导航按钮到原 header
-        if (_navActions && _appHeader && _wcoNav && _navActions.parentNode === _wcoNav) {
-            _appHeader.appendChild(_navActions);
-        }
-        if (_appHeader) _appHeader.classList.remove('wco-moved');
     }
 
     // 🚀 v3.2.2: 从全局播放状态同步当前曲目标题（切到 WCO 模式时兜底）

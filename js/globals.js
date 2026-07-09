@@ -219,8 +219,6 @@ let frameEnergySaving = false;     // 🎬 画面节能：仅降至30fps
 // 偏好配置
 let cfg = {
     followAccentColor: false,   // 🚀 v3.5.4: 封面取色（专辑封面取色 + 主题色逻辑；设置-外观「沉浸式外观」内开关）
-    bgImmersive: false,         // 🚀 v3.5.0: 背景沉浸（专辑封面/自定义背景全屏沉浸 + 夜间半透明黑遮罩叠加）
-    wcoPseudoImmersive: true,   // 🚀 v3.5.4: PWA WCO 标题栏伪沉浸（顶部取色驱动 theme-color）
     useOppoSans: false,         // 🚀 v3.5.4: 启用 OPPO Sans 3.0 跨域字体（R/M 字重）
     oppoSansWeight: 'R',        // 🚀 v3.5.4: OPPO Sans 字重 'R'=Regular / 'M'=Medium
     oppoKeepEnglish: false,     // 🚀 v3.5.4: OPPO Sans 仅替换中文字体，保留英文字体（Geist/CDN）

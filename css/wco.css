@@ -1,5 +1,11 @@
-/* ================= MBolka Player — WCO 标题栏样式 v3.6.3 ================= */
+/* ================= MBolka Player — WCO 标题栏样式 v3.6.7 ================= */
 
+/* 🚀 v3.6.5: 左侧自绘标题栏完全透明，直接透出主界面背景，无任何色块背景。
+   仅作为拖拽区域（app-region: drag）承载顶部拖拽，并让右侧系统窗口控制按钮（金刚键）
+   以 <meta name="theme-color"> 的暗色去饱和版本呈现。
+   🚀 v3.6.7: 重新启用「绝对水平居中歌曲标题」——WCO 标题栏内曲目标题对整窗中线绝对居中；
+   其余 WCO 状态相关特性（导航按钮迁移、标题栏伪沉浸取色）保持移除。金刚键取色始终由
+   js/theme-color.js 的 toDarkColor（封面取色开启时）逻辑驱动，不受 WCO 状态门控。 */
 .wco-titlebar {
     position: fixed;
     top: env(titlebar-area-y, 0);
@@ -7,28 +13,46 @@
     width: env(titlebar-area-width, 100vw);
     height: env(titlebar-area-height, 0);
     z-index: 99999;
-    transition: background 0.5s var(--curve-smooth, cubic-bezier(0.22,1,0.36,1));
+    background: transparent;
+    -webkit-app-region: drag;
+    app-region: drag;
+    transition: background 0.3s var(--curve-smooth, cubic-bezier(0.22,1,0.36,1));
     overflow: hidden;
-    /* 🚀 v3.6.4: WCO 标题栏 = 右侧亮色块的「去饱和灰度」版本（左侧色块算法），
-       由 js/theme-color.js 计算并注入 --wco-theme-color；叠加顶部微光渐变增加层次 */
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 100%),
-        var(--wco-theme-color, rgba(10, 10, 26, 0.55));
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px 0 20px;
-    box-sizing: border-box;
 }
-.wco-titlebar::before {
-    content: '';
+
+/* 标题栏内部视觉元素：品牌 / 导航按钮 保持隐藏（由主界面 .header 正常呈现），
+   仅保留「绝对水平居中歌曲标题」——曲目标题对整窗中线绝对居中，作为窗口标题展示。 */
+.wco-titlebar .wco-brand,
+.wco-titlebar .wco-nav {
+    display: none;
+}
+
+/* 🚀 v3.6.7: WCO 标题栏「绝对水平居中歌曲标题」——
+   曲目标题对整窗中线绝对居中（left:50% + translateX(-50%)），不进入布局流、不阻挡拖拽。
+   仅作窗口标题展示，提升 WCO 下的信息可读性；右侧系统金刚键背景始终由 <meta name="theme-color"> 驱动。 */
+.wco-titlebar .wco-track-title {
+    display: block;
     position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 100%);
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: max-content;
+    max-width: calc(100vw - 220px);  /* 预留右侧系统金刚键空间，避免长标题压字 */
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main, #f2eee8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    -webkit-app-region: drag;
+    app-region: drag;
     pointer-events: none;
+    z-index: 1;
 }
+
 .wco-drag-region {
     position: relative;
     z-index: 1;
@@ -37,57 +61,12 @@
     gap: 8px;
     -webkit-app-region: drag;
     app-region: drag;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
     flex: 1;
     min-width: 0;
 }
-.wco-brand {
-    font-size: 14px;
-    color: var(--primary, #e8b4b8);
-    flex-shrink: 0;
-}
-.wco-track-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-main, #f2eee8);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    letter-spacing: 0.2px;
-    -webkit-app-region: drag;
-    app-region: drag;
-}
-.wco-nav {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    -webkit-app-region: no-drag;
-    app-region: no-drag;
-    flex-shrink: 0;
-    margin-right: 120px; /* 为系统窗口控制按钮留出空间（最小/最大/关闭） */
-}
-.wco-nav .btn-glass {
-    padding: 4px 10px;
-    font-size: 12px;
-    gap: 4px;
-    border-radius: 10px;
-    height: 28px;
-}
-.wco-nav .btn-glass .btn-icon {
-    width: 14px;
-    height: 14px;
-}
-.wco-titlebar button,
-.wco-titlebar input,
-.wco-titlebar [role="button"] {
-    -webkit-app-region: no-drag;
-    app-region: no-drag;
-}
+
+/* 保留原 header（含「列表 / 歌词 / 曲库 / 设置」四大按键）在 WCO 模式下正常显示，
+   不隐藏、不迁移到标题栏 —— 维持用户原本的界面布局与居中的曲目标题 */
 body.wco-active .player-wrapper {
     padding-top: env(titlebar-area-height, 0);
-}
-body.wco-active .header {
-    display: none;
 }

@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.6.4
+# MBolka Player - Ultimate Nexus v3.6.6
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.6.4-blue)
+![Version](https://img.shields.io/badge/version-3.6.6-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -183,7 +183,28 @@
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
 
-### v3.6.3 (2026-07-09) — 审计采纳 + 创作信息补全 + 点击复制 + 进度条偏移 + coverflow 调整（最新）
+### v3.6.6 (2026-07-10) — 深色主题取色算法（PWA WCO 标题栏）+ 移除标题栏状态判断 + 沉浸式外观位置调整（最新）
+
+- **合并「深色主题取色算法」为 WCO 标题栏取色**：`js/theme-color.js` 引入 `rgbToHsl`/`hslToRgb`/`toDarkColor`（基于 18 组实测拟合，平均通道偏差 4.1/255），将专辑封面亮色 RGB 映射为暗色沉浸底色 `hsl(H,79%,5%)`，粉色区间（H∈[335,360]∪[0,5] 且 S>28%、L>61%）做 −56° 偏移；删除旧的去饱和灰度 `_toGrayscale`
+- **取色逻辑简化**：无论 Chrome 是否隐藏标题栏，只要开启「封面取色」标题栏即运用该算法；关闭则回落主题色（深色 `#0e0c16` / 默认色 / 兜底色）
+- **移除「标题栏伪沉浸」判断**：删除 `cfg.wcoPseudoImmersive` 配置项、设置存取字段、设置开关卡片与相关事件/同步逻辑；深色/护眼切换新增 `ThemeColor.onDarkModeChange()` 刷新
+- **沉浸式外观位置调整**：设置-外观「沉浸式外观（封面取色）」区块移至「主题色」下方、「背景图片」上方
+
+### v3.6.5 (2026-07-09) — WCO 配色修正 + 创作卡片对齐/沉浸-PiP 适配 + 移除预览条/背景沉浸 + 曲库自动定位
+
+- **WCO 标题栏配色修正**：左侧自绘标题栏改为透明直接透出背景（不渲染色块）；暗色去饱和结果改写入 `<meta theme-color>` 驱动右侧系统金刚键背景（伪沉浸融合主背景）；恢复原 header 与四大按键在 WCO 下正常显示
+- **创作信息卡片对齐跟随设置**：`.lrc-credits` 系列 `text-align`/`justify-content` 改用 `var(--lrc-align)`，跟随歌词对齐（居中/左对齐）
+- **沉浸/PiP 跳过创作信息首行卡片**：`audio-core.js`/`pip.js` 遇 `isCredits` 向前定位首行实际歌词，下一行计算跳过卡片行，不再 time 0 显示空白
+- **移除封面取色渐变预览条**：删除 `#colorModePreview` DOM 与 `ui-core.js` 相关更新逻辑（依赖 `currentAlbumColor` 不即时刷新、显示滞后易误导）
+- **移除「背景沉浸」功能**：与「深色/护眼模式」压暗护眼能力重合，删除 `#bg-immersive-scrim` 遮罩、开关卡片、`cfg.bgImmersive`、存取字段及 `applyBgImmersive()`
+- **曲库打开自动定位当前专辑**：`cover-lib.js` 新增 `focusCurrentAlbumInCoverLib()`，按专辑视图打开即把正在播放专辑滚到封面流正中并高亮（窗口化未挂载时强制追加渲染后再居中）
+
+### v3.6.4 (2026-07-09) — 创作信息注入歌词行 + 歌曲/歌手名不可拖拽
+
+- **创作信息卡片注入为 `[00:00.00]` 歌词行**：整卡作为首行歌词嵌入歌词流，保留完整排版，AI 标记行内（注：本版 WCO 沉浸/去饱和灰度描述已在 v3.6.5 修正回退）
+- **歌曲/歌手名不可拖拽选中**：`user-select:none` + `-webkit-user-drag:none` + `draggable=false` + `dragstart`/`selectstart` `preventDefault`
+
+### v3.6.3 (2026-07-09) — 审计采纳 + 创作信息补全 + 点击复制 + 进度条偏移 + coverflow 调整
 
 - **审计 v2 采纳**：无障碍（`prefers-reduced-motion` / 滚动条 / focus-visible）、动画节能（CSS 属性精确化/发光半径/透明度）、JS 健壮性（多文件 `isFinite` / `isConnected` 守卫 / 常量提取）
 - **歌词创作信息补全**：文案/古筝/古筝编写/小提琴/小提琴编写 角色入正则
@@ -742,7 +763,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.6.4
+MBolka Player v3.6.6
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -806,4 +827,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.6.4**
+**© MocaBolka 2026 | v3.6.6**

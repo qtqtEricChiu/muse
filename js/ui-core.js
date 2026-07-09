@@ -385,22 +385,13 @@ function updateSettingsUI() {
         btn.style.color = cfg.followAccentColor ? 'var(--primary)' : '';
         btn.style.borderColor = cfg.followAccentColor ? 'var(--primary)' : '';
     }
-    // 🚀 v2.8: 更新取色模式状态标签与预览条
+    // 🚀 v2.8: 更新取色模式状态标签
     const label = document.getElementById('colorModeLabel');
     if (label) label.innerHTML = cfg.followAccentColor ? iconSvg('check') + ' 取色模式已激活 · 专辑封面驱动全域色彩' : iconSvg('square') + ' 取色模式未激活 · 使用预设主题色';
-    const preview = document.getElementById('colorModePreview');
-    if (preview) {
-        preview.style.display = cfg.followAccentColor ? 'block' : 'none';
-        if (cfg.followAccentColor && currentAlbumColor) preview.style.background = `linear-gradient(90deg, ${currentAlbumColor}, ${cfg.defaultColor})`;
-    }
-    // 🚀 v3.5.4: 同步外观新增开关（封面取色 / 背景沉浸）
+    // 🚀 v3.6.5: 移除封面取色下方的渐变色预览条（#colorModePreview），因取色结果不会即时刷新，预览条易误导
+    // 🚀 v3.5.4: 同步外观新增开关（封面取色 / 标题栏伪沉浸）
     const faToggle = document.getElementById('followAccentToggle');
     if (faToggle) faToggle.checked = cfg.followAccentColor;
-    const biToggle = document.getElementById('bgImmersiveToggle');
-    if (biToggle) biToggle.checked = cfg.bgImmersive;
-    // 🚀 v3.5.4: 同步标题栏伪沉浸开关
-    const wpiToggle = document.getElementById('wcoPseudoImmersiveToggle');
-    if (wpiToggle) wpiToggle.checked = cfg.wcoPseudoImmersive;
     // 🚀 v3.5.4: 同步 OPPO Sans 开关与字重
     const osToggle = document.getElementById('useOppoSansToggle');
     if (osToggle) osToggle.checked = cfg.useOppoSans;
@@ -461,27 +452,9 @@ if (followAccentToggle) followAccentToggle.addEventListener('change', () => {
     showToast(cfg.followAccentColor ? "已开启封面取色" : "已关闭封面取色", iconSvg('palette'));
 });
 
-// 🚀 v3.5.0: 设置-外观「背景沉浸」开关（专辑封面/自定义背景全屏沉浸 + 夜间半透明黑遮罩叠加）
-const bgImmersiveToggle = document.getElementById('bgImmersiveToggle');
-if (bgImmersiveToggle) bgImmersiveToggle.addEventListener('change', () => {
-    cfg.bgImmersive = bgImmersiveToggle.checked;
-    updateSettingsUI();
-    applyBgImmersive();
-    saveSettings();
-    showToast(cfg.bgImmersive ? "已开启背景沉浸" : "已关闭背景沉浸", iconSvg('images'));
-});
 
 
 
-// 🚀 v3.5.4: 设置-外观「标题栏伪沉浸」开关（PWA 标题栏 theme-color 取封面/背景顶部颜色融合）
-const wcoPseudoImmersiveToggle = document.getElementById('wcoPseudoImmersiveToggle');
-if (wcoPseudoImmersiveToggle) wcoPseudoImmersiveToggle.addEventListener('change', () => {
-    cfg.wcoPseudoImmersive = wcoPseudoImmersiveToggle.checked;
-    updateSettingsUI();
-    if (typeof ThemeColor !== 'undefined') ThemeColor.refresh();
-    saveSettings();
-    showToast(cfg.wcoPseudoImmersive ? "已开启标题栏伪沉浸" : "已关闭标题栏伪沉浸", iconSvg('layers'));
-});
 
 // 🚀 v3.5.4: 设置-外观「启用 OPPO Sans」开关
 const useOppoSansToggle = document.getElementById('useOppoSansToggle');
@@ -1407,29 +1380,16 @@ const applyThemeLogic = () => {
         //           ThemeColor.updateTopColor(null);  // <-- 删除
     }
 
-    // 🚀 v3.5.0: 背景沉浸遮罩随每次主题/背景刷新重算（确保与当前背景、夜间模式同步）
-    applyBgImmersive();
     // 🩹 v3.5.1: 确保最终刷新 theme-color（配合 audio-core 的顶部取色 + followAccentColor 路径）
     if (typeof ThemeColor !== 'undefined') ThemeColor.refresh();
-};
-
-// 🚀 v3.5.0: 背景沉浸 — 把专辑封面/自定义背景变为全屏沉浸背板，并在夜间模式下叠加半透明黑遮罩。
-// 遮罩采用「分层 alpha-over 合成」：沉浸基础遮罩(baseScrim) 与 夜间黑遮罩(darkScrim) 按
-// 1-(1-a)*(1-b) 叠加计算，保证两者同时存在时不会简单相加溢出，而是正确加深而不丢失背景层次。
-const applyBgImmersive = () => {
-    const on = !!cfg.bgImmersive;
-    document.body.classList.toggle('bg-immersive', on);
-    const baseScrim = on ? 0.38 : 0;
-    const darkScrim = (on && cfg.darkMode) ? 0.45 : 0;
-    const finalAlpha = 1 - (1 - baseScrim) * (1 - darkScrim); // 叠加计算
-    document.documentElement.style.setProperty('--bg-scrim-alpha', finalAlpha.toFixed(3));
 };
 
 function toggleDarkMode(force) {
     cfg.darkMode = force != null ? force : !cfg.darkMode;
     document.body.classList.toggle('dark-mode', cfg.darkMode);
     updateDarkModeUI();
-    applyBgImmersive(); // 🚀 v3.5.0: 夜间模式切换需重算沉浸遮罩叠加
+    // 🚀 v3.6.6: 深色/护眼模式切换时同步刷新 PWA 标题栏配色（关闭封面取色时标题栏用主题色，含暗色分支）
+    if (typeof ThemeColor !== 'undefined') ThemeColor.onDarkModeChange(cfg.darkMode);
     saveSettings();
     showToast(cfg.darkMode ? "已开启深色/护眼模式" : "已恢复标准模式", cfg.darkMode ? iconSvg('moon') : iconSvg('sun'));
 };

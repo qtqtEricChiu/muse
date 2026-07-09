@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBolka Player - Ultimate Nexus v3.6.4</title>
+    <title>MBolka Player - Ultimate Nexus v3.6.6</title>
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
@@ -361,8 +361,6 @@
     <!-- 动态背景层 -->
     <div id="bg-layer-img"></div>
     <canvas id="bg-layer-color"></canvas>
-    <!-- 🚀 v3.5.0: 背景沉浸遮罩层（位于背景层之上、视图容器之下；夜间模式黑遮罩与之分层 alpha-over 合成） -->
-    <div id="bg-immersive-scrim"></div>
 
     <!-- 沉浸模式粒子频谱背景 -->
     <canvas id="immersive-bg-canvas"></canvas>
@@ -608,6 +606,21 @@
                 <div class="theme-preset-grid" id="themePresetGrid"></div>
                 <p class="settings-hint settings-hint-after-card">提示：取色模式开启时，专辑封面颜色自动覆盖预设主题</p>
             </div>
+            <!-- 🚀 v3.6.6: 沉浸式外观（封面取色），移至主题色下方、背景图片上方；已移除「标题栏伪沉浸」开关 -->
+            <div class="drawer-box accent-appearance" data-tab-group="1">
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 沉浸式外观</div>
+                <p class="settings-hint settings-hint-after-title">自动提取专辑封面颜色，驱动全域强调色随封面动态变化</p>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 封面取色</span>
+                        <span class="settings-toggle-card-desc">自动提取专辑封面颜色驱动全域强调色；开启时 PWA 标题栏同步运用深色取色算法</span>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0">
+                        <input type="checkbox" id="followAccentToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-images"/></svg> 背景图片</div>
                 <button class="btn-glass focusable settings-btn-full" id="btnSetBg"><svg class="ui-ico"><use href="#icon-images"/></svg> 上传图片</button>
@@ -627,42 +640,6 @@
                 <div class="settings-slider-row">
                     <input type="range" class="focusable" id="blurSlider" min="0" max="100" value="40">
                     <span class="settings-slider-value" id="blurSliderVal">40px</span>
-                </div>
-            </div>
-            <!-- 🚀 v3.5.4: 沉浸式外观（封面取色 + 背景沉浸），已移至设置-外观选项卡 -->
-            <div class="drawer-box accent-appearance" data-tab-group="1">
-                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 沉浸式外观</div>
-                <p class="settings-hint settings-hint-after-title">让专辑封面/自定义背景成为全屏沉浸背板，并控制封面取色驱动强调色</p>
-                <div class="settings-toggle-card">
-                    <div class="settings-toggle-card-body">
-                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 封面取色</span>
-                        <span class="settings-toggle-card-desc">自动提取专辑封面颜色驱动全域强调色（与背景沉浸同源）</span>
-                    </div>
-                    <label class="toggle-switch focusable" tabindex="0">
-                        <input type="checkbox" id="followAccentToggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div id="colorModePreview" style="display:none;height:8px;border-radius:4px;margin-top:4px;margin-bottom:8px;transition:background 0.5s;"></div>
-                <div class="settings-toggle-card">
-                    <div class="settings-toggle-card-body">
-                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-images"/></svg> 背景沉浸</span>
-                        <span class="settings-toggle-card-desc">背景全屏沉浸；开启深色模式时自动叠加半透明黑遮罩（分层 alpha 合成）</span>
-                    </div>
-                    <label class="toggle-switch focusable" tabindex="0">
-                        <input type="checkbox" id="bgImmersiveToggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div id="wcoPseudoImmersiveBox" class="settings-toggle-card">
-                    <div class="settings-toggle-card-body">
-                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-layers"/></svg> 标题栏伪沉浸</span>
-                        <span class="settings-toggle-card-desc">PWA 标题栏（theme-color）根据封面/背景顶部颜色取色融合；关闭后使用主题色</span>
-                    </div>
-                    <label class="toggle-switch focusable" tabindex="0">
-                        <input type="checkbox" id="wcoPseudoImmersiveToggle">
-                        <span class="toggle-slider"></span>
-                    </label>
                 </div>
             </div>
             <!-- 🚀 v3.5.4: 字体（OPPO Sans 3.0 跨域启用 + R/M 字重选项），归入设置-外观选项卡 -->
@@ -954,7 +931,7 @@
             </div>
                 </div>
                 <div class="settings-footer">
-                    ©MocaBolka 2026 v3.6.4<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
+                    ©MocaBolka 2026 v3.6.6<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
                 </div>
             </div>
         </div>

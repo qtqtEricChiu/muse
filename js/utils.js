@@ -46,7 +46,7 @@ const saveSettingsNow = () => {
     try {
         localStorage.setItem('MBolka_Cfg_v3', JSON.stringify({
             // 🚀 核心修复：只保存滑块的物理数值，防止保存淡入淡出时的临时"0"音量
-            followAccentColor: cfg.followAccentColor, bgImmersive: cfg.bgImmersive, wcoPseudoImmersive: cfg.wcoPseudoImmersive, useOppoSans: cfg.useOppoSans, oppoSansWeight: cfg.oppoSansWeight, oppoKeepEnglish: cfg.oppoKeepEnglish, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
+            followAccentColor: cfg.followAccentColor, useOppoSans: cfg.useOppoSans, oppoSansWeight: cfg.oppoSansWeight, oppoKeepEnglish: cfg.oppoKeepEnglish, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
             isShuffle: isShuffle, isRepeatOne: isRepeatOne,
             customBgImg: cfg.customBgImg, customBgColor: cfg.customBgColor, customBgTopColor: cfg.customBgTopColor,
             darkMode: cfg.darkMode, lrcFontSize: cfg.lrcFontSize,
@@ -110,8 +110,6 @@ const loadSettings = () => {
         const stored = JSON.parse(localStorage.getItem('MBolka_Cfg_v3') || localStorage.getItem('MBolka_Cfg_v2'));
         if (stored) {
             cfg.followAccentColor = stored.followAccentColor ?? stored.colorMode ?? false;
-            cfg.bgImmersive = stored.bgImmersive ?? false;
-            cfg.wcoPseudoImmersive = stored.wcoPseudoImmersive ?? true;
             cfg.useOppoSans = stored.useOppoSans ?? false;
             cfg.oppoSansWeight = stored.oppoSansWeight ?? 'R';
             cfg.oppoKeepEnglish = stored.oppoKeepEnglish ?? false;

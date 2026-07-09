@@ -2,7 +2,124 @@
 
 ---
 
+## v3.6.7 (2026-07-10) — 重新启用 WCO「绝对水平居中歌曲标题」（仅保留此项 Chrome 标题栏状态特性）
+
+### 背景
+v3.6.6 移除了所有「判断 Chrome 标题栏状态（WCO 是否隐藏原生标题栏）」相关逻辑，连同原本依赖该状态的「WCO 标题栏完全窗口水平居中」也随之失效（v3.6.5 起 `.wco-track-title` 被 `display:none` 隐藏）。用户重新评估后认为该标题居中仍有价值，要求加回「Chrome 标题栏状态」判断，但仅保留「绝对水平居中歌曲标题」这一项；其余两项（导航按钮迁移至标题栏、标题栏伪沉浸顶部取色）维持移除。金刚键取色始终由最新版 `theme-color.js` 逻辑驱动，不受 WCO 状态门控。
+
+### 改动
+1. **CSS（`css/wco.css`）**：
+   - 原「`.wco-brand` / `.wco-track-title` / `.wco-nav` 全部 `display:none`」拆分为：仅隐藏 `.wco-brand` 与 `.wco-nav`（主界面 `.header` 既有呈现不变）。
+   - 新增 `.wco-titlebar .wco-track-title`：曲目标题 `position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%)` 于整窗中线**绝对水平（并垂直）居中**；`max-width: calc(100vw - 220px)` 预留右侧系统金刚键空间避免压字；`pointer-events: none` 不阻挡标题栏拖拽，`app-region: drag` 仍使整条可拖。
+   - 更新文件头版本号与注释（v3.6.7），说明仅保留居中标题、其余 WCO 状态特性已移除。
+2. **JS / 取色逻辑（无需改动，仅确认）**：
+   - 金刚键（系统窗口控制按钮）背景始终由 `<meta name="theme-color">` 驱动（v3.6.6 的 `toDarkColor` 算法 + 封面取色开关门控），**不**受 WCO 可见性判断影响 —— 符合「金刚键取色始终遵循最新版本标题栏取色逻辑」。
+   - `js/wco.js` 的 `setTrack` / `_syncTrackTitle` 接线自 v3.6.5 起已保留（`audio-core.js` 切歌调用 `WCO.setTrack`、`app.js` 调用 `WCO.init()`），标题栏标题随切歌即时刷新。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 200.8 KB / style.min.css 75.2 KB）。
+- ✅ `read_lints` 0 错误。
+- ✅ WCO 启用（原生标题栏不可见，如 Windows Chrome PWA 开启 WCO）时，标题栏曲目标题对整窗中线绝对水平居中。
+- ✅ 导航按钮迁移、标题栏伪沉浸顶部取色维持移除；金刚键配色始终跟随 `theme-color.js` 最新逻辑。
+
+## v3.6.6 (2026-07-10) — 合并深色主题取色算法（PWA WCO 标题栏）+ 移除 Chrome 标题栏状态判断 + 沉浸式外观位置调整
+
+### 背景
+v3.6.5 用「去饱和灰度」算法派生 WCO 右侧金刚键背景，并由 `wcoPseudoImmersive`（标题栏伪沉浸）开关来「判断 Chrome 是否隐藏标题栏」才应用顶部取色。用户给出更优方案：
+1. 用一份实测拟合的「深色主题取色算法」（`toDarkColor`：输入封面亮色 RGB → 输出 `hsl(H,79%,5%)` 暗色，粉色区间做 −56° 偏移）作为 PWA WCO 标题栏取色算法。
+2. **无论 Chrome 是否隐藏标题栏**，只要开启「封面取色」，标题栏即运用该算法；关闭「封面取色」则继续应用主题色。
+3. 移除所有「判断 Chrome 标题栏状态」的相关逻辑（`wcoPseudoImmersive` 及其门控）。
+4. 设置-外观中「沉浸式外观」区块移至「主题色」下方、「背景图片」上方。
+
+### 一、合并深色主题取色算法（PWA WCO 标题栏）
+**改动（`js/theme-color.js`）**：
+- 引入 `rgbToHsl` / `hslToRgb` / `toDarkColor`（来自 `dark-theme-color.js`，基于 18 组实测拟合，平均通道偏差 4.1/255）；新增包装函数 `_toDarkColorStr(colorStr)` 解析任意 CSS 颜色并输出暗色结果字符串。
+- 删除旧的 `_toGrayscale`（去饱和灰度）算法。
+- 重写 `_applyColor()`：
+  - 计算「主题色基准」（`themeColor`）：深色模式 → `#0e0c16`；否则 `cfg.defaultColor`；再否则兜底 `FALLBACK_COLOR`。
+  - **封面取色开启（`cfg.followAccentColor` 且存在专辑色）** → 标题栏 `wcoColor = toDarkColor(专辑封面亮色)`（同时写入 `<meta name="theme-color">` 与 `--wco-theme-color`）。
+  - **封面取色关闭** → 标题栏继续应用 `themeColor`（主题色）。
+  - 不再判断 `wcoPseudoImmersive` / WCO 是否可见。
+- `update / updateTopColor / refresh / onDarkModeChange` 接口保留；`updateTopColor` 仅兼容存储 `_topColor`，不再参与标题栏取色。
+
+### 二、移除 Chrome 标题栏状态判断
+- **JS（`js/globals.js`）**：删除配置项 `wcoPseudoImmersive`。
+- **JS（`js/utils.js`）**：删除 `saveSettings` / `loadSettings` 中的 `wcoPseudoImmersive` 字段。
+- **JS（`js/ui-core.js`）**：删除 `updateSettingsUI()` 中「标题栏伪沉浸」开关同步、`设置-外观-标题栏伪沉浸` 事件监听；`toggleDarkMode()` 新增 `ThemeColor.onDarkModeChange(cfg.darkMode)` 调用，确保深色/护眼切换时标题栏配色正确刷新。
+- **HTML（`index.html`）**：删除设置-外观「标题栏伪沉浸」开关卡片（`id="wcoPseudoImmersiveToggle"`）。
+
+### 三、沉浸式外观位置调整
+- **HTML（`index.html`）**：将「沉浸式外观」区块（含「封面取色」开关）从原「背景图片 / 显示调节」之后，移至「主题色」区块**下方**、「背景图片」区块**上方**（保留 `accent-appearance` / `data-tab-group="1"` 归属）。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 200.7 KB / style.min.css 74.8 KB）。
+- ✅ `read_lints` 多文件 0 错误。
+- ✅ 全仓已无 `wcoPseudoImmersive` / `wcoPseudoImmersiveToggle` / `_toGrayscale` / `bg-immersive` / `applyBgImmersive` 代码引用（仅 `theme-color.js` 注释中保留说明性提及）。
+- ✅ 封面取色开启时标题栏运用 `toDarkColor` 暗色算法；关闭时回退主题色；深色模式切换正确刷新。
+
+## v3.6.5 (2026-07-09) — WCO 标题栏配色修正 / 创作信息卡片对齐与沉浸-PiP 适配 / 移除封面取色预览条 / 移除背景沉浸功能 / 曲库打开自动定位当前专辑
+
+### 背景
+上一版（v3.6.4）在 WCO、创作信息卡片、封面取色预览等位置均存在不符合用户当前设计意图的问题。本次统一修正为 v3.6.5，包含：WCO 标题栏配色映射回正、创作信息卡片对齐与沉浸/PiP 适配、移除封面取色下方不会即时刷新的渐变色预览条、移除与护眼模式能力重合的「背景沉浸」功能，并新增「曲库打开自动定位当前正在播放专辑」。
+
+### 一、WCO 标题栏配色修正（左侧透明 / 右侧系统按钮暗色去饱和）
+v3.6.4 把「去饱和灰度」算法错误地套在了 **左侧自绘标题栏**（色块），而 `<meta name="theme-color">`（控制**右侧**系统按钮）仍用亮色——正好相反。用户明确需求：**左侧标题栏正常透明化、直接透出背景、无任何色块；右侧系统窗口控制按钮背景做成暗色、伪沉浸适配真实主界面背景色**。
+
+去饱和灰度算法本身不变：`L = 0.299R + 0.587G + 0.114B`，三通道统一 `R=G=B=L`。
+- **映射纠正**：该暗色结果现在写入 `<meta name="theme-color">` → 驱动 **右侧系统窗口控制按钮（金刚键）背景**（暗色去饱和，伪沉浸融合主背景）。
+- **左侧自绘标题栏**：背景改为 `transparent`，直接透出主界面背景，不渲染任何色块 / 渐变。
+
+#### 改动
+1. **JS（`js/theme-color.js`）**：`_applyColor()` 末尾改为 `getMeta().setAttribute('content', _toGrayscale(color))`（右侧按钮 = 暗色去饱和）；`--wco-theme-color` 仅作备用变量保留，自绘标题栏不再以其作背景块。文件头注释同步更新为 v3.6.5。
+2. **CSS（`css/wco.css`）**：`.wco-titlebar` 背景由色块 / 渐变改为 `transparent`；删除 `::before` 微光层、`border-bottom`、`box-shadow`；隐藏 `.wco-brand / .wco-track-title / .wco-nav`（保持透明、不破坏原设计）。**删除 `body.wco-active .header { display: none }`**，使原 header（含四大按键）在 WCO 下正常显示。
+3. **JS（`js/wco.js`）**：移除「将 `.nav-actions` 迁入 `.wco-nav` / 隐藏原 header / 添加 `wco-moved`」整套逻辑，仅保留透明标题栏作为拖拽区 + 同步曲目标题（元素仍保留在 DOM，仅视觉隐藏）。文件头注释更新为 v3.6.5。
+
+### 二、创作信息卡片对齐跟随设置 + 沉浸/PiP 跳过首行歌词卡片
+v3.6.4 把创作信息注入为歌词流首行（`[00:00.00]` 卡片行，`isCredits: true`）后暴露两个问题：
+1. 创作信息卡片始终左对齐，不跟随「设置 → 外观 → 歌词显示 → 对齐方式」（居中 / 左对齐）。
+2. 沉浸模式与画中画（PiP）也把该卡片行当作普通歌词行识别，time 0 时因卡片无 `.text` 而显示为空白，未能从首行实际歌词开始。
+
+#### 改动
+1. **CSS（`css/base-layout.css`）**：`.lrc-credits` 的 `text-align` 由硬编码 `left` 改为 `var(--lrc-align)`；内部 `.lrc-credits-row` 增加 `justify-content: var(--lrc-align)`（标签+值整体居中/居左）；`.lrc-credits-val` 的 `text-align` 由 `left` 改为 `var(--lrc-align)`（换行后跟随对齐）。主界面创作信息卡片现随对齐设置变化。
+2. **JS（`js/audio-core.js` 沉浸 `syncLyrics`）**：当前行若为创作信息卡片行（`isCredits`）或 break/blank，向上查找最后有内容的歌词行；若当前即首行卡片（向上无果），则向前定位首行实际歌词；下一行计算改用 `curDisplayIdx + 1` 并跳过 `isCredits`。
+3. **JS（`js/pip.js` `updatePipUI`）**：PiP 当前行遇 `isCredits` 同样向前取首行实际歌词；下一行跳过 `isCredits`。
+
+### 三、移除封面取色下方的渐变色预览条
+设置-外观-沉浸式外观中，「封面取色」开关下方有一条 `#colorModePreview` 渐变色预览条（展示当前专辑取色到主题色的渐变）。该预览条依赖 `currentAlbumColor`，但取色结果并非即时刷新，用户反馈其显示滞后、容易误导，要求移除。
+
+#### 改动
+1. **HTML（`index.html`）**：删除 `<div id="colorModePreview" style="display:none;height:8px;border-radius:4px;margin-top:4px;margin-bottom:8px;transition:background 0.5s;"></div>`。
+2. **JS（`js/ui-core.js`）**：删除 `updateSettingsUI()` 中对该 preview 的 `display` 与 `background` 更新逻辑，保留取色模式状态标签的更新。
+
+### 四、移除「背景沉浸」功能（与护眼模式能力重合）
+设置-外观-「沉浸式外观」中原有的「背景沉浸」开关（`bgImmersive`）其作用为：开启后让主界面播放器更透明以露出全屏背景，并在开启「深色/护眼模式」时自动叠加一层半透明黑色遮罩（`#bg-immersive-scrim`，opacity 0.38 基础 + 0.45 夜间，分层 alpha 合成）。该遮罩本质即「压暗屏幕、护眼」的效果，与「深色/护眼模式」（`darkMode`）的核心能力高度重合，属于冗余功能。用户判定二者为相同或相似能力，要求移除「背景沉浸」。
+
+#### 改动
+1. **CSS（`css/base-layout.css` / `css/style.css`）**：删除 `#bg-immersive-scrim` 遮罩层规则，以及 `body.bg-immersive .player-wrapper` 的播放器透明化规则。
+2. **HTML（`index.html`）**：删除动态背景层中的 `<div id="bg-immersive-scrim">`；删除设置-外观「沉浸式外观」内的「背景沉浸」开关卡片（`id="bgImmersiveToggle"`）；同步更新沉浸式外观提示文案（不再提及「全屏沉浸背板」）。
+3. **JS（`js/globals.js`）**：删除配置项 `bgImmersive: false`。
+4. **JS（`js/utils.js`）**：删除设置存取（`saveSettings` / `loadSettings`）中的 `bgImmersive` 字段。
+5. **JS（`js/ui-core.js`）**：删除 `updateSettingsUI()` 中 `bgImmersiveToggle` 的同步、`设置-外观-背景沉浸开关` 的事件监听、`applyThemeLogic()` 与 `toggleDarkMode()` 中对 `applyBgImmersive()` 的调用，以及 `applyBgImmersive()` 函数定义本身。
+
+### 五、曲库打开自动定位当前正在播放专辑（按专辑默认视图）
+打开曲库进入「按专辑」coverflow 默认视图时，此前总是停在列表首个专辑，用户需手动滚动才能找到正在播放的专辑。本次新增：打开曲库后自动把「当前正在播放专辑」平滑滚动至封面流正中并高亮。
+
+#### 改动
+1. **JS（`js/cover-lib.js`）**：新增 `focusCurrentAlbumInCoverLib()`——仅在 `coverLibSortMode === 'album'` 生效；取 `playlist[currentIndex].album`，在已分组的 `_clEntries` 中按专辑名定位目标索引；若目标索引超出窗口化已渲染量（`_clRendered`），先 `renderCoverLibMore()` 强制追加渲染（含 `CL_CHUNK` 余量）；再以轮询（最多 50 次 × 30ms）等待目标卡片入 DOM 后调用 `setCoverLibCenter(targetIdx)` 居中。在 `showCoverLibrary()` 的 200ms 渲染后定时器中、`refreshCoverLibAfterRender()` 之后调用。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 200.7 KB / style.min.css 74.8 KB）。
+- ✅ `read_lints` 多文件 0 错误。
+- ✅ 全仓已无 `bgImmersive` / `bg-immersive` / `applyBgImmersive` / `bg-scrim-alpha` 残留引用（已二次全仓检索确认）。
+- ✅ WCO 左侧标题栏透明、右侧系统按钮暗色去饱和；原 header 与四大按键在 WCO 下正常显示。
+- ✅ 创作信息卡片仅作用于主界面，沉浸 / PiP 直接从首行实际歌词开始。
+- ✅ 封面取色开关下方无滞后渐变色预览条。
+- ✅ 「深色/护眼模式」独立保留，可正常切换并驱动整体暗色主题（不再叠加冗余的黑遮罩）。
+- ✅ 曲库「按专辑」视图打开即定位当前播放专辑并居中高亮（窗口化未挂载时强制追加渲染后再居中）。
+
 ## v3.6.4 (2026-07-09) — 创作信息注入[00:00.00]歌词行 + WCO 标题栏沉浸/去饱和灰度配色 + 歌曲/歌手名不可拖拽
+
+> ⚠️ 本节「一 / 二」的 WCO 描述已在 **v3.6.5** 中修正并回退：左侧标题栏改为透明、右侧系统按钮改为暗色去饱和（算法映射纠正），且取消「四大按键迁入标题栏 / 隐藏原 header / 曲目标题左移」。歌词注入与「歌曲 / 歌手名不可拖拽」两项保留。
 
 ### 一、WCO 标题栏配色：去饱和灰度算法（取代直接复用亮色）
 
@@ -136,22 +253,24 @@ $$R_{左} = G_{左} = B_{左} = L$$
 
 ---
 
-### 🎵 歌词创作信息正则补全：文案/古筝/小提琴/MV制作/粤语/Lyricist 等角色
+### 🎵 歌词创作信息正则补全：文案/古筝/小提琴/MV制作/粤语/Lyricist/双语中文+英文连写 等角色
 
 ### 背景
-用户提供了三批创作信息样例，其中 文案、古筝、古筝编写、小提琴、小提琴编写、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢、Lyricist(中文词) 等角色此前不在角色清单中，会被误判为歌词，导致 `lyricStart` 过早截止、其后的创作信息全部丢失。
+用户提供了四批创作信息样例，其中 文案、古筝、古筝编写、小提琴、小提琴编写、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢、Lyricist(中文词)、以及第四批的 钢琴/吉他编写/吉他录音师/小提琴独奏/弦乐录音室/人声配唱/录音工程师/人声录音棚/混音录音室/母带后期处理工程师/母带后期录音室 等角色此前不在角色清单中，会被误判为歌词，导致 `lyricStart` 过早截止、其后的创作信息全部丢失。第四批另含大量「中文角色 + 英文角色」连写格式（如 `词Lyricist：`、`钢琴Piano：`），此前因中文角色后紧跟英文而非冒号而无法命中。
 
 ### 改动
 **`js/audio-core.js`（Phase 4 创作信息模式检测）**：
-1. **`CREDIT_PAT`（单行正则）** 新增角色：`文案、古筝编写、古筝、小提琴编写、小提琴、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢`。长词条排在前（古筝编写 > 古筝、小提琴编写 > 小提琴、音乐制作/MV制作 > 制作），避免短词条优先截断长词条。
-2. **`CREDIT_MULTI_PAT`（多角色合并正则）** 同步新增上述角色，支持如 `古筝/古筝编写：紫格`、`作曲/音乐制作：苏逸Suyi`、`贝斯/混音：苏逸Suyi` 这类合并行。
-3. **`OA_OC_PAT`** 新增 `Lyricist`，支持 `Lyricist(中文词)：` 这类「英文角色 + 括号中文注解」格式（与已有 `Arranger(编曲)` / `Producer(制作人)` / `Presented By` 同走 `(\(.+?\))?` 分支，标签保留括号内的中文注解）。
-4. 角色清单仅在 `audio-core.js` 一处维护，已与正则同步。
+1. **`CREDIT_PAT`（单行正则）** 新增角色：`文案、古筝编写、古筝、小提琴编写、小提琴、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢、钢琴、吉他编写、吉他录音师、小提琴独奏、弦乐录音室、人声配唱、录音工程师、人声录音棚、混音录音室、母带后期处理工程师、母带后期录音室、合声`。长词条排在前避免截断。
+2. **「中文角色 + 英文角色」连写支持**：`CREDIT_PAT` 末尾由 `[：:\s]` 改为 `(?:[A-Za-z][A-Za-z .&]*[：:]|[：:\s])`，即在角色后允许一个可选的英文角色名（字母/空格/./&）再接冒号。由此 `词Lyricist：`、`曲Composer：`、`编曲Arranger：`、`钢琴Piano：`、`吉他演奏Guitar Player：`、`弦乐编写String Writing：`、`小提琴独奏Violin Solo：`、`人声配唱Vocal Producer：`、`合声Chorus：`、`录音工程师Recording Engineer：`、`混音录音室Mixing Studio：`、`母带后期处理工程师Mastering Engineer：` 等连写行均可命中，标签保留「中文+英文」双语角色名。
+3. **`CREDIT_MULTI_PAT`（多角色合并正则）** 同步新增上述角色，支持如 `古筝/古筝编写：紫格`、`作曲/音乐制作：苏逸Suyi`、`贝斯/混音：苏逸Suyi` 这类合并行。
+4. **`OA_OC_PAT`** 新增 `Lyricist`，支持 `Lyricist(中文词)：` 这类「英文角色 + 括号中文注解」格式（与已有 `Arranger(编曲)` / `Producer(制作人)` / `Presented By` 同走 `(\(.+?\))?` 分支，标签保留括号内的中文注解）。
+5. 角色清单仅在 `audio-core.js` 一处维护，已与正则同步。
 
 ### 验证
 - ✅ Node 单测（第一批 10 行）：文案/古筝/古筝编写/小提琴/小提琴编写/制作人/录音室/混音室/监制/出品 全部 `OK` 命中，无漏判。
 - ✅ Node 单测（第二批 8 行）：作曲/音乐制作、MV制作、键盘、吉他、贝斯/混音、粤语歌词协力、粤语指导、特别感谢 全部 `OK` 命中（含多角色合并 作曲/音乐制作、贝斯/混音）。
 - ✅ Node 单测（第三批 4 行）：`Lyricist(中文词)`、`Arranger(编曲)`、`Producer(制作人)`、`Presented By` 全部 `OK` 命中 `OA_OC_PAT`。
+- ✅ Node 单测（第四批 24 行）：词Lyricist、曲Composer、编曲Arranger、制作人Producer、监制、钢琴Piano、吉他编写、吉他演奏Guitar Player、吉他录音师、弦乐编写String Writing、小提琴独奏Violin Solo、弦乐录音室String Recording Studio、人声配唱Vocal Producer、合声编写Chorus Arranger、合声Chorus、音频编辑Audio Editing、录音工程师Recording Engineer、人声录音棚、混音工程师Mixing Engineer、混音录音室Mixing Studio、母带后期处理工程师Mastering Engineer、母带后期录音室Mastering Studio、OP、SP 全部 `OK` 命中（0 失败），含中文+英文连写与值内 `/`、`@`、`()` 特殊字符。
 - ✅ `紫格/Morri3on(喬凡三)` 的括号由 `formatCreditValue` 括号保护逻辑整体保留，渲染为 `紫格` + `Morri3on(喬凡三)` 两个完整名字，不被误拆。
 - ⚠️ 提醒：这些创作信息须写入 LRC 文件头部（如 `[文案：偏生梓归]`）才会被解析器读取；纯文本备注不会被解析。
 
@@ -2879,3 +2998,13 @@ CREDIT_MULTI_PAT 角色列表同步扩充，支持多身份组合格式。
   2. **新增 `mergeAlbumArtists`**：收集组内所有 artist 去重，若有某个 artist 是其他所有 artist 的子串（如 "aespa" 是 "aespa&G-DRAGON" 的子串），取最短代表；否则取出现次数最多的 artist。
   3. **封面取第一个非空**：合并后封面取自组内第一个有 art 的歌曲，不影响 LRU 淘汰后的懒恢复。
 - **涉及文件**：`js/cover-lib.js`（`buildAlbumEntries`、`buildAlbumEntriesByArtist`、新增 `mergeAlbumArtists`）。
+
+### 🔥 v3.6.5d: 曲库打开自动定位当前播放专辑（按专辑默认视图）
+- **需求**：点击曲库进入「按专辑」默认视图时，自动把当前正在播放的专辑滚到屏幕正中（3D 封面流居中高亮），无需手动翻找。
+- **实现**：
+  1. 新增 `focusCurrentAlbumInCoverLib()`：仅 `coverLibSortMode === 'album'` 时生效（其他 Tab 不打扰）。
+  2. 取当前曲目 `playlist[currentIndex].album`，遍历已分组的 `_clEntries` 按专辑名定位目标索引。
+  3. 窗口化渲染兜底：若目标专辑超出已挂载窗口（`_clRendered < 目标`），调用 `renderCoverLibMore(need - 已渲染 + CL_CHUNK)` 强制追加渲染到该位置（渲染在飞则累积到 `_clPendingTarget` 续挂）。
+  4. 异步轮询等待卡片入 DOM 后调用 `setCoverLibCenter(targetIdx)` 居中（分帧渲染，立即调用卡片尚未挂载，故轮询最多 50 次 × 30ms）。
+  5. 在 `showCoverLibrary` 现有 200ms 渲染完成定时器中，`refreshCoverLibAfterRender()` 之后调用，确保覆盖默认居中（index 0）。
+- **涉及文件**：`js/cover-lib.js`（新增 `focusCurrentAlbumInCoverLib`、`showCoverLibrary` 调用点）。

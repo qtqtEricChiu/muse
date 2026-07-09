@@ -342,16 +342,29 @@ async function togglePip() {
                     const curLrcIdx = parsedLyrics.findIndex(l => l.time > audio.currentTime - lyricsOffset);
                     let curIdx = curLrcIdx > 0 ? curLrcIdx - 1 : (parsedLyrics.length ? parsedLyrics.length - 1 : -1);
 
-                    // 🔥 v2.8.12: PiP 当前行遇 break/blank 向上查找最后有内容行
+                    // 🔥 v2.8.12: PiP 当前行遇 break/blank/创作信息卡片行 向上查找最后有内容行
+                    // 🚀 v3.6.5: 创作信息卡片行(isCredits)不计入 PiP 歌词流，直接从首行实际歌词开始
                     let currLrc = '';
                     if (curIdx >= 0) {
                         const cl = parsedLyrics[curIdx];
-                        if (cl.isBreak || cl.isBlank || !cl.text) {
+                        if (cl.isBreak || cl.isBlank || cl.isCredits || !cl.text) {
+                            let found = false;
                             for (let j = curIdx - 1; j >= 0; j--) {
                                 const pl = parsedLyrics[j];
-                                if (!pl.isBreak && !pl.isBlank && pl.text) {
+                                if (!pl.isBreak && !pl.isBlank && !pl.isCredits && pl.text) {
                                     currLrc = pl.text;
+                                    found = true;
                                     break;
+                                }
+                            }
+                            // 🚀 v3.6.5: 当前为创作信息卡片行（首行）→ 向前取首行实际歌词
+                            if (!found) {
+                                for (let j = 0; j < parsedLyrics.length; j++) {
+                                    const pl = parsedLyrics[j];
+                                    if (!pl.isBreak && !pl.isBlank && !pl.isCredits && pl.text) {
+                                        currLrc = pl.text;
+                                        break;
+                                    }
                                 }
                             }
                         } else {
@@ -359,12 +372,12 @@ async function togglePip() {
                         }
                     }
 
-                    // 🔥 v2.8.12: PiP 下一行跳过 break/blank
+                    // 🔥 v2.8.12: PiP 下一行跳过 break/blank/创作信息卡片行
                     let nextLrc = '';
                     let nextIdx = curLrcIdx > 0 ? curLrcIdx : 0;
                     while (nextIdx < parsedLyrics.length) {
                         const nl = parsedLyrics[nextIdx];
-                        if (nl.isBreak || nl.isBlank || !nl.text) { nextIdx++; continue; }
+                        if (nl.isBreak || nl.isBlank || nl.isCredits || !nl.text) { nextIdx++; continue; }
                         nextLrc = nl.text;
                         break;
                     }

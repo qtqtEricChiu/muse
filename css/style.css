@@ -79,21 +79,6 @@ html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent
 }
 #bg-layer-img.active, #bg-layer-color.active { opacity: 1; }
 
-/* 🚀 v3.5.0: 背景沉浸遮罩层（位于背景层之上、视图之下，夜间黑遮罩与之 alpha-over 叠加合成） */
-#bg-immersive-scrim {
-    position: fixed; inset: 0; z-index: -9; pointer-events: none;
-    background: #000;
-    opacity: var(--bg-scrim-alpha, 0);
-    transition: opacity 0.6s var(--curve-smooth);
-}
-
-/* 🚀 v3.5.0: 背景沉浸 → 主界面播放器更透明，让背景全屏展现 */
-body.bg-immersive .player-wrapper {
-    background: rgba(20, 17, 30, 0.28) !important;
-    backdrop-filter: blur(calc(var(--bg-blur-dynamic, 12px) * 0.6)) saturate(120%);
-    -webkit-backdrop-filter: blur(calc(var(--bg-blur-dynamic, 12px) * 0.6)) saturate(120%);
-}
-
 /* ================= 视图容器切换 ================= */
 .view-container {
     position: absolute; inset: 0; width: 100vw; height: 100vh;

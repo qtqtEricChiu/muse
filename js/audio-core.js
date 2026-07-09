@@ -61,7 +61,8 @@ function parseLyricText(text) {
     const EN_ROLES = 'Recording Engineers|Executive Producer|Repertoire Owner|Vocal Arrangement|Background Vocals|Drum Programming|Digital Editing|Vocals Produced|All instruments|Mix Engineer|Synthesizer|Recorded at|Background|Programmed|Published|Recording|Keyboard|Remixed|Digital|Vocals|Guitar|Drums|Vocal|Bass|Drum|Mix';
     // 🔥 v3.6.2: 新增 文案、古筝、古筝编写、小提琴、小提琴编写 角色（长词条在前：古筝编写>古筝、小提琴编写>小提琴，避免被截断）
     // 🔥 v3.6.3: 新增 音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢 角色（音乐制作/MV制作 排在 制作 之前避免截断）
-    const CREDIT_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|制作统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|古筝编写|古筝|小提琴编写|小提琴|弦乐|弦乐编写|弦乐监制|所有乐器|录音|录音棚|录音师|录音室|录音工作室|主唱录音|弦乐录音|音频编辑|音乐编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|混音母带|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|音乐制作|MV制作|制作|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
+    // 🔥 v3.6.4: 新增 钢琴/吉他编写/吉他录音师/小提琴独奏/弦乐录音室/人声配唱/录音工程师/人声录音棚/混音录音室/母带后期处理工程师/母带后期录音室；并支持「中文角色+英文角色」连写（如 词Lyricist：、钢琴Piano：）通过可选英文后缀分支
+    const CREDIT_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|制作统筹|人声配唱|配唱制作人?|配唱制作|和声|合声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|吉他编写|吉他录音师|贝斯|键盘|钢琴|合成器|鼓|鼓编程|古筝编写|古筝|小提琴编写|小提琴|小提琴独奏|弦乐|弦乐编写|弦乐监制|所有乐器|录音|录音棚|人声录音棚|录音师|录音工程师|录音室|录音工作室|主唱录音|弦乐录音|弦乐录音室|音频编辑|音乐编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|混音录音室|混音母带|缩混|混音及母带后期|母带后期处理工程师|母带后期录音室|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|音乐制作|MV制作|制作|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)(?:[A-Za-z][A-Za-z .&]*[：:]|[：:\\s])', 'i');
     // 🔥 v2.8.13p5: 新增 混音室、母带处理、音乐设计 词条（CREDIT_PAT 与 CREDIT_MULTI_PAT 同步）
     // 🔥 v3.5.0: 新增 弦乐编写/弦乐监制/主唱录音/弦乐录音/音乐编辑/制作统筹/混音母带
     // 🔥 v2.8.13p2: 多角色合并格式（用/分隔，如"词/曲"、"编曲/混音/制作"、"Lyrics/Composed by"）
@@ -554,19 +555,33 @@ const syncLyrics = (force = false) => {
     }
 
     // 🚀 v2.8.12: 沉浸模式歌词 — 当前行遇空行向上查找，下一行跳过空行
+    // 🚀 v3.6.5: 创作信息卡片行(isCredits)不计入沉浸歌词流，直接从首行实际歌词开始
     if (activeIdx !== -1 && !el.immLrcCenter.classList.contains('hidden')) {
         const currentLrc = parsedLyrics[activeIdx];
 
-        // 🔥 v2.8.12: 当前句遇 break/blank 向上查找最后有内容的歌词行
+        // 🔥 v2.8.12: 当前句遇 break/blank/创作信息卡片行 向上查找最后有内容的歌词行
         let curDisplayIdx = activeIdx;
         let curTxt = currentLrc.original || currentLrc.text;
-        if (!curTxt || currentLrc.isBreak || currentLrc.isBlank) {
+        if (!curTxt || currentLrc.isBreak || currentLrc.isBlank || currentLrc.isCredits) {
+            let found = false;
             for (let j = activeIdx - 1; j >= 0; j--) {
                 const pl = parsedLyrics[j];
-                if (!pl.isBreak && !pl.isBlank && (pl.original || pl.text)) {
+                if (!pl.isBreak && !pl.isBlank && !pl.isCredits && (pl.original || pl.text)) {
                     curTxt = pl.original || pl.text;
                     curDisplayIdx = j;
+                    found = true;
                     break;
+                }
+            }
+            // 🚀 v3.6.5: 当前即创作信息卡片行（首行）→ 向前查找首行实际歌词
+            if (!found) {
+                for (let j = 0; j < parsedLyrics.length; j++) {
+                    const pl = parsedLyrics[j];
+                    if (!pl.isBreak && !pl.isBlank && !pl.isCredits && (pl.original || pl.text)) {
+                        curTxt = pl.original || pl.text;
+                        curDisplayIdx = j;
+                        break;
+                    }
                 }
             }
         }
@@ -586,11 +601,11 @@ const syncLyrics = (force = false) => {
             nextTxt = currentLrc.translation;
             nextOpacity = 0.85;
         } else {
-            // 🔥 v2.8.12: 跳过 break/blank 空行找下一句有内容歌词（从真实下一句开始）
-            let nextIdx = activeIdx + 1;
+            // 🔥 v2.8.12: 跳过 break/blank/创作信息卡片行 找下一句有内容歌词（从真实下一句开始）
+            let nextIdx = curDisplayIdx + 1;
             while (nextIdx < parsedLyrics.length) {
                 const nl = parsedLyrics[nextIdx];
-                if (nl.isBreak || nl.isBlank) { nextIdx++; continue; }
+                if (nl.isBreak || nl.isBlank || nl.isCredits) { nextIdx++; continue; }
                 nextTxt = nl.original || nl.text;
                 nextOpacity = 0.6;
                 break;
