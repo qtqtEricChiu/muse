@@ -36,7 +36,7 @@ async function initApp() {
     applyLrcSettings();
     initCrossfadeEngine();   // 🔥 v2.8.9: 初始化交叉淡变引擎
     cfSetupScanner();        // 🔥 v2.8.9: 交叉淡变扫描器
-    startPlaybackWatchdog(); // 🔥 v3.6.2: 后台播放看门狗（兜底 rAF 冻结）
+    startPlaybackWatchdog(); // 🔥 v3.6.1: 后台播放看门狗（兜底 rAF 冻结）
     updateFavQuickBtn();
     
     // 🔥 v2.8.13: 初始化音频输出设备选择功能
@@ -253,7 +253,7 @@ async function initApp() {
                 lrcTimer = setInterval(() => syncLyrics(true), 500);
             }
 
-            // 🔥 v3.6.2: 恢复可见时检查「淡变卡在 FADING」——后台 rAF 冻结后 fade 从未推进，
+            // 🔥 v3.6.1: 恢复可见时检查「淡变卡在 FADING」——后台 rAF 冻结后 fade 从未推进，
             // cfState 永远到不了 IDLE。若过时未完成则强制收尾。
             // ⚠️ 不递增 cfTransitionId：在途 fade rAF 通过 fade 顶部的 cfState!==FADING 守卫自行退出。
             if (typeof cfState !== 'undefined' && cfState === CfState.FADING && _cfPendingNextIdx >= 0) {
@@ -261,7 +261,7 @@ async function initApp() {
                 cfFinishTransition(_cfPendingNextIdx, _cfPendingNextVol, cfTransitionId);
             }
 
-            // 🔥 v3.6.2: 应播却暂停（后台被浏览器暂停）→ 回前台立即续播当前歌
+            // 🔥 v3.6.1: 应播却暂停（后台被浏览器暂停）→ 回前台立即续播当前歌
             if (typeof isPlaying !== 'undefined' && isPlaying && typeof getActivePlayAudio === 'function') {
                 const a = getActivePlayAudio();
                 if (a && a.paused && !a.ended) {

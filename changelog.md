@@ -112,6 +112,8 @@
 - ✅ `node build.js` 通过（bundle.min.js 197.8 KB / style.min.css 74.1 KB），`read_lints` 0 错误。
 - ✅ 主条 ↔ 沉浸舱 `mouseup` 不再交叉干扰；本地标志完全隔离。
 
+## v3.6.2 (2026-07-09) — 沉浸舱进度条 + 审计采纳 + coverflow 上移
+
 ### 🎨 曲库按专辑封面：coverflow 上移 + 艺术家标签下移
 
 ### 背景
@@ -184,7 +186,7 @@
   - 动画 `infinite` 节能暂停（`.btn-play` glowPulse / `.pip-standby`）、`backdrop-filter` 改 Class 切换、`.lrc-viewport` scroll-snap 重构、绘制算法优化（流沙分辨率/弧线预计算/粒子数动态）、`reducedMotion` 监听、`updateCoverflow` artHash —— 涉及视觉行为与节能类体系确认，建议后续专项视觉验证后实施。
   - `pip.js` pipSyncTimer 清理 / `loader.js` `_metaWorker.terminate` 竞态 / `gamepad.js` 死区常量 / `visualizer.js` animFrameId 双重保险 —— 报告中对应行号已随版本迭代偏移，当前代码路径需重新定位确认，本轮未盲目改动。
 
-### 🐛 交叉淡变后续修复与功能增强
+## v3.6.1 (2026-07-09) — 交叉淡变后续修复与功能增强
 
 ### 🐛 沉浸舱进度条悬停「-6:-3」异常标签与点击跳转修复
 
@@ -532,7 +534,7 @@ v3.6.0 将交叉淡变改为 rAF 驱动 `audio.volume` 直淡（无 Web Audio Ga
 - 连续循环播放（含 shuffle）→ 每首之间应听到平滑斜坡，不再出现掐断式硬切。
 - 清空播放列表→重新载入文件→开启交叉淡变播放 → slot A 仍可正常淡变（旧 `audio.src=''` 路径下此处会无声）。
 
-### 🚀 交叉淡变(Crossfade)功能与全部修复
+## v3.6.0 (2026-07-09) — 交叉淡变(Crossfade)功能与全部修复
 
 ### 🚀 交叉淡变核心引擎重写（四项增强 + 每首连续生效）
 
@@ -562,9 +564,7 @@ v3.6.0 将交叉淡变改为 rAF 驱动 `audio.volume` 直淡（无 Web Audio Ga
 | 3 | **响度归一化** | `js/globals.js` / `js/audio-core.js` / `index.html` | 新增 `crossfadeNormalize` 开关（默认开启）。`cfEnsureContext` 中插入 `cfAnalyserA`/`cfAnalyserB` 作为信号采样点（位于 SourceNode 之后、GainNode 之前）。`cfTriggerCrossfade` 在 PRELOADING 完成后使用 `cfSampleRMS()` 分别采样双槽频域 RMS（主动 8 帧 + 被动 8 帧），计算归一化因子并 `clamp(0.25, 4.0)`，调用 `cfApplyRamp` 时传入 `aAdj`/`pAdj` 调整增益目标。设置面板新增复选框。 |
 | 4 | **淡变可视指示条** | `js/audio-core.js` / `css/base-layout.css` | 新增 `cfCrossfadeVisStart`/`cfCrossfadeVisStop`：淡变时在主/沉浸进度条 `progress-area` 内动态插入 `.cf-vis-bar`（3px 高、`primary→accent` 渐变、`transform:scaleX` 从 0→1 动画），完/止后自动移除。CSS 中使用 `position:absolute; inset:auto 0 100% 0` 固定在进度条上方。 |
 
-### 🧠 淡变功能前全部更新：封面内存钉死(LRU) + OPPO Sans 字体 + 设置整理 + 首歌封面重载 + 均衡器失真 + 创作信息修复
-
-## v3.6.2 (2026-07-09) — 封面内存钉死 + OPPO Sans + EQ失真 + 创作信息 + 交叉淡变引擎 + 活跃槽重构 + 后台保活 + AI翻译 + 沉浸舱进度条 + 审计采纳
+## v3.5.4 (2026-07-09) — 淡变功能前全部更新：封面内存钉死(LRU) + OPPO Sans 字体 + 设置整理 + 首歌封面重载 + 均衡器失真 + 创作信息修复
 
 ### 🧠 封面 art 内存钉死：LRU 限额层
 

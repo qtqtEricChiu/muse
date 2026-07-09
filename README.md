@@ -191,15 +191,13 @@
 - **沉浸舱进度条偏移根治**：`isProgressDragging` 共享污染 — 本地标志隔离 + `cachedRect` 守卫
 - **曲库 coverflow 上移 + 艺术家标签下移**：CSS flex 垂直居中 + `order: 2` 标签后置
 
-### v3.6.2 (2026-07-09) — 封面内存钉死 + OPPO Sans + EQ失真 + 创作信息 + 交叉淡变引擎 + 活跃槽重构 + 后台保活 + AI翻译 + 沉浸舱进度条 + 审计采纳
+### v3.6.2 (2026-07-09) — 沉浸舱进度条 + 审计采纳 + coverflow 上移
 
-- **交叉淡变后台保活**：`onended` + `visibilitychange` 双路兜底强制收尾，后台 rAF 冻结时可靠切歌
-- **沉浸舱进度条与主界面功能对等**：ARIA 无障碍属性、touch-action 防触控干扰、宽度/布局双重稳定
-- **AI 翻译合规标识**：自动检测"文曲大模型"字样并标注紫色 Badge，模型名称彻底清除
-- **淡变指示条渐变色流转 + 退场动画**：CF-bar 内渐变色循环滚动，退场时平滑收缩淡出
-- **歌词栏高斯模糊出入场动画**：切歌自动模糊过渡，面板开合渐入渐出
-- **设置面板 UI 标准化**：统一设计语言（toggle-card/segmented/slider-row 等规范组件）
-- **交叉淡变后续补丁**：后台切回前台播放正确槽修复、后台节流静默停止 v3 路修复、`onerror` 续播修复、进度条悬停异常值守卫
+- **沉浸舱进度条点按偏移修复**：`isProgressDragging` 共享污染根治（本地标志隔离 + `cachedRect` 守卫 + 双槽 seek）
+- **代码健壮性（审计采纳）**：`vibration.js` 手柄断线 `InvalidStateError`、`cover-lib.js` `musicLibrary` 守卫、`onProgressTick` `isFinite` 守卫、常量提取
+- **UI/动画节能**：CSS `transition: all` 精确化、发光半径减半、btn-glass `text-shadow`、Firefox range 适配、`clamp` 尺寸自适应
+- **节能系列**：曲库首屏预暖（60→12张）、一键节能自动暂停交叉淡变、节能态取色重取跳过、下一首封面预读跳过
+- **曲库 coverflow 上移 + 艺术家标签下移**：CSS flex 垂直居中 + `order: 2` 标签后置
 
 ### v3.6.0 (2026-07-09) — 交叉淡变(Crossfade)功能与全部修复
 

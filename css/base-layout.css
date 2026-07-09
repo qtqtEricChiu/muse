@@ -227,7 +227,7 @@ body.bg-immersive .player-wrapper {
     transition: box-shadow 0.8s ease;
 }
 
-/* 🔥 v3.6.2: 封面溶解覆盖层 — 旧封面淡出到新封面之上 */
+/* 🔥 v3.6.1: 封面溶解覆盖层 — 旧封面淡出到新封面之上 */
 .art-crossfade-overlay {
     position: absolute; inset: 0; z-index: 10;
     border-radius: inherit; overflow: hidden;
@@ -239,7 +239,7 @@ body.bg-immersive .player-wrapper {
     width: 100%; height: 100%; object-fit: cover;
 }
 
-/* 🔥 v3.6.2: 歌名/歌手分阶滑入动画 — 交叉淡变时使用 */
+/* 🔥 v3.6.1: 歌名/歌手分阶滑入动画 — 交叉淡变时使用 */
 @keyframes cfTextEnter {
     from { opacity: 0; transform: translateY(14px); filter: blur(4px); }
     to   { opacity: 1; transform: translateY(0);   filter: blur(0); }
@@ -314,7 +314,7 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     transition: filter 0.15s ease, opacity 0.15s ease;
 }
 
-/* 🔥 v3.6.2: 歌词栏出入场 + 切歌高斯模糊过渡 */
+/* 🔥 v3.6.1: 歌词栏出入场 + 切歌高斯模糊过渡 */
 @keyframes lrcPanelIn {
     from { opacity: 0; filter: blur(8px); transform: translateY(12px); }
     to   { opacity: 1; filter: blur(0);   transform: translateY(0); }
@@ -502,7 +502,7 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     opacity: 0.85;
 }
 
-/* 🚀 v3.6.2: AI 翻译标注 — 根据《人工智能生成合成内容标识办法》添加显式标识 */
+/* 🚀 v3.6.1: AI 翻译标注 — 根据《人工智能生成合成内容标识办法》添加显式标识 */
 .lrc-credits .lrc-credits-ai-badge {
     display: inline-block;
     font-size: 10px;
@@ -519,7 +519,7 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     cursor: help;
 }
 
-/* 🚀 v3.6.2: AI 翻译标签 hover 提示 — 自定义带动画 tooltip */
+/* 🚀 v3.6.1: AI 翻译标签 hover 提示 — 自定义带动画 tooltip */
 .lrc-credits .lrc-credits-ai-tip {
     position: absolute;
     bottom: calc(100% + 6px);

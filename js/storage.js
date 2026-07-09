@@ -301,7 +301,7 @@ function getTotalListenTime() {
 
 // === 播放统计追踪 ===
 let playStartTime = 0;
-// 🔥 v3.6.2: 主槽 audio 与备用槽 cfAudioB 都统计播放时长（交叉淡变切到 B 后不漏计）
+// 🔥 v3.6.0: 主槽 audio 与备用槽 cfAudioB 都统计播放时长（交叉淡变切到 B 后不漏计）
 forEachAudioEl((el2) => {
     el2.addEventListener('play', () => { playStartTime = Date.now(); });
     el2.addEventListener('pause', () => {

@@ -46,7 +46,7 @@ const ThemeColor = (() => {
 
     function _applyColor() {
         // 🚀 v3.4.2: 优先级：顶部取色（图片顶部附近）> 深色模式 > 专辑平均色 > 默认色 > 兜底色
-        // 🚀 v3.6.2: 用户可在 设置-外观 关闭 WCO 伪沉浸，关闭时跳过顶部取色
+        // 🚀 v3.5.4: 用户可在 设置-外观 关闭 WCO 伪沉浸，关闭时跳过顶部取色
         let color;
         const useTopColor = _topColor && !_isDarkMode && (typeof cfg === 'undefined' || cfg.wcoPseudoImmersive !== false);
         if (useTopColor) {

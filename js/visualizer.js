@@ -180,7 +180,7 @@ const initVis = () => {
         analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-        // 🔥 v3.6.2: 公共汇流节点——主槽 audio 与备用槽 cfAudioB 都汇入此，
+        // 🔥 v3.6.0: 公共汇流节点——主槽 audio 与备用槽 cfAudioB 都汇入此，
         // 再经 EQ 链 → analyser → destination。交叉淡变双槽同时发声时，频谱/均衡器均实时响应。
         visInputNode = audioCtx.createGain();
         visInputNode.connect(analyser);

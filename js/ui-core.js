@@ -199,13 +199,13 @@ bindBtn('btnToggleLrc', () => {
     if (isH) {
         el.lrcPanel.style.display = 'flex';
         el.btnToggleLrc.classList.add('active');
-        // 🔥 v3.6.2: 歌词栏淡入（高斯模糊→清晰）
+        // 🔥 v3.6.1: 歌词栏淡入（高斯模糊→清晰）
         el.lrcPanel.classList.remove('lrc-panel-out');
         void el.lrcPanel.offsetWidth;
         el.lrcPanel.classList.add('lrc-panel-in');
         syncLyrics(true);
     } else {
-        // 🔥 v3.6.2: 歌词栏淡出后再隐藏，保证出入场动画完整
+        // 🔥 v3.6.1: 歌词栏淡出后再隐藏，保证出入场动画完整
         el.lrcPanel.classList.remove('lrc-panel-in');
         el.lrcPanel.classList.add('lrc-panel-out');
         setTimeout(() => {
@@ -362,7 +362,7 @@ function updateModeUI() {
     el.immBtnMode.classList.toggle('active', isShuffle || isRepeatOne);
 }
 
-// 🚀 v3.6.2: 应用 OPPO Sans 字体（覆盖 --font-body 变量）
+// 🚀 v3.5.4: 应用 OPPO Sans 字体（覆盖 --font-body 变量）
 function applyOppoSans() {
     const root = document.documentElement;
     if (cfg.useOppoSans) {
@@ -393,15 +393,15 @@ function updateSettingsUI() {
         preview.style.display = cfg.followAccentColor ? 'block' : 'none';
         if (cfg.followAccentColor && currentAlbumColor) preview.style.background = `linear-gradient(90deg, ${currentAlbumColor}, ${cfg.defaultColor})`;
     }
-    // 🚀 v3.6.2: 同步外观新增开关（封面取色 / 背景沉浸）
+    // 🚀 v3.5.4: 同步外观新增开关（封面取色 / 背景沉浸）
     const faToggle = document.getElementById('followAccentToggle');
     if (faToggle) faToggle.checked = cfg.followAccentColor;
     const biToggle = document.getElementById('bgImmersiveToggle');
     if (biToggle) biToggle.checked = cfg.bgImmersive;
-    // 🚀 v3.6.2: 同步标题栏伪沉浸开关
+    // 🚀 v3.5.4: 同步标题栏伪沉浸开关
     const wpiToggle = document.getElementById('wcoPseudoImmersiveToggle');
     if (wpiToggle) wpiToggle.checked = cfg.wcoPseudoImmersive;
-    // 🚀 v3.6.2: 同步 OPPO Sans 开关与字重
+    // 🚀 v3.5.4: 同步 OPPO Sans 开关与字重
     const osToggle = document.getElementById('useOppoSansToggle');
     if (osToggle) osToggle.checked = cfg.useOppoSans;
     const osWeightBox = document.getElementById('oppoSansWeightBox');
@@ -409,7 +409,7 @@ function updateSettingsUI() {
     document.querySelectorAll('.oppoSansWeightBtn').forEach(b => {
         b.classList.toggle('active', b.dataset.weight === cfg.oppoSansWeight);
     });
-    // 🚀 v3.6.2: 同步保留英文字体开关
+    // 🚀 v3.5.4: 同步保留英文字体开关
     const keToggle = document.getElementById('oppoKeepEnglishToggle');
     if (keToggle) keToggle.checked = cfg.oppoKeepEnglish;
     const keBox = document.getElementById('oppoKeepEnglishBox');
@@ -439,7 +439,7 @@ function toggleColorMode() {
     saveSettings();
     showToast(cfg.followAccentColor ? "已开启封面取色" : "已关闭封面取色", iconSvg('palette'));
 };
-// 🚀 v3.6.2: btnToggleColorMode 已并入「沉浸式外观」的封面取色开关，此处做空安全守卫
+// 🚀 v3.5.4: btnToggleColorMode 已并入「沉浸式外观」的封面取色开关，此处做空安全守卫
 const btnToggleColorMode = document.getElementById('btnToggleColorMode');
 if (btnToggleColorMode) btnToggleColorMode.onclick = toggleColorMode;
 document.getElementById('btnToggleDarkMode')?.remove(); // 🚀 v3.5.x: 已替换为 toggle-switch
@@ -451,7 +451,7 @@ if (darkModeToggle) {
     });
 }
 
-// 🚀 v3.6.2: 设置-外观「封面取色」开关（与取色模式同源，统一驱动 --primary 随专辑封面；复用 followAccentToggle）
+// 🚀 v3.5.4: 设置-外观「封面取色」开关（与取色模式同源，统一驱动 --primary 随专辑封面；复用 followAccentToggle）
 const followAccentToggle = document.getElementById('followAccentToggle');
 if (followAccentToggle) followAccentToggle.addEventListener('change', () => {
     cfg.followAccentColor = followAccentToggle.checked;
@@ -471,7 +471,7 @@ if (bgImmersiveToggle) bgImmersiveToggle.addEventListener('change', () => {
     showToast(cfg.bgImmersive ? "已开启背景沉浸" : "已关闭背景沉浸", iconSvg('images'));
 });
 
-// 🚀 v3.6.2: PWA 检测 — 仅 standalone 模式显示标题栏伪沉浸开关
+// 🚀 v3.5.4: PWA 检测 — 仅 standalone 模式显示标题栏伪沉浸开关
 (function() {
     const box = document.getElementById('wcoPseudoImmersiveBox');
     if (!box) return;
@@ -482,7 +482,7 @@ if (bgImmersiveToggle) bgImmersiveToggle.addEventListener('change', () => {
     }
 })();
 
-// 🚀 v3.6.2: 设置-外观「标题栏伪沉浸」开关（PWA 标题栏 theme-color 取封面/背景顶部颜色融合）
+// 🚀 v3.5.4: 设置-外观「标题栏伪沉浸」开关（PWA 标题栏 theme-color 取封面/背景顶部颜色融合）
 const wcoPseudoImmersiveToggle = document.getElementById('wcoPseudoImmersiveToggle');
 if (wcoPseudoImmersiveToggle) wcoPseudoImmersiveToggle.addEventListener('change', () => {
     cfg.wcoPseudoImmersive = wcoPseudoImmersiveToggle.checked;
@@ -492,7 +492,7 @@ if (wcoPseudoImmersiveToggle) wcoPseudoImmersiveToggle.addEventListener('change'
     showToast(cfg.wcoPseudoImmersive ? "已开启标题栏伪沉浸" : "已关闭标题栏伪沉浸", iconSvg('layers'));
 });
 
-// 🚀 v3.6.2: 设置-外观「启用 OPPO Sans」开关
+// 🚀 v3.5.4: 设置-外观「启用 OPPO Sans」开关
 const useOppoSansToggle = document.getElementById('useOppoSansToggle');
 if (useOppoSansToggle) useOppoSansToggle.addEventListener('change', () => {
     cfg.useOppoSans = useOppoSansToggle.checked;
@@ -502,7 +502,7 @@ if (useOppoSansToggle) useOppoSansToggle.addEventListener('change', () => {
     showToast(cfg.useOppoSans ? "已启用 OPPO Sans" : "已恢复默认字体", iconSvg('type'));
 });
 
-// 🚀 v3.6.2: OPPO Sans 字重 R/M 切换
+// 🚀 v3.5.4: OPPO Sans 字重 R/M 切换
 document.querySelectorAll('.oppoSansWeightBtn').forEach(btn => {
     btn.addEventListener('click', () => {
         cfg.oppoSansWeight = btn.dataset.weight;
@@ -513,7 +513,7 @@ document.querySelectorAll('.oppoSansWeightBtn').forEach(btn => {
     });
 });
 
-// 🚀 v3.6.2: 设置-外观「保留英文字体」开关（OPPO Sans 仅替换中文字体，保留 Geist/CDN 英文字体）
+// 🚀 v3.5.4: 设置-外观「保留英文字体」开关（OPPO Sans 仅替换中文字体，保留 Geist/CDN 英文字体）
 const oppoKeepEnglishToggle = document.getElementById('oppoKeepEnglishToggle');
 if (oppoKeepEnglishToggle) oppoKeepEnglishToggle.addEventListener('change', () => {
     cfg.oppoKeepEnglish = oppoKeepEnglishToggle.checked;
@@ -774,7 +774,7 @@ function renderEQPanel() {
         };
     }
 
-    // 🔥 v3.6.2: 曲线选择按钮
+    // 🔥 v3.6.0: 曲线选择按钮
     document.querySelectorAll('.cf-curve-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.curve === crossfadeCurve);
         btn.onclick = function() {
@@ -786,7 +786,7 @@ function renderEQPanel() {
         };
     });
 
-    // 🔥 v3.6.2: 响度归一化开关
+    // 🔥 v3.6.0: 响度归一化开关
     const _normToggle = document.getElementById('crossfadeNormalizeToggle');
     if (_normToggle) {
         _normToggle.checked = crossfadeNormalize;
@@ -1251,7 +1251,7 @@ function updateNetworkStatus() {
 
 // ===== 诊断日志导出 =====
 
-// 🔥 v3.6.2: 全面诊断快照导出（含播放器运行时状态、音频槽、淡变引擎、设置、错误日志）
+// 🔥 v3.6.1: 全面诊断快照导出（含播放器运行时状态、音频槽、淡变引擎、设置、错误日志）
 const exportErrorLogs = () => {
     const logs = JSON.parse(localStorage.getItem('MBolka_ErrorLogs') || '[]');
 

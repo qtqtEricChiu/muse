@@ -22,7 +22,7 @@
 const audio = new Audio(); audio.crossOrigin = "anonymous";
 let audioCtx, analyser, source, dataArray;
 let spectrumCtxMain;
-// 🔥 v3.6.2: 可视化/EQ 公共汇流节点——主槽 audio 与备用槽 cfAudioB 都汇入此，
+// 🔥 v3.6.0: 可视化/EQ 公共汇流节点——主槽 audio 与备用槽 cfAudioB 都汇入此，
 // 经 EQ 链 → analyser → destination。交叉淡变期间双槽同时发声，频谱/均衡器均不冻结。
 let visInputNode = null;
 
@@ -108,7 +108,7 @@ const cfGetPassiveSource = () => cfActive === 'A' ? cfSourceNodeB : cfSourceNode
 const cfGetActiveAnalyser = () => cfActive === 'A' ? cfAnalyserA : cfAnalyserB;
 const cfGetPassiveAnalyser = () => cfActive === 'A' ? cfAnalyserB : cfAnalyserA;
 
-// 🔥 v3.6.2: 进度条 / 拖拽 / 歌词 / A-B / Media Session 等「控制面」统一跟随当前正在发声的槽。
+// 🔥 v3.6.0: 进度条 / 拖拽 / 歌词 / A-B / Media Session 等「控制面」统一跟随当前正在发声的槽。
 // - 手动切歌或交叉淡变关闭 → 全局 audio（cfAudioB 不存在时退化为 audio）。
 // - 交叉淡变进行中(FADING) → 返回正在淡入的新歌（被动槽），此时界面已将「下一首」视为当前曲。
 // - 过渡完成后 → 返回新活跃槽（cfAudioB 或换回 cfAudioA）。
@@ -117,7 +117,7 @@ const getActivePlayAudio = () => {
     return (crossfadeEnabled && cfAudioB) ? cfGetActiveAudio() : audio;
 };
 
-// 🔥 v3.6.2: 遍历所有音频槽（主槽 + 备用槽），用于统一绑定 timeupdate/loadedmetadata/error 等事件。
+// 🔥 v3.6.0: 遍历所有音频槽（主槽 + 备用槽），用于统一绑定 timeupdate/loadedmetadata/error 等事件。
 const forEachAudioEl = (cb) => {
     cb(audio);
     if (cfAudioB) cb(cfAudioB);
@@ -165,12 +165,12 @@ function initCrossfadeEngine() {
     cfActive = 'A';
     cfAirLocked = false;
     cfTransitionId = 0;
-    // 🔥 v3.6.2: 备用槽 cfAudioB 绑定与「当前活跃槽」一致的事件处理器，
+    // 🔥 v3.6.0: 备用槽 cfAudioB 绑定与「当前活跃槽」一致的事件处理器，
     // 交叉淡变切到 B 后进度条/时长/错误/媒体中心定位不冻结。
     if (typeof onProgressTick === 'function') cfAudioB.addEventListener('timeupdate', onProgressTick);
     if (typeof onAudioLoadedMetadata === 'function') cfAudioB.addEventListener('loadedmetadata', onAudioLoadedMetadata);
     if (typeof onAudioError === 'function') cfAudioB.addEventListener('error', onAudioError);
-    // 🔥 v3.6.2: 备用槽「播放结束」统一绑定 onAudioEnded（与全局 audio 一致）。
+    // 🔥 v3.6.0: 备用槽「播放结束」统一绑定 onAudioEnded（与全局 audio 一致）。
     // 双槽永久绑定同一处理器，切歌/交叉淡变重置时不再置空 onended，
     // 避免「关闭淡入淡出后放完一首歌自动暂停（不续播）」的问题。
     cfAudioB.onended = onAudioEnded;
@@ -182,7 +182,7 @@ let cfState = CfState.IDLE;
 
 // 均衡器
 let eqFilters = [];
-let eqMakeup = null; // 🚀 v3.6.2: 末端补偿增益节点，防止提升后峰值超出 0 dBFS 削波
+let eqMakeup = null; // 🚀 v3.5.4: 末端补偿增益节点，防止提升后峰值超出 0 dBFS 削波
 let eqBands = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 let eqGains = new Array(10).fill(0); // dB
 
@@ -218,12 +218,12 @@ let frameEnergySaving = false;     // 🎬 画面节能：仅降至30fps
 
 // 偏好配置
 let cfg = {
-    followAccentColor: false,   // 🚀 v3.6.2: 封面取色（专辑封面取色 + 主题色逻辑；设置-外观「沉浸式外观」内开关）
+    followAccentColor: false,   // 🚀 v3.5.4: 封面取色（专辑封面取色 + 主题色逻辑；设置-外观「沉浸式外观」内开关）
     bgImmersive: false,         // 🚀 v3.5.0: 背景沉浸（专辑封面/自定义背景全屏沉浸 + 夜间半透明黑遮罩叠加）
-    wcoPseudoImmersive: true,   // 🚀 v3.6.2: PWA WCO 标题栏伪沉浸（顶部取色驱动 theme-color）
-    useOppoSans: false,         // 🚀 v3.6.2: 启用 OPPO Sans 3.0 跨域字体（R/M 字重）
-    oppoSansWeight: 'R',        // 🚀 v3.6.2: OPPO Sans 字重 'R'=Regular / 'M'=Medium
-    oppoKeepEnglish: false,     // 🚀 v3.6.2: OPPO Sans 仅替换中文字体，保留英文字体（Geist/CDN）
+    wcoPseudoImmersive: true,   // 🚀 v3.5.4: PWA WCO 标题栏伪沉浸（顶部取色驱动 theme-color）
+    useOppoSans: false,         // 🚀 v3.5.4: 启用 OPPO Sans 3.0 跨域字体（R/M 字重）
+    oppoSansWeight: 'R',        // 🚀 v3.5.4: OPPO Sans 字重 'R'=Regular / 'M'=Medium
+    oppoKeepEnglish: false,     // 🚀 v3.5.4: OPPO Sans 仅替换中文字体，保留英文字体（Geist/CDN）
     customBgImg: null, customBgColor: null, blurAmt: 40,
     defaultColor: '#e8b4b8', darkMode: false, lrcFontSize: 18, lrcLineHeight: 2.2,
     lrcAlign: 'center', themePreset: null,

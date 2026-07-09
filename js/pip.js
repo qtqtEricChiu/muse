@@ -285,7 +285,7 @@ async function togglePip() {
                 const vinylWrap = pipWindow.document.getElementById('pipVinylWrap');
                 const isCrossfade = typeof cfState !== 'undefined' && cfState === CfState.FADING;
                 if (s.art) {
-                    // 🔥 v3.6.2: PiP 封面淡变 — 旧封面溶解到新封面
+                    // 🔥 v3.6.1: PiP 封面淡变 — 旧封面溶解到新封面
                     if (isCrossfade && pipLastArt && pipLastArt !== s.art) {
                         // 背景层溶解
                         if (bg && !bg.querySelector('.pip-bg-overlay')) {
@@ -324,7 +324,7 @@ async function togglePip() {
                     // 🚀 v3.5.x: LRU 已淘汰的封面 → 触发懒恢复（下帧即生效），ensureArt 自带并发去重
                     ensureArt(s);
                 }
-                // 🔥 v3.6.2: 记录当前封面 sr c，用于下次淡变检测
+                // 🔥 v3.6.1: 记录当前封面 sr c，用于下次淡变检测
                 pipLastArt = s.art || '';
 
                 // 3. 判断当前是否有歌词，动态切换两套UI的显示状态 (解决有无歌词切换失效的问题)

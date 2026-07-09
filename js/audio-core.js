@@ -55,8 +55,8 @@ function parseLyricText(text) {
     // ── Phase 4: 创作信息模式检测（v2.8.12 基于TME清单最终版彻底扩充）──
     // 🔥 v2.8.13p2: 新增 配唱制作、母带处理、录音工作室 等
     // 🔥 v2.8.13p4: 新增 作词、作曲、演唱制作人、录音室、混音工作室、混音师、母带工作室、合音制作、编外合音制作、混音及母带后期 等
-    // 🚀 v3.6.2: EN_ROLES 按词条长度从长到短排序，避免短词条优先截断长词条（如 Drum 截断 Drum Programming）
-    // 🚀 v3.6.2: EN_ROLES 按词条长度从长到短排序，避免短词条优先截断长词条（如 Drum 截断 Drum Programming）
+    // 🚀 v3.5.4: EN_ROLES 按词条长度从长到短排序，避免短词条优先截断长词条（如 Drum 截断 Drum Programming）
+    // 🚀 v3.5.4: EN_ROLES 按词条长度从长到短排序，避免短词条优先截断长词条（如 Drum 截断 Drum Programming）
     // 🚀 v3.6.2: 补充缺失英文角色（Vocals/Published/Programmed/Guitar/Drums/Executive Producer/Recorded at/Repertoire Owner/Vocals Produced），避免被误判为歌词导致 lyricStart 过早截止、其后 credits 全部丢失
     const EN_ROLES = 'Recording Engineers|Executive Producer|Repertoire Owner|Vocal Arrangement|Background Vocals|Drum Programming|Digital Editing|Vocals Produced|All instruments|Mix Engineer|Synthesizer|Recorded at|Background|Programmed|Published|Recording|Keyboard|Remixed|Digital|Vocals|Guitar|Drums|Vocal|Bass|Drum|Mix';
     // 🔥 v3.6.2: 新增 文案、古筝、古筝编写、小提琴、小提琴编写 角色（长词条在前：古筝编写>古筝、小提琴编写>小提琴，避免被截断）
@@ -123,7 +123,7 @@ function parseLyricText(text) {
     }
 
     // ── Phase 6: 提取创作信息 ──
-    // 🚀 v3.6.2: 既是创作信息（isCredit）又「像名单」（looksLikeNameList，如 Published by：A/B/C…）时，保留为 credits，不被名单过滤误删
+    // 🚀 v3.5.4: 既是创作信息（isCredit）又「像名单」（looksLikeNameList，如 Published by：A/B/C…）时，保留为 credits，不被名单过滤误删
     const inCredits = (t, time) => t && !isCopyright(t) && !isTitle(t, time) && (!looksLikeNameList(t) || isCredit(t));
     const credits = [];
     for (let i = 0; i < lyricStart; i++) {
@@ -316,7 +316,7 @@ function parseVttText(text) {
 }
 
 const loadLrc = async (song) => {
-    // 🔥 v3.6.2: 切歌（歌词栏可见且有旧歌词）时，先做高斯模糊+淡出过渡，再换内容
+    // 🔥 v3.6.1: 切歌（歌词栏可见且有旧歌词）时，先做高斯模糊+淡出过渡，再换内容
     const wasVisible = el.lrcPanel.style.display !== 'none' && parsedLyrics.length > 0;
     if (wasVisible) {
         el.lrcView.classList.add('lrc-switching');
@@ -352,7 +352,7 @@ const loadLrc = async (song) => {
     if (!lrcText) {
         el.lrcPanel.style.display = 'none'; el.btnToggleLrc.classList.remove('active');
         el.immLrcCenter.classList.add('hidden');
-        // 🔥 v3.6.2-fix: 无歌词分支必须清理 lrc-switching，否则后续有歌词的歌进来时
+        // 🔥 v3.6.1-fix: 无歌词分支必须清理 lrc-switching，否则后续有歌词的歌进来时
         // wasVisible 因 parsedLyrics=[] 而为 false，跳过移除逻辑 → blur(10px)+opacity:0 永久残留
         el.lrcView.classList.remove('lrc-switching');
         el.lrcPanel.classList.remove('lrc-panel-in', 'lrc-panel-out');
@@ -370,9 +370,9 @@ const loadLrc = async (song) => {
     if(parsedLyrics.length) {
         el.lrcPanel.style.display = 'flex'; el.btnToggleLrc.classList.add('active');
         el.immLrcCenter.classList.remove('hidden');
-        // 🔥 v3.6.2: 歌词栏出入场动画——切歌用内容高斯模糊过渡，面板此前隐藏则用整体淡入
+        // 🔥 v3.6.1: 歌词栏出入场动画——切歌用内容高斯模糊过渡，面板此前隐藏则用整体淡入
         el.lrcPanel.classList.remove('lrc-panel-out');
-        // 🔥 v3.6.2-fix: 无论 wasVisible 如何，都先清理残留的 lrc-switching（防止无歌词歌遗留）
+        // 🔥 v3.6.1-fix: 无论 wasVisible 如何，都先清理残留的 lrc-switching（防止无歌词歌遗留）
         el.lrcView.classList.remove('lrc-switching');
         if (wasVisible) {
             void el.lrcView.offsetWidth;  // 触发 reflow，确保移除后重绘
@@ -390,7 +390,7 @@ const loadLrc = async (song) => {
         if (creditsData && creditsData.length > 0) {
             const credDiv = document.createElement('div');
             credDiv.className = 'lrc-credits';
-            // 🚀 v3.6.2: 标准名单按 /,，、 分隔，保持名字完整；含括号时先保护括号内内容再拆分，避免出版信息（如 Universal/MCA）被误拆
+            // 🚀 v3.5.4: 标准名单按 /,，、 分隔，保持名字完整；含括号时先保护括号内内容再拆分，避免出版信息（如 Universal/MCA）被误拆
             const NON_STANDARD_CREDIT = /[()\[\]{}&\-–—:;"']/;
             const formatCreditValue = (val) => {
                 if (!val || val.length <= 30) return escapeHTML(val);
@@ -686,14 +686,14 @@ function initEQ() {
     if (!audioCtx) initVis();
     if (eqFilters.length > 0) return; // 已初始化
 
-    // 🔥 v3.6.2: 断开汇流节点到 analyser 的直连（EQ 关闭时的默认路径），
+    // 🔥 v3.6.0: 断开汇流节点到 analyser 的直连（EQ 关闭时的默认路径），
     // 改走 EQ 滤波器链路。双槽元素 source 仍稳定汇入 visInputNode，不受 EQ 重建影响。
     try { visInputNode.disconnect(); } catch(e) {}
 
     eqFilters = [];
     let prevNode = visInputNode;
 
-    // 🚀 v3.6.2: 末端补偿增益节点，依据合成幅频响应自动拉回余量，避免提升后削波
+    // 🚀 v3.5.4: 末端补偿增益节点，依据合成幅频响应自动拉回余量，避免提升后削波
     eqMakeup = audioCtx.createGain();
     eqMakeup.gain.value = 1;
 
@@ -717,7 +717,7 @@ function initEQ() {
     updateEQMakeup();
 }
 
-// 🚀 v3.6.2: 依据全部频段级联后的真实合成幅频响应计算补偿增益。
+// 🚀 v3.5.4: 依据全部频段级联后的真实合成幅频响应计算补偿增益。
 // 级联滤波器幅值相乘，故总 dB = 各滤波器 dB 之和；取最大值，仅做衰减（留 0.3dB 余量），不提升。
 function updateEQMakeup() {
     if (!eqMakeup || !eqFilters.length) return;
@@ -746,7 +746,7 @@ function setEQBand(bandIdx, gainDb) {
     eqGains[bandIdx] = gainDb;
     if (eqFilters[bandIdx]) {
         eqFilters[bandIdx].gain.value = gainDb;
-        updateEQMakeup(); // 🚀 v3.6.2: 增益变化后重算补偿余量
+        updateEQMakeup(); // 🚀 v3.5.4: 增益变化后重算补偿余量
     }
     saveSettings();
 }
@@ -785,7 +785,7 @@ function setEQPreset(preset) {
     eqFilters.forEach((f, i) => {
         if (f) f.gain.value = gains[i];
     });
-    updateEQMakeup(); // 🚀 v3.6.2: 预设切换后重算补偿余量
+    updateEQMakeup(); // 🚀 v3.5.4: 预设切换后重算补偿余量
     // 更新UI
     for (let i = 0; i < 10; i++) {
         const slider = document.getElementById(`eq-band-${i}`);
@@ -934,7 +934,7 @@ function cfApplyRamp(activeGain, passiveGain, userVol, dur, now, curve, aAdj, pA
     }
 }
 
-// 🔥 v3.6.2: 采样 AnalyserNode 的频域 RMS（响度归一化辅助）
+// 🔥 v3.6.0: 采样 AnalyserNode 的频域 RMS（响度归一化辅助）
 function cfSampleRMS(analyser, samples) {
     if (!analyser) return 0.5;
     const data = new Uint8Array(analyser.frequencyBinCount);
@@ -998,7 +998,7 @@ function cfCrossfadeVisStop() {
     });
 }
 
-// 🔥 v3.6.2: 交叉淡变 / 手动切歌 共用的「歌曲 UI 同步」
+// 🔥 v3.6.0: 交叉淡变 / 手动切歌 共用的「歌曲 UI 同步」
 // 集中处理：标题/歌手/文档标题、文件信息、专辑封面+取色、--album-color、no-art、
 // ThemeColor 标题栏配色、WCO 标题栏曲目、主题逻辑、Media Session 元数据+控制回调+位置状态。
 // 两端（playAudio 手动切歌 / cfFinishTransition 交叉淡变切歌）统一调用，杜绝 UI 不一致。
@@ -1019,7 +1019,7 @@ async function cfSyncSongUI(song) {
     if (el.immArtist) el.immArtist.textContent = song.artist;
     document.title = `♪ ${song.title} - ${song.artist} ｜ MBolka`;
 
-    // 🔥 v3.6.2: 分阶滑入动画——交叉淡变时触发，手动切歌瞬间到位
+    // 🔥 v3.6.0: 分阶滑入动画——交叉淡变时触发，手动切歌瞬间到位
     if (isCrossfade) {
         el.mainTitle.classList.remove('cf-text-enter', 'stagger');
         el.mainArtist.classList.remove('cf-text-enter', 'stagger');
@@ -1042,7 +1042,7 @@ async function cfSyncSongUI(song) {
     if (hasCurrentAlbumArt) {
         el.mainArt.src = el.immArt.src = song.art;
 
-        // 🔥 v3.6.2: 封面溶解 — 旧封面覆盖层淡出（仅交叉淡变时）
+        // 🔥 v3.6.1: 封面溶解 — 旧封面覆盖层淡出（仅交叉淡变时）
         if (isCrossfade && oldArtSrc && oldArtSrc !== song.art && el.artBox) {
             const overlay = document.createElement('div');
             overlay.className = 'art-crossfade-overlay';
@@ -1098,7 +1098,7 @@ async function cfSyncSongUI(song) {
     applyThemeLogic();
 
     // Media Session 元数据 + 控制回调 + 位置状态
-    // 🔥 v3.6.2: seek/position 控制目标跟随「当前正在发声的槽」(getActivePlayAudio)，
+    // 🔥 v3.6.0: seek/position 控制目标跟随「当前正在发声的槽」(getActivePlayAudio)，
     // 交叉淡变进行中指向正在淡入的新歌、完成后指向新活跃槽，避免系统媒体中心定位冻结在旧槽。
     if ('mediaSession' in navigator) {
         const ap = getActivePlayAudio();
@@ -1130,7 +1130,7 @@ async function cfSyncSongUI(song) {
     }
 }
 
-// 🔥 v3.6.2: 交叉淡变引擎重构 — rAF 驱动 volume 淡变（移除 Web Audio GainNode）
+// 🔥 v3.6.0: 交叉淡变引擎重构 — rAF 驱动 volume 淡变（移除 Web Audio GainNode）
 async function cfTriggerCrossfade() {
     if (cfState !== CfState.IDLE || cfAirLocked) return;
     cfState = CfState.PRELOADING;
@@ -1259,7 +1259,7 @@ async function cfFinishTransition(nextIdx, userVol, tid) {
         logError('CF_SKIP_TID', `cfFinishTransition 跳过(tid=${tid} !== ${cfTransitionId})`, null);
         return;
     }
-    // 🔥 v3.6.2: 一次性守卫——rAF 收尾与 setTimeout 兜底二选一，防止重复执行
+    // 🔥 v3.6.0: 一次性守卫——rAF 收尾与 setTimeout 兜底二选一，防止重复执行
     if (cfState !== CfState.FADING) {
         // 🔥 v3.6.2: 日志 — 过渡已被其他路径（onAudioEnded/visibilitychange）强制完成
         logError('CF_SKIP_STATE', `cfFinishTransition 跳过(cfState=${cfState}, expected FADING)`, null);
@@ -1270,7 +1270,7 @@ async function cfFinishTransition(nextIdx, userVol, tid) {
     cfAirLocked = false;
     cfUpdateAirLockUI(false);
     cfCrossfadeVisStop();
-    // 🔥 v3.6.2: 清理可能残留的封面溶解覆盖层
+    // 🔥 v3.6.1: 清理可能残留的封面溶解覆盖层
     document.querySelectorAll('.art-crossfade-overlay').forEach(el => el.remove());
 
     // 停止旧活跃槽（不再置空 onended——双槽 onended 已统一永久绑定，置空会破坏关闭淡入淡出后的续播）
@@ -1282,7 +1282,7 @@ async function cfFinishTransition(nextIdx, userVol, tid) {
     cfActive = cfActive === 'A' ? 'B' : 'A';
     const newActive = cfGetActiveAudio();
     newActive.volume = userVol;
-    // 🔥 v3.6.2: 确保新活跃槽真正在播放（淡变结束时被动槽可能因后台自动播放策略被拦截而从未 play，
+    // 🔥 v3.6.0: 确保新活跃槽真正在播放（淡变结束时被动槽可能因后台自动播放策略被拦截而从未 play，
     //   仅设音量会导致「淡变完成即静默停止」；此处补齐 play，前台为 no-op、后台为重试）。
     newActive.play().catch(() => {});
     // 🔥 v3.6.3: 记录新活跃槽实际装载的索引
@@ -1306,7 +1306,7 @@ async function cfFinishTransition(nextIdx, userVol, tid) {
     newActive.playbackRate = playbackRate;
     newActive.preservesPitch = preservesPitch;
 
-    // 🔥 v3.6.2: 无需在此重新绑定 onended——主槽 audio 与备用槽 cfAudioB 已在初始化时
+    // 🔥 v3.6.0: 无需在此重新绑定 onended——主槽 audio 与备用槽 cfAudioB 已在初始化时
     // 永久绑定统一的 onAudioEnded 处理器（见 audio.onended / initCrossfadeEngine）。
 
     setPlayState(true);
@@ -1328,7 +1328,7 @@ async function cfFinishTransition(nextIdx, userVol, tid) {
     cfPreloadNext();
 }
 
-// 🔥 v3.6.2: 紧急中止交叉淡变（volume 方案）
+// 🔥 v3.6.0: 紧急中止交叉淡变（volume 方案）
 function cfAbortTransition(tid) {
     if (tid !== cfTransitionId) return;
     // 🔥 v3.6.2: 日志 — 交叉淡变被中止
@@ -1337,7 +1337,7 @@ function cfAbortTransition(tid) {
     cfAirLocked = false;
     cfUpdateAirLockUI(false);
     cfCrossfadeVisStop();
-    // 🔥 v3.6.2: 清理可能残留的封面溶解覆盖层
+    // 🔥 v3.6.1: 清理可能残留的封面溶解覆盖层
     document.querySelectorAll('.art-crossfade-overlay').forEach(el => el.remove());
     const passive = cfGetPassiveAudio();
     passive.volume = 0;
@@ -1371,7 +1371,7 @@ function cfResumeFromEnergy() {
     if (crossfadeEnabled) { cfSetupScanner(); cfPreloadNext(); }
 }
 
-// 🔥 v3.6.2: 后台播放看门狗（setTimeout，后台不会被完全冻结，兜底 rAF 冻结缺陷）
+// 🔥 v3.6.1: 后台播放看门狗（setTimeout，后台不会被完全冻结，兜底 rAF 冻结缺陷）
 // 🔥 v3.6.3: 强化——杜绝「界面显示 X、实际播放 Y」的活跃槽/UI 错位（见下方槽内重载 + 自愈）。
 let _watchdogTimer = null;
 const startPlaybackWatchdog = () => {
@@ -1452,7 +1452,7 @@ const startPlaybackWatchdog = () => {
 const playAudio = async (idx) => {
     if (!playlist[idx]) return;
     
-    // 🔥 v3.6.2: 手动切歌时彻底重置交叉淡变引擎到干净状态（主音频槽 A）
+    // 🔥 v3.6.0: 手动切歌时彻底重置交叉淡变引擎到干净状态（主音频槽 A）
     if (cfState !== CfState.IDLE || cfAirLocked || cfActive !== 'A') {
         ++cfTransitionId;
         cfState = CfState.IDLE;
@@ -1486,7 +1486,7 @@ const playAudio = async (idx) => {
     await ensureArt(song);
     touchArt(song);
 
-    // 🔥 v3.6.2: 公共 UI 同步（手动切歌 + 交叉淡变共用，确保两端 UI 完全一致）
+    // 🔥 v3.6.0: 公共 UI 同步（手动切歌 + 交叉淡变共用，确保两端 UI 完全一致）
     await cfSyncSongUI(song);
 
     await loadLrc(song); renderPlaylist();
@@ -1630,7 +1630,7 @@ const goPrev = () => {
     createExplosion(window.innerWidth*0.2, window.innerHeight/2, 2);
 };
 
-// 🔥 v3.6.2: 解码错误处理器（主槽 + 备用槽共用），用 e.target 区分出错的槽
+// 🔥 v3.6.0: 解码错误处理器（主槽 + 备用槽共用），用 e.target 区分出错的槽
 function onAudioError(e) {
     const song = playlist[currentIndex];
     if (song) {
@@ -1923,7 +1923,7 @@ if (el.immProgArea && el.immProgFill) {
 let _lastPosState = 0;
 
 // === 进度/元数据/错误事件统一跟随「当前正在发声的槽」(getActivePlayAudio) ===
-// 🔥 v3.6.2: 主槽 audio 与备用槽 cfAudioB 都绑定同一组处理器；
+// 🔥 v3.6.0: 主槽 audio 与备用槽 cfAudioB 都绑定同一组处理器；
 // 交叉淡变后活跃槽切到 B 时，进度条/时长/错误/媒体中心定位均不冻结。
 
 // 高频进度刷新：任何槽的 timeupdate 都按「当前活跃槽」刷新进度与歌词
@@ -2009,7 +2009,7 @@ function onDurationChange() {
     }
 }
 
-// 🔥 v3.6.2: 绑定到所有音频槽（主槽 + 备用槽）
+// 🔥 v3.6.0: 绑定到所有音频槽（主槽 + 备用槽）
 forEachAudioEl(el => el.addEventListener('timeupdate', onProgressTick));
 forEachAudioEl(el => el.addEventListener('loadedmetadata', onAudioLoadedMetadata));
 forEachAudioEl(el => el.addEventListener('durationchange', onDurationChange));
@@ -2024,7 +2024,7 @@ const _scheduleVolSave = () => {
     }, 400);
 };
 
-// 🔥 v3.6.2: 统一音量控制 — 直接操作 audio 元素 volume（移除 GainNode 路由）
+// 🔥 v3.6.0: 统一音量控制 — 直接操作 audio 元素 volume（移除 GainNode 路由）
 // `skipSave` 为 true 时不做即时保存，改为防抖保存（高频连续调节用，避免每帧落盘）
 const cfSetVolume = (vol, skipSave = false) => {
     const activeEl = cfGetActiveAudio();
@@ -2055,10 +2055,10 @@ const adjustVolumeContinuous = (delta) => {
     cfSetVolume(newVol, true);
 };
 
-// 🔥 v3.6.2: 统一「播放结束」处理——主槽 audio 与备用槽 cfAudioB 永久绑定同一处理器，
+// 🔥 v3.6.0: 统一「播放结束」处理——主槽 audio 与备用槽 cfAudioB 永久绑定同一处理器，
 // 不再于切歌/交叉淡变重置时置空 onended，避免「关闭淡入淡变后放完一首歌自动暂停（不续播）」。
 // 仅当前活跃槽播放到末尾会触发 onended；暂停/空的槽不会触发，故双槽同绑安全。
-// 🔥 v3.6.2: 后台 rAF 冻结时交叉淡变 fade 卡住、cfState 卡在 FADING，
+// 🔥 v3.6.1: 后台 rAF 冻结时交叉淡变 fade 卡住、cfState 卡在 FADING，
 // 活跃槽播完后 onAudioEnded 因 cfState!==IDLE 返回 → 播放器静默停止（旧歌播完、新歌音量仍为 0）。
 // 修复：检测「当前活跃槽自然播完且淡变进行中」→ 立即强制收尾，不等到 setTimeout 兜底（被节流到 10s+ 后）。
 function onAudioEnded() {
@@ -2074,7 +2074,7 @@ function onAudioEnded() {
     // 🔥 v3.6.2: 日志 — 歌曲自然结束
     logError('ON_ENDED', `歌曲结束: ${playlist[currentIndex]?.title}, cfState=${cfState===CfState.FADING?'FADING':cfState===CfState.PRELOADING?'PRELOADING':'IDLE'}, cfAirLocked=${cfAirLocked}`, null);
 
-    // 🔥 v3.6.2: 交叉淡变进行中，当前活跃槽播放完毕 → 强制完成过渡
+    // 🔥 v3.6.0: 交叉淡变进行中，当前活跃槽播放完毕 → 强制完成过渡
     // this 指向触发了 ended 事件的 <audio> 元素（双槽永久绑定同一函数，通过 this 区分）
     // ⚠️ 不递增 cfTransitionId：在途 fade rAF 通过 cfState!==FADING 守卫自行退出（见 fade 函数顶部检查），
     //    避免 stale fade 将翻转后的新活跃槽误判为「被动槽」而 pause（导致 100% 淡变后立即停止）。
@@ -2135,7 +2135,7 @@ function setSleepTimer(minutes) {
     const ms = minutes * 60 * 1000;
     sleepEndTime = Date.now() + ms;
     sleepTimer = setTimeout(() => {
-        // 🔥 v3.6.2: 睡眠到点暂停当前活跃槽（可能已切到 cfAudioB）
+        // 🔥 v3.6.0: 睡眠到点暂停当前活跃槽（可能已切到 cfAudioB）
         getActivePlayAudio().pause();
         setPlayState(false);
         sleepTimer = null;
