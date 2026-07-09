@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Utilities v3.5.2
+ * MBolka Player - Utilities v3.6.3
  * Toast, formatting, encoding, settings persistence
  */
 
@@ -46,14 +46,15 @@ const saveSettingsNow = () => {
     try {
         localStorage.setItem('MBolka_Cfg_v3', JSON.stringify({
             // 🚀 核心修复：只保存滑块的物理数值，防止保存淡入淡出时的临时"0"音量
-            followAccentColor: cfg.followAccentColor, bgImmersive: cfg.bgImmersive, wcoPseudoImmersive: cfg.wcoPseudoImmersive, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
+            followAccentColor: cfg.followAccentColor, bgImmersive: cfg.bgImmersive, wcoPseudoImmersive: cfg.wcoPseudoImmersive, useOppoSans: cfg.useOppoSans, oppoSansWeight: cfg.oppoSansWeight, oppoKeepEnglish: cfg.oppoKeepEnglish, blurAmt: cfg.blurAmt, vol: parseFloat(el.volSlider.value),
             isShuffle: isShuffle, isRepeatOne: isRepeatOne,
             customBgImg: cfg.customBgImg, customBgColor: cfg.customBgColor, customBgTopColor: cfg.customBgTopColor,
             darkMode: cfg.darkMode, lrcFontSize: cfg.lrcFontSize,
             lrcLineHeight: cfg.lrcLineHeight, lrcAlign: cfg.lrcAlign,
             themePreset: cfg.themePreset, playbackRate: playbackRate,
             preservesPitch: preservesPitch, crossfadeEnabled: crossfadeEnabled,
-            crossfadeDuration: crossfadeDuration, 
+            crossfadeDuration: crossfadeDuration, crossfadeCurve: crossfadeCurve,
+            crossfadeNormalize: crossfadeNormalize, 
             // 🚀 v2.8.2: 兼容旧版 performanceMode
             performanceMode: performanceMode,
             // 🚀 v2.8.2: 新增节能配置
@@ -111,6 +112,9 @@ const loadSettings = () => {
             cfg.followAccentColor = stored.followAccentColor ?? stored.colorMode ?? false;
             cfg.bgImmersive = stored.bgImmersive ?? false;
             cfg.wcoPseudoImmersive = stored.wcoPseudoImmersive ?? true;
+            cfg.useOppoSans = stored.useOppoSans ?? false;
+            cfg.oppoSansWeight = stored.oppoSansWeight ?? 'R';
+            cfg.oppoKeepEnglish = stored.oppoKeepEnglish ?? false;
             cfg.blurAmt = stored.blurAmt ?? 40;
             audio.volume = stored.vol ?? 0.7;
             isShuffle = stored.isShuffle ?? false;
@@ -127,6 +131,8 @@ const loadSettings = () => {
             preservesPitch = stored.preservesPitch ?? true;
             crossfadeEnabled = stored.crossfadeEnabled ?? false;
             crossfadeDuration = stored.crossfadeDuration ?? 3;
+            crossfadeCurve = stored.crossfadeCurve ?? 'exponential';
+            crossfadeNormalize = stored.crossfadeNormalize ?? true;
             
             // 🚀 v2.8.2: 兼容旧版 performanceMode，映射到 frameEnergyEnabled
             performanceMode = stored.performanceMode ?? false;
@@ -254,7 +260,7 @@ const extractTopColorFromElement = (imgEl, sampleHeight = 0.25) => {
             }
         }
         return count > 0 ? `rgb(${~~(r/count)},${~~(g/count)},${~~(b/count)})` : null;
-    } catch (e) { return null; }
+    } catch (e) { console.warn('[extractColor] 取色失败（可能 CORS 受限）:', e && e.message); return null; } // 🚀 v3.6.x: 记录失败原因便于调试
 };
 
 const getHueFromRgb = (rgbStr) => {
@@ -265,9 +271,10 @@ const getHueFromRgb = (rgbStr) => {
 };
 
 // HTML 转义 — 统一入口
+let _escapeDiv = null;
 const escapeHTML = (str) => {
     if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    if (!_escapeDiv) _escapeDiv = document.createElement('div'); // 🚀 v3.6.x: 复用同一 div，避免高频（歌词逐行）渲染时反复创建临时 DOM
+    _escapeDiv.textContent = str;
+    return _escapeDiv.innerHTML;
 };

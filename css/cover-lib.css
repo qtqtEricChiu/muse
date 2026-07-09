@@ -151,6 +151,7 @@
     flex: 1;
     min-height: 0;
     contain: style paint;
+    align-self: stretch; /* 网格模式在 stage 中垂直拉伸 */
 }
 
 /* 🚀 v3.3.3: 单行 coverflow 轨道（绝区零·影像档案架风格） */
@@ -168,6 +169,12 @@
     scroll-behavior: smooth;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
+    /* 🚀 v3.6.2: 顶部栏较多导致封面整体下沉，整体上移到视觉中心；
+       取消在 stage 中的拉伸，使其作为 flex item 居中 */
+    flex: 0 0 auto;
+    align-self: center;
+    transform: translateY(-50px);
+    width: 100%;
 }
 
 /* 每张卡片都是 snap 锚点（仅 coverflow 生效） */
@@ -228,7 +235,6 @@
     box-shadow:
         0 10px 25px rgba(0,0,0,0.45),
         0 2px 6px rgba(0,0,0,0.5);
-    will-change: transform;
 }
 
 /* 居中（active）卡片：光晕 + 高亮；变换由 JS 注入，这里只管视觉 */
@@ -612,6 +618,87 @@
     font-size: 12px;
     color: var(--text-sub);
     flex-shrink: 0;
+}
+
+/* ============================================================
+   12.5 🚀 按专辑排序条（默认 / 按艺术家）+ coverflow 艺术家浮标
+   ============================================================ */
+
+/* stage：flex column 布局，使 coverflow 在剩余区域内垂直居中；
+   艺术家浮标作为普通 flex item 通过 order 排在 grid 下方 */
+.cover-lib-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.cover-lib-sortbar {
+    display: none; /* 🚀 仅 album 模式由 JS 切换为 flex */
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 14px;
+    flex-shrink: 0;
+}
+
+.cover-lib-sort-bar-label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    margin-right: 2px;
+}
+
+.cover-lib-sort-btn {
+    padding: 6px 14px;
+    border-radius: 9px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.45);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.cover-lib-sort-btn:hover {
+    color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.08);
+}
+
+.cover-lib-sort-btn.active {
+    color: var(--primary, #9ac8e2);
+    background: rgba(154,200,226,0.12);
+    border-color: rgba(154,200,226,0.4);
+}
+
+/* coverflow 浮动当前艺术家标签（按艺术家排序时显示在 coverflow 下方） */
+.coverflow-artist-indicator {
+    display: none;
+    position: relative;
+    order: 2;
+    align-self: center;
+    margin-top: 18px;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: #ece8f4;
+    background: rgba(20,18,32,0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(154,200,226,0.28);
+    box-shadow: 0 4px 22px rgba(0,0,0,0.45);
+    pointer-events: none;
+    z-index: 50;
+    max-width: 80%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ============================================================

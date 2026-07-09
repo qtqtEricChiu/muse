@@ -41,6 +41,8 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+/* 🚀 v3.6.x: Firefox 滚动条回退 */
+html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent; }
 
 .gamepad-focus {
     outline: 3px solid var(--primary) !important;
@@ -99,7 +101,7 @@ body.bg-immersive .player-wrapper {
     transition: opacity 0.6s var(--curve-smooth), transform 0.6s var(--curve-spring), filter 0.6s;
     will-change: transform, opacity; /* 🚀 v2.5-p2: GPU 合成图层升格 */
 }
-.view-container.hidden { opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(10px); }
+.view-container.hidden { opacity: 0; pointer-events: none; transform: scale(0.95); filter: blur(4px); } /* 🚀 v3.6.x: 降低离屏模糊合成开销 */
 
 /* 强力重建视图堆叠上下文与点击穿透 */
 #view-main { 
@@ -126,6 +128,14 @@ body.bg-immersive .player-wrapper {
 @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 
+/* 🚀 v3.6.x: 无障碍 —— 用户偏好减少动态时禁用持续性装饰动画（floatArt / 待机 / 播放键呼吸 / 歌词过渡） */
+@media (prefers-reduced-motion: reduce) {
+    .art-box { animation: none !important; }
+    .pip-standby { animation: none !important; }
+    .btn-play { animation: none !important; }
+    .lrc-line { transition: none !important; }
+}
+
 .player-wrapper {
     width: 96vw; max-width: 1400px; height: 92vh;
     background: var(--glass-bg); backdrop-filter: blur(35px) saturate(180%); -webkit-backdrop-filter: blur(35px) saturate(180%);
@@ -146,6 +156,7 @@ body.bg-immersive .player-wrapper {
 .nav-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .btn-glass {
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8); /* 🚀 v3.6.x: 亮背景图片叠加时保证文字可读 */
     padding: 10px 16px; border-radius: 14px; cursor: pointer; font-weight: 500; font-size: 14px;
     transition: all 0.3s var(--curve-smooth); display: flex; align-items: center; gap: 6px; white-space: nowrap;
 }
@@ -169,7 +180,8 @@ body.bg-immersive .player-wrapper {
 
 .load-strip-container { height: 5px; background: rgba(255,255,255,0.05); width: 100%; display: none; position: relative; overflow: hidden; flex-shrink: 0; border-radius: 0 0 3px 3px; z-index: 5; }
 .load-strip-container.show { display: block; }
-.load-strip { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), rgba(154,200,226,0.8)); position: relative; transition: width 0.3s ease; border-radius: 0 3px 3px 0; }
+.load-strip { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), rgba(154,200,226,0.8), #6ee7b7, var(--primary), rgba(154,200,226,0.8), #6ee7b7); background-size: 200% 100%; background-position: 0% 50%; position: relative; transition: width 0.3s ease; border-radius: 0 3px 3px 0; animation: cfBarFlow 2s linear infinite; }
+.load-strip-container:not(.show) .load-strip { animation-play-state: paused; } /* 🚀 v3.6.x: 隐藏时暂停流动动画省合成 */
 .load-strip::after { content: ''; position: absolute; inset:0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: shimmerBar 1.5s infinite; }
 
 .content-grid { display: flex; flex: 1; padding: 32px 40px; gap: 40px; overflow: hidden; justify-content: center; }
@@ -194,14 +206,19 @@ body.bg-immersive .player-wrapper {
 .art-box::after { content: ''; position: absolute; inset: 0; border-radius: 28px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); pointer-events: none; }
 .art-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s var(--curve-smooth), opacity 0.4s; }
 .art-box:hover .art-img { transform: scale(1.06); }
-.art-box.swipe-left .art-img { animation: slideInLeft 0.3s ease-out; }
-.art-box.swipe-right .art-img { animation: slideInRight 0.3s ease-out; }
+.art-box.swipe-left .art-img { animation: slideInLeft 0.3s var(--curve-smooth); } /* 🚀 v3.6.x: 统一缓动 */
+.art-box.swipe-right .art-img { animation: slideInRight 0.3s var(--curve-smooth); } /* 🚀 v3.6.x */
 .track-info { text-align: center; width: 100%; transition: all 0.5s var(--curve-spring);}
-.track-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; line-height: 1.2; text-shadow: 0 4px 12px rgba(0,0,0,0.3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
+.track-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; line-height: 1.2; text-shadow: 0 4px 12px rgba(0,0,0,0.3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-height: 2.4em; /* 🚀 v3.6.x: 回退 -webkit-line-clamp（Firefox 不支持） */ }
 .track-artist { font-size: 18px; color: var(--text-sub); font-weight: 500; }
 
+/* 🚀 v3.6.3: 点击复制替换原生选中复制 */
+.click-copy { cursor: pointer; user-select: none; -webkit-user-select: none; }
+.click-copy:hover { filter: brightness(1.2); }
+.click-copy:active { opacity: 0.7; transition: opacity 0.1s; }
+
 /* 🩹 v3.4.3: 基础态预留 1px 透明边框，hover 仅改边框色（不改尺寸），避免内容盒收缩触发 ResizeObserver 每帧重设 canvas 导致的频闪 */
-.vis-canvas-container { width: 100%; height: 70px; background: rgba(0,0,0,0.2); border-radius: 16px; margin-bottom: -10px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; border: 1px solid transparent;}
+.vis-canvas-container { width: 100%; height: clamp(50px, 8vh, 90px); background: rgba(0,0,0,0.2); border-radius: 16px; margin-bottom: -10px; /* 🚀 v3.6.x: 高度自适应视口 */ cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; border: 1px solid transparent;}
 .vis-canvas-container:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);}
 #spectrumCanvasMain { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; }
 .vis-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; opacity: 0; transition: 0.3s; text-shadow: 0 2px 5px #000; letter-spacing: 1px;}
@@ -217,7 +234,7 @@ body.bg-immersive .player-wrapper {
 
 .btn-group-main { display: flex; justify-content: center; align-items: center; gap: 24px; }
 .btn-ctrl { width: 60px; height: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 20px; cursor: pointer; transition: all 0.3s var(--curve-spring); display: flex; justify-content: center; align-items: center; position: relative; }
-.btn-ctrl:active { transform: scale(0.92) !important; transition: transform 0.1s; }
+.btn-ctrl:active:not(:disabled) { transform: scale(0.96); transition: transform 0.1s; } /* 🚀 v3.6.x: 提高特异性替代 !important；缩小至 0.96 减少子像素文字发虚 */
 .btn-ctrl:hover { background: rgba(255,255,255,0.12); transform: scale(1.08); border-color: var(--primary); color: var(--primary); }
 .btn-play { width: 84px; height: 84px; font-size: 32px; border: none; background: var(--primary); color: var(--text-on-primary); animation: glowPulse 3s infinite; }
 .btn-play:hover { transform: scale(1.08); filter: brightness(1.1); color: var(--text-on-primary); }
@@ -235,13 +252,20 @@ body.bg-immersive .player-wrapper {
 input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
 input[type=range]::-webkit-slider-runnable-track { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: var(--primary); margin-top: -5px; cursor: pointer; transition: background 0.5s; box-shadow: 0 2px 5px rgba(0,0,0,0.5);}
+/* 🚀 v3.6.x: Firefox 滑块拇指/轨道适配（原仅 webkit vendor） */
+input[type=range]::-moz-range-thumb { appearance: none; height: 14px; width: 14px; border-radius: 50%; background: var(--primary); border: none; cursor: pointer; }
+input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+/* 🚀 v3.6.x: 键盘聚焦可见反馈（无障碍） */
+input[type=range]:focus-visible { outline: none; }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--primary-glow), 0 2px 5px rgba(0,0,0,0.5); }
+input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--primary-glow); }
 
 .lrc-viewport { 
     flex: 1; 
     overflow-y: auto; 
     overflow-x: hidden; /* 隐藏可能出现的横向滚动条 */
     text-align: var(--lrc-align); 
-    padding: 50% 20px; 
+    padding: 30vh 20px; /* 🚀 v3.6.x: 基于视口高度留白，超宽屏不再浪费歌词空间 */ 
     scroll-behavior: smooth; 
     width: 100%; /* 限制最大宽度 */
 }
@@ -254,7 +278,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     font-size: var(--lrc-font-size); 
     line-height: var(--lrc-line-height); 
     color: rgba(255,255,255,0.35); 
-    transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: color 0.6s, opacity 0.6s, filter 0.6s, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
     min-height: 40px; 
     cursor: pointer; 
     filter: blur(2px); 
@@ -262,9 +286,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     transform: scale(0.95); 
     
     /* 🚀 修复超长歌词撑爆的核心代码 */
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: break-word;
+    word-wrap: break-word;            /* 旧浏览器回退 */
+    overflow-wrap: anywhere;          /* 🚀 v3.6.x: 标准属性，替代已废弃的 word-break: break-word */
     white-space: pre-wrap; /* 允许换行，同时保留原歌词可能带的空格 */
     padding: 0 10px; /* 两侧留一点安全边距 */
     user-select: text; /* 歌词可选中复制 */
@@ -274,7 +297,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
     color: rgba(255,248,240,0.95); 
     font-size: calc(var(--lrc-font-size) * 1.2); 
     font-weight: 700; 
-    text-shadow: 0 0 24px rgba(var(--primary-rgb), 0.5), 0 0 60px rgba(var(--primary-rgb), 0.2); 
+    text-shadow: 0 0 24px rgba(var(--primary-rgb), 0.5), 0 0 30px rgba(var(--primary-rgb), 0.2); 
     transform: scale(1.05) translateY(-3px); 
     filter: blur(0px); 
     opacity: 1; 
@@ -282,12 +305,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
 
 /* 🚀 视觉梯队：紧跟在当前激活行后面的下一行歌词不模糊 */
 .lrc-line.active + .lrc-line {
-    filter: blur(0px) !important;
+    filter: blur(0px); /* 🚀 v3.6.x: 源顺序/特异性(0,3,0)已高于 :hover(0,2,0)，无需 !important */
     opacity: 0.75;
     transform: scale(0.98);
 }
 
-.footer { padding: 16px 36px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px; color: var(--text-sub); display: flex; justify-content: space-between; flex-shrink: 0; }
+.footer { padding: 16px 36px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); font-size: clamp(11px, 1.6vh, 14px); color: var(--text-sub); display: flex; justify-content: space-between; flex-shrink: 0; } /* 🚀 v3.6.x: 高 DPI 屏字号自适应 */
 
 /* ================= 2. 沉浸界面样式 ================= */
 #immersive-bg-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -5; pointer-events: none; }
@@ -418,7 +441,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px
 /* 主题预设网格 - 🚀 v2.5 重构为聚焦卡片系统 */
 .theme-preset-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); /* 🚀 v3.6.x: 自适应列数，避免大屏色块拉伸过宽 */
     gap: 12px;
     margin-top: 10px;
 }
@@ -780,6 +803,7 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     border: 1px solid rgba(255,255,255,0.05); text-align: center;
 }
 .stat-card .stat-value { font-size: 28px; font-weight: 800; color: var(--primary); }
+@media (max-width: 480px) { .stat-card .stat-value { font-size: 22px; } } /* 🚀 v3.6.x: 小屏防溢出 */
 .stat-card .stat-label { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
 .stat-top-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .stat-top-item { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 8px; }
@@ -812,7 +836,7 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     .art-box { width: 260px; height: 260px; }
     .imm-bottom { flex-direction: column; gap: 15px; padding: 20px; }
     .imm-bottom .vol-control { display: none; }
-    .theme-preset-grid { grid-template-columns: repeat(5, 1fr); }
+    .theme-preset-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); } /* 🚀 v3.6.x */
     .track-title { font-size: 24px; }
     .track-artist { font-size: 15px; }
     .footer { padding: 12px 20px; font-size: 11px; }

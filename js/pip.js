@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Picture-in-Picture v3.5.1
+ * MBolka Player - Picture-in-Picture v3.6.3
  * Energy saving system (EnergyMode bitfield), PiP window management
  */
 
@@ -85,7 +85,7 @@ function applyEnergySaving(enable, triggerMode = EnergyMode.NONE) {
 
         // 恢复视觉特效
         if (analyser && !isImmersiveMode) {
-            requestAnimationFrame(renderVisLoop);
+            startVisLoop();
         }
 
         // 🚀 v3.0.0: 恢复震动
@@ -261,7 +261,7 @@ async function togglePip() {
         }
 
         // 4. 更新PiP界面的核心函数
-        let pipLastCurr = '', pipLastNext = '';
+        let pipLastCurr = '', pipLastNext = '', pipLastArt = '';
         const updatePipUI = () => {
             if (!pipWindow || pipWindow.closed) {
                 pipWindow = null;
@@ -283,7 +283,35 @@ async function togglePip() {
                 // 2. 动态更新背景和封面 (解决封面不刷新的问题)
                 const bg = pipWindow.document.getElementById('pipBg');
                 const vinylWrap = pipWindow.document.getElementById('pipVinylWrap');
+                const isCrossfade = typeof cfState !== 'undefined' && cfState === CfState.FADING;
                 if (s.art) {
+                    // 🔥 v3.6.2: PiP 封面淡变 — 旧封面溶解到新封面
+                    if (isCrossfade && pipLastArt && pipLastArt !== s.art) {
+                        // 背景层溶解
+                        if (bg && !bg.querySelector('.pip-bg-overlay')) {
+                            const oldOverlay = document.createElement('div');
+                            oldOverlay.className = 'pip-bg-overlay';
+                            oldOverlay.style.cssText = 'position:absolute;inset:0;background-size:cover;background-position:center;z-index:0;opacity:1;transition:opacity 3s cubic-bezier(0.22,0.61,0.36,1);pointer-events:none;';
+                            oldOverlay.style.backgroundImage = `url('${pipLastArt}')`;
+                            bg.appendChild(oldOverlay);
+                            void oldOverlay.offsetWidth;
+                            oldOverlay.style.opacity = '0';
+                            setTimeout(() => { if (oldOverlay.parentNode) oldOverlay.remove(); }, 3200);
+                        }
+                        // 黑胶封面层溶解
+                        if (vinylWrap) {
+                            const oldImg = vinylWrap.querySelector('img');
+                            if (oldImg && !vinylWrap.querySelector('.pip-vinyl-overlay')) {
+                                const oldClone = oldImg.cloneNode(true);
+                                oldClone.className = 'pip-vinyl-overlay';
+                                Object.assign(oldClone.style, { position:'absolute', inset:'0', width:'100%', height:'100%', objectFit:'cover', borderRadius:'inherit', zIndex:'2', opacity:'1', transition:'opacity 3s cubic-bezier(0.22,0.61,0.36,1)', pointerEvents:'none' });
+                                vinylWrap.appendChild(oldClone);
+                                void oldClone.offsetWidth;
+                                oldClone.style.opacity = '0';
+                                setTimeout(() => { if (oldClone.parentNode) oldClone.remove(); }, 3200);
+                            }
+                        }
+                    }
                     if (bg) bg.style.backgroundImage = `url('${s.art}')`;
                     if (vinylWrap && vinylWrap.innerHTML.indexOf(s.art) === -1) {
                         vinylWrap.innerHTML = `<img src="${escapeHTML(s.art)}">`;
@@ -293,7 +321,11 @@ async function togglePip() {
                     if (vinylWrap && !vinylWrap.querySelector('.pip-vinyl-icon')) {
                         vinylWrap.innerHTML = `<div class="pip-vinyl-icon" style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a1a,#333);display:flex;align-items:center;justify-content:center;font-size:24px;"><svg class="ui-ico" style="width:36px;height:36px;opacity:0.5;margin:0;"><use href="#icon-music"/></svg></div>`;
                     }
+                    // 🚀 v3.5.x: LRU 已淘汰的封面 → 触发懒恢复（下帧即生效），ensureArt 自带并发去重
+                    ensureArt(s);
                 }
+                // 🔥 v3.6.2: 记录当前封面 sr c，用于下次淡变检测
+                pipLastArt = s.art || '';
 
                 // 3. 判断当前是否有歌词，动态切换两套UI的显示状态 (解决有无歌词切换失效的问题)
                 const hasLrc = parsedLyrics.length > 0;

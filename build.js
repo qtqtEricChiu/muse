@@ -24,7 +24,7 @@ const CSS_FILES = [
 // 模板内容与 js/meta-worker.js 完全一致；CDN 链接 (jsmediatags@3.9.8) 也保持一致
 const META_WORKER_TEMPLATE =
 "/**\n" +
-" * MBolka Player - 元数据解析 Worker (P1-3, v3.5.0)\n" +
+" * MBolka Player - 元数据解析 Worker (P1-3, v3.6.3)\n" +
 " * 后台线程中用 jsmediatags 解析音乐文件标签，主线程只收结果。\n" +
 " * 通信协议：\n" +
 " *   -> postMessage({ key: String, file: File })\n" +
@@ -65,7 +65,7 @@ const META_WORKER_TEMPLATE =
 "}\n";
 
 async function build() {
-    console.log('🔨 Building MBolka Player v3.5.2...');
+    console.log('🔨 Building MBolka Player v3.6.3...');
 
     // Create dist directory
     if (!fs.existsSync(DIST)) fs.mkdirSync(DIST, { recursive: true });
@@ -138,9 +138,9 @@ async function build() {
  */
 function genSW(urls) {
     const list = JSON.stringify(urls, null, 12);
-    return `/* MBolka Player v3.5.2 — dist Service Worker (相对路径, 子路径安全) */
-const CACHE_NAME = 'mbolka-v3.5.2';
-const RUNTIME_CACHE = 'mbolka-runtime-v3.5.2';
+    return `/* MBolka Player v3.6.3 — dist Service Worker (相对路径, 子路径安全) */
+const CACHE_NAME = 'mbolka-v3.6.3';
+const RUNTIME_CACHE = 'mbolka-runtime-v3.6.3';
 const CACHE_URLS = ${list};
 
 self.addEventListener('install', e => {
@@ -161,7 +161,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const req = e.request;
     if (req.method !== 'GET') return;
-    // 🔧 v3.5.2: Network-First —— 在线优先回源（源码改动刷新即生效），离线/失败回退缓存
+    // 🔧 v3.6.3: Network-First —— 在线优先回源（源码改动刷新即生效），离线/失败回退缓存
     e.respondWith(
         fetch(req).then(res => {
             if (res && res.ok && isSameOrigin(req.url)) {

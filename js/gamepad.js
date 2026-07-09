@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Gamepad & Input v3.5.1
+ * MBolka Player - Gamepad & Input v3.6.3
  * 2D focus navigation, keyboard/touch mappings, gamepad polling
  */
 
@@ -351,8 +351,8 @@ window.addEventListener('keydown', (e) => {
         case 'a': case 'arrowleft': e.preventDefault(); coverLibNav('left'); break;
         case 'd': case 'arrowright': e.preventDefault(); e.shiftKey ? toggleDarkMode() : coverLibNav('right'); break;
 
-        case 'j': audio.currentTime -= 10; break;
-        case 'k': audio.currentTime += 10; break;
+        case 'j': getActivePlayAudio().currentTime -= 10; break;
+        case 'k': getActivePlayAudio().currentTime += 10; break;
         case 'i': toggleImmersiveMode(); break;
         case 'm': case 'r': cyclePlayMode(); break;
         case 'c': case 'y': toggleColorMode(); break;
@@ -422,11 +422,11 @@ document.addEventListener('touchend', (e) => {
         const screenW = window.innerWidth;
         if (e.changedTouches[0].clientX < screenW * 0.4) {
             // 左侧双击 - 快退10秒
-            audio.currentTime = Math.max(0, audio.currentTime - 10);
+            getActivePlayAudio().currentTime = Math.max(0, getActivePlayAudio().currentTime - 10);
             showToast("快退 10秒", iconSvg('rewind'));
         } else {
             // 右侧双击 - 快进10秒
-            audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
+            getActivePlayAudio().currentTime = Math.min(getActivePlayAudio().duration, getActivePlayAudio().currentTime + 10);
             showToast("快进 10秒", iconSvg('fast-forward'));
         }
     }
@@ -671,11 +671,11 @@ const pollGamepad = () => {
 
         // 🚀 v3.0.2: LT/RT 短按 = 快退/快进 5 秒（LT+RT 保留 Seek 模式）
         if (btns[6] && !prevPadBtns[6]) {
-            audio.currentTime = Math.max(0, audio.currentTime - 5);
+            getActivePlayAudio().currentTime = Math.max(0, getActivePlayAudio().currentTime - 5);
             showToast("快退 5秒", iconSvg('rewind'));
         }
         if (btns[7] && !prevPadBtns[7]) {
-            audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+            getActivePlayAudio().currentTime = Math.min(getActivePlayAudio().duration || 0, getActivePlayAudio().currentTime + 5);
             showToast("快进 5秒", iconSvg('fast-forward'));
         }
 
@@ -888,7 +888,7 @@ const pollGamepad = () => {
                     if (now - _seekLastTime > 100) {
                         _seekLastTime = now;
                         const step = Math.abs(lx) > 0.7 ? 5 : 1;
-                        audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + (lx > 0 ? step : -step)));
+                        getActivePlayAudio().currentTime = Math.max(0, Math.min(getActivePlayAudio().duration || 0, getActivePlayAudio().currentTime + (lx > 0 ? step : -step)));
                     }
                 }
             }
@@ -975,7 +975,8 @@ function switchCoverLibTab(dir) {
     tabs[nextIdx].classList.add('active');
     tabs[nextIdx].click();
     setTimeout(() => {
-        // 🚀 v3.3.4: 切换 Tab 后按当前模式刷新（coverflow 居中 / 网格重扫焦点）
+        // 🚀 v3.3.4: 切换 Tab 后按当前模式刷新（coverflow 居中 / 网格重扫焦点）。
+        // 🚀 v3.6.x: 180ms 为等待 Tab 切换后 DOM 重渲染完成再居中 coverflow 的经验值（rAF 双帧不稳时的回退）
         if (typeof refreshCoverLibAfterRender === 'function') refreshCoverLibAfterRender();
         else { if (typeof updateFocusContext === 'function') updateFocusContext(); if (typeof updateCoverflow === 'function') updateCoverflow(); }
     }, 180);

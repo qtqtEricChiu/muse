@@ -12,26 +12,56 @@ window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',
 // 粒子对象池
 const particlePool = [];
 const MAX_POOL = 150;
+// 🚀 v3.6.x: 交叉淡变进行中（双槽解码 CPU 翻倍）时降低粒子/涟漪生成速率
+const _inCrossfadeFade = () => (typeof cfState !== 'undefined' && typeof CfState !== 'undefined' && cfState === CfState.FADING);
+const _visFadeThrottle = () => _inCrossfadeFade() && Math.random() < 0.5;
+// 🚀 v3.5.x: 廉价流场相位——驱动粒子轨迹的有机弯曲，每帧递增，配合 LUT 零浮点开销
+let _particleDriftPhase = 0;
 class Particle {
     constructor() { this.reset(); }
-    reset() { this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.color = ''; this.size = 0; this.life = 0; this.active = false; return this; }
-    init(x, y, vx, vy, color, size) {
-        this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.color = color; this.size = size; this.life = 1; this.active = true; return this;
+    reset() { this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.color = ''; this.size = 0; this.life = 0; this.active = false; this.type = 0; this.seed = 0; return this; }
+    init(x, y, vx, vy, color, size, type = 0) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.color = color; this.size = size; this.life = 1; this.active = true; this.type = type; this.seed = (Math.random() * 1000) | 0; return this;
     }
-    update() { this.x += this.vx; this.y += this.vy; this.life -= 0.02; this.size *= 0.95; this.vx *= 0.95; this.vy *= 0.95; return this.life > 0; }
-    draw(ctx) { if(!this.active) return; const prevAlpha = ctx.globalAlpha; ctx.globalAlpha = this.life; ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = prevAlpha; }
+    update() {
+        // 🚀 v3.5.x: 流场漂移——用三角函数查表给速度加一点随位置/时间变化的扰动，
+        // 让粒子轨迹自然弯曲（有机涌现感），每次仅 2 次查表，零额外浮点开销
+        this.vx += lutSin(this.x * 0.02 + _particleDriftPhase) * 0.045;
+        this.vy += lutCos(this.y * 0.02 + _particleDriftPhase) * 0.045;
+        this.x += this.vx; this.y += this.vy;
+        this.life -= this.type === 1 ? 0.015 : 0.02; // 流光拖尾略持久
+        this.size *= 0.95; this.vx *= 0.96; this.vy *= 0.96;
+        return this.life > 0;
+    }
+    draw(ctx) {
+        if (!this.active) return;
+        const prevAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color; ctx.strokeStyle = this.color;
+        if (this.type === 1) {
+            // 流光拖尾：沿速度方向画一段渐隐短线条，更显灵动
+            const sp = Math.hypot(this.vx, this.vy) || 1;
+            const len = Math.min(18, sp * 3 + 4);
+            const tx = this.x - (this.vx / sp) * len, ty = this.y - (this.vy / sp) * len;
+            ctx.lineWidth = Math.max(1, this.size * 0.8); ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(this.x, this.y); ctx.stroke();
+        } else {
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = prevAlpha;
+    }
     kill() { this.active = false; }
 }
 // 预分配池
 for (let i = 0; i < MAX_POOL; i++) particlePool.push(new Particle());
 
-function acquireParticle(x, y, vx, vy, color, size) {
-    for (let p of particlePool) if (!p.active) return p.init(x, y, vx, vy, color, size);
+function acquireParticle(x, y, vx, vy, color, size, type = 0) {
+    for (let p of particlePool) if (!p.active) return p.init(x, y, vx, vy, color, size, type);
     // 🚀 v2.9.0: 池耗尽时采用 FIFO 淘汰策略，避免无限扩展
     const oldest = particlePool[0];
     particlePool.shift();
     particlePool.push(oldest);
-    return oldest.init(x, y, vx, vy, color, size);
+    return oldest.init(x, y, vx, vy, color, size, type);
 }
 
 // Ripple 对象池
@@ -62,10 +92,13 @@ const createExplosion = (x, y, intensity) => {
     if(!isImmersiveMode) return;
     const count = Math.floor(10 * intensity);
     for (let i=0; i<count; i++) {
-        const ang = Math.random() * Math.PI*2, spd = 1 + Math.random()*4*intensity;
+        // 🚀 v3.5.x: 均匀铺开 + 抖动的角度分布，比纯随机更富"绽放"层次
+        const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+        const spd = 1 + Math.random()*4*intensity;
         const size = 1.5 + Math.random()*4;
         const gray = 150 + Math.floor(Math.random() * 105);
-        particles.push(acquireParticle(x, y, Math.cos(ang)*spd, Math.sin(ang)*spd, `rgb(${gray},${gray},${gray})`, size));
+        const isStreak = Math.random() < 0.35; // 约 1/3 为流光拖尾
+        particles.push(acquireParticle(x, y, Math.cos(ang)*spd, Math.sin(ang)*spd, `rgb(${gray},${gray},${gray})`, size, isStreak ? 1 : 0));
     }
 };
 const createRipple = (x, y) => {
@@ -73,7 +106,7 @@ const createRipple = (x, y) => {
         ripples.push(acquireRipple(x, y, 'rgba(200,200,200,0.6)'));
         for(let i=0;i<3;i++) {
             const gray = 180 + Math.floor(Math.random() * 75);
-            particles.push(acquireParticle(x, y, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5, `rgb(${gray},${gray},${gray})`, 1+Math.random()*2));
+            particles.push(acquireParticle(x, y, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5, `rgb(${gray},${gray},${gray})`, 1+Math.random()*2, 1));
         }
     }
 };
@@ -81,20 +114,21 @@ const createRipple = (x, y) => {
 // 🚀 v2.9.0: mousemove 粒子生成加 rAF 节流防抖
 let particleThrottleTimer = null;
 document.addEventListener('mousemove', (e) => {
-    if (shouldBeEnergySaving() || reducedMotion) return;
+    if (shouldBeEnergySaving() || reducedMotion || _visFadeThrottle()) return;
     mouseX = e.clientX; mouseY = e.clientY;
     if (particleThrottleTimer) return;
     particleThrottleTimer = requestAnimationFrame(() => {
         particleThrottleTimer = null;
         if (isImmersiveMode && isPlaying && Math.random() < 0.25) {
             const gray = 160 + Math.floor(Math.random() * 95);
-            particles.push(acquireParticle(mouseX, mouseY, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5, `rgb(${gray},${gray},${gray})`, 1+Math.random()*3.5));
+            const isStreak = Math.random() < 0.3;
+            particles.push(acquireParticle(mouseX, mouseY, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5, `rgb(${gray},${gray},${gray})`, 1+Math.random()*3.5, isStreak ? 1 : 0));
         }
     });
 });
 
 document.addEventListener('touchmove', (e) => {
-    if (shouldBeEnergySaving() || reducedMotion) return;
+    if (shouldBeEnergySaving() || reducedMotion || _visFadeThrottle()) return;
     if (isImmersiveMode && isPlaying) {
         const touch = e.touches[0];
         mouseX = touch.clientX; mouseY = touch.clientY;
@@ -106,7 +140,7 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: true });
 
 document.addEventListener('click', (e) => {
-    if (shouldBeEnergySaving() || reducedMotion) return;
+    if (shouldBeEnergySaving() || reducedMotion || _visFadeThrottle()) return;
     if (isImmersiveMode) {
         const ct = e.target && e.target.closest ? e.target : null;
         if (!ct || (!ct.closest('button') && !ct.closest('.progress-area'))) {
@@ -128,20 +162,45 @@ function resizeMainCanvas() {
         mainNeedsRedraw = true;
     }
 }
+let _resizeObserver = null;
 if (el.canvasMain && 'ResizeObserver' in window) {
-    new ResizeObserver(resizeMainCanvas).observe(el.canvasMain);
+    _resizeObserver = new ResizeObserver(resizeMainCanvas);
+    _resizeObserver.observe(el.canvasMain);
 }
+// 🚀 v3.6.x: 页面隐藏时断开 ResizeObserver 观察，避免后台持续触发回调
+document.addEventListener('visibilitychange', () => {
+    if (!_resizeObserver || !el.canvasMain) return;
+    if (document.hidden) _resizeObserver.unobserve(el.canvasMain);
+    else _resizeObserver.observe(el.canvasMain);
+});
 
 const initVis = () => {
     try {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
-        source = audioCtx.createMediaElementSource(audio);
-        source.connect(analyser); analyser.connect(audioCtx.destination);
         dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        // 🔥 v3.6.2: 公共汇流节点——主槽 audio 与备用槽 cfAudioB 都汇入此，
+        // 再经 EQ 链 → analyser → destination。交叉淡变双槽同时发声时，频谱/均衡器均实时响应。
+        visInputNode = audioCtx.createGain();
+        visInputNode.connect(analyser);
+        analyser.connect(audioCtx.destination);
+
+        // 主槽 source（始终存在）
+        source = audioCtx.createMediaElementSource(audio);
+        source.connect(visInputNode);
+
+        // 备用槽 source（交叉淡变引擎已在启动时初始化 cfAudioB，此处一并接入汇流节点）
+        if (cfAudioB) {
+            try {
+                cfSourceNodeB = audioCtx.createMediaElementSource(cfAudioB);
+                cfSourceNodeB.connect(visInputNode);
+            } catch (e) { /* 已创建则忽略 */ }
+        }
+
         spectrumCtxMain = el.canvasMain.getContext('2d');
         resizeMainCanvas();
-        renderVisLoop();
+        startVisLoop();
     } catch(e) {}
 };
 
@@ -215,13 +274,25 @@ function forceMainRedraw() { mainNeedsRedraw = true; }
 
 // === 🚀 核心重构：全域 60FPS 色音同步视觉主循环 ===
 // 🚀 v2.8.2+: 集成 Page Visibility API 优化
+// 🚀 v3.5.x: 可视化主循环启停控制——节能/隐藏时彻底停掉 rAF（不再空转心跳、不再采样 analyser），
+//            由 startVisLoop() 在退出节能 / 标签页恢复可见时重启。
+let visRafId = null;
+function startVisLoop() {
+    if (visRafId != null) return;                                          // 已在运行
+    if (shouldBeEnergySaving() || visLoopPaused || document.hidden) return; // 不应运行
+    visRafId = requestAnimationFrame(renderVisLoop);
+}
+function stopVisLoop() {
+    if (visRafId != null) { cancelAnimationFrame(visRafId); visRafId = null; }
+}
+
 const renderVisLoop = (timestamp) => {
-    if (visLoopPaused) {
-        // 页面不可见时，大幅降低渲染频率
-        setTimeout(() => requestAnimationFrame(renderVisLoop), 500);
+    // 🚀 v3.5.x: 节能 / 标签页隐藏 / 不可见时彻底停止主循环，释放 CPU/GPU
+    if (shouldBeEnergySaving() || visLoopPaused || document.hidden) {
+        stopVisLoop();
         return;
     }
-    requestAnimationFrame(renderVisLoop);
+    visRafId = requestAnimationFrame(renderVisLoop);
 
     // 1. FPS 监测与性能自适应
     fpsFrames++;
@@ -250,19 +321,16 @@ const renderVisLoop = (timestamp) => {
     if (timestamp - lastFrameTime < frameInterval) return;
     lastFrameTime = timestamp;
 
-    if (!analyser) return;
+    if (!analyser) { stopVisLoop(); return; }
     analyser.getByteFrequencyData(dataArray);
 
     // 🚀 v3.0.0: 震动反馈引擎
     if (cfg.rumbleEnabled) updateVibrationRumble(dataArray);
 
-    // 🚀 v2.8: 节能模式 — 激活时跳过全部绘制（含沉浸舱），仅保持 rAF 心跳
-    if (shouldBeEnergySaving()) {
-        requestAnimationFrame(renderVisLoop);
-        return;
-    }
+    // 🚀 v3.5.x: 节能态已在函数顶部提前 return 并停掉循环，此处直接进入逐帧绘制
 
     visTime += 0.008;
+    _particleDriftPhase += 0.03; // 🚀 v3.5.x: 流场相位推进，驱动粒子有机漂移
 
     // 2. 🚀 核心同步：不论在哪个界面，统一执行 60 帧无缝色相（Hue）过渡计算
     if (isPlaying) {
@@ -423,6 +491,15 @@ const renderVisLoop = (timestamp) => {
                 const ex = W*0.2 + Math.random()*W*0.6;
                 const ey = H*0.3 + Math.random()*H*0.4;
                 createExplosion(ex, ey, 1 + smoothBass/255*2);
+            }
+
+            // 🚀 v3.5.x: 低频氛围浮尘——播放中且粒子未满时，以极低概率生成缓慢漂移的微弱光点，
+            // 让画面"活"起来（受粒子预算约束，绝不突破池上限，性能恒定）
+            if (particles.length < particleCount * 0.6 && Math.random() < 0.10) {
+                const mx = Math.random() * W, my = Math.random() * H;
+                const gray = 120 + Math.floor(Math.random() * 90);
+                const a = Math.random() * Math.PI * 2, s = 0.2 + Math.random() * 0.5;
+                particles.push(acquireParticle(mx, my, Math.cos(a)*s, Math.sin(a)*s - 0.3, `rgb(${gray},${gray},${gray})`, 0.8 + Math.random()*1.2));
             }
         } else {
             const stillGrad = ctx.createRadialGradient(W*0.5, H*0.4, 0, W*0.5, H*0.5, Math.max(W,H)*0.6);

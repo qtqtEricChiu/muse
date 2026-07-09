@@ -43,8 +43,14 @@
     width: 64px; height: 64px; border-radius: 50%; overflow: hidden;
     flex-shrink: 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     border: 3px solid rgba(255,255,255,0.1); 
+    position: relative; /* 🔥 v3.6.2: 覆盖层定位基准 */
     animation: pipVinylSpin 12s linear infinite;
 }
+/* 🚀 v3.6.x: PiP 窗口极小时封面不可见，暂停旋转动画省 GPU 合成 */
+@media (max-width: 300px) { .pip-vinyl { animation-play-state: paused; } }
+/* 🔥 v3.6.2: PiP 封面淡变覆盖层 */
+.pip-bg-overlay,
+.pip-vinyl-overlay { pointer-events: none; }
 @keyframes pipVinylSpin { to { transform: rotate(360deg); } }
 .pip-vinyl img { width: 100%; height: 100%; object-fit: cover; }
 .pip-fallback-info { flex: 1; min-width: 0; }
@@ -65,7 +71,7 @@
 }
 .pip-line-current {
     font-size: clamp(18px, 4vw, 28px); font-weight: 800; color: #fff;
-    line-height: 1.3; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    line-height: 1.3; transition: opacity 0.4s, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 🚀 v3.6.x: 避免 transition:all 误伤 */
     text-shadow: 0 2px 12px rgba(0,0,0,0.6), 0 0 30px rgba(255,255,255,0.15);
     opacity: 1; transform: translateY(0);
     max-width: 100%; word-break: break-word;
@@ -121,7 +127,7 @@
 .pip-progress-fill {
     height: 100%; background: var(--primary, #e8b4b8);
     transition: width 0.3s linear; border-radius: 0 2px 2px 0;
-    box-shadow: 0 0 8px rgba(154,200,226,0.4);
+    box-shadow: 0 0 8px var(--primary-glow, rgba(154,200,226,0.4)); /* 🚀 v3.6.x: 用主题色变量 */
 }
 @media (min-aspect-ratio: 2/1) {
     .pip-lyrics-wrap { flex-direction: row; gap: 12px; text-align: left; padding: 16px 24px; }

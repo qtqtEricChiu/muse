@@ -42,11 +42,11 @@
 .ctx-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0; }
 
 .drawer-box {
-    margin-bottom: 16px; padding: 16px; border-radius: 16px;
+    margin-bottom: 12px; padding: 12px; border-radius: 16px;
     background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%);
     border: 1px solid rgba(255,255,255,0.06);
 }
-.drawer-title { font-size: 15px; color: var(--text-sub); margin-bottom: 14px; font-weight: 600; }
+.drawer-title { font-size: 15px; color: var(--text-sub); margin-bottom: 8px; font-weight: 600; }
 .hotkey-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px; font-size: 13px; color: var(--text-sub); line-height: 1.6; }
 .hotkey-grid kbd { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #fff; font-family: monospace; border: 1px solid rgba(255,255,255,0.2);}
 .hotkey-grid .pad { color: var(--primary); font-weight: bold; border-color: var(--primary); background: rgba(var(--primary-rgb),0.1);}
@@ -179,7 +179,7 @@
 .settings-body {
     flex: 1;
     overflow-y: auto;
-    padding: 20px 24px;
+    padding: 16px 20px 28px;
 }
 
 /* 设置标签面板 — 切换动画 */
@@ -202,7 +202,7 @@
     text-align: center;
     color: var(--text-sub);
     font-size: 12px;
-    padding: 12px 24px 16px;
+    padding: 14px 24px 16px;
     border-top: 1px solid rgba(255,255,255,0.05);
 }
 
@@ -507,6 +507,106 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
 
 /* 🩹 v3.2.3: Toast 进出动画 — 使用 transition 而非 animation，确保移除 .show 后自然淡出 */
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* 🚀 v3.5.x: 设置 UI 标准化组件（设计语言化） */
+/* -- 富开关卡片：图标+标题+说明+开关右置 -- */
+.settings-toggle-card {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; margin-bottom:8px; gap:12px;
+    background:rgba(255,255,255,0.04); border-radius:12px;
+    border:1px solid rgba(255,255,255,0.06);
+}
+.settings-toggle-card-body { display:flex; flex-direction:column; gap:2px; }
+.settings-toggle-card-title { font-size:14px; color:var(--text-main); display:flex; align-items:center; gap:6px; }
+.settings-toggle-card-desc { font-size:11px; color:var(--text-sub); }
+
+/* -- 滑块行（标签+滑条+值） -- */
+.settings-slider-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.settings-slider-row input[type="range"] { flex:1; }
+.settings-slider-value { font-size:12px; color:var(--primary); white-space:nowrap; min-width:40px; text-align:right; }
+
+/* -- 滑块独占标签（上方） -- */
+.settings-slider-label { font-size:13px; color:var(--text-sub); margin-bottom:4px; }
+
+/* -- 分段按钮组（多选一） -- */
+.settings-segmented { display:flex; gap:8px; margin-bottom:10px; }
+.settings-segmented .btn-glass { flex:1; justify-content:center; padding:8px 12px; font-size:12px; }
+
+/* -- 全宽动作按钮 -- */
+.settings-btn-full { width:100%; justify-content:center; padding:12px 20px; }
+.settings-btn-danger { border-color:rgba(255,107,107,0.3); color:#ff6b6b; }
+
+/* -- 抽屉内标题后说明（小间距，替代 inline margin-bottom:12px） -- */
+.settings-hint-after-title { margin: 0 0 6px; }
+
+/* -- 依赖性子控件组（如 OPPO Sans 下的字重+保留英文），无独立背景，仅缩进 -- */
+.settings-sub-group {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    padding-left: 4px;
+}
+.settings-sub-group:empty { display: none; }
+.settings-sub-group .settings-slider-label { margin-bottom: 6px; }
+.settings-sub-group .settings-segmented { margin-bottom: 10px; }
+.settings-sub-group > .settings-toggle-card { margin-bottom: 8px; }
+.settings-sub-group > :last-child { margin-bottom: 0; }
+
+/* -- 抽屉内最后一张卡片/子控件组取消底部多余间隙 -- */
+.drawer-box .settings-toggle-card:last-child { margin-bottom: 0; }
+.drawer-box .settings-slider-row:last-child { margin-bottom: 0; }
+.drawer-box .settings-slider-label:last-child { margin-bottom: 0; }
+.drawer-box .settings-segmented:last-child { margin-bottom: 0; }
+.drawer-box .settings-sub-group:last-child { margin-bottom: 0; }
+.drawer-box .settings-hint:last-child { margin-bottom: 0; }
+
+/* -- 设置体最后一张抽屉取消底部多余间隙 -- */
+.settings-body > .drawer-box:last-child { margin-bottom: 0; }
+
+/* -- 连续全宽按钮之间的间距 -- */
+.settings-btn-full + .settings-btn-full { margin-top: 8px; }
+
+/* -- 带顶部间距的滑块标签（如歌词垂直对齐前的间距） -- */
+.settings-slider-label-mt { margin-top: 12px; }
+
+/* -- 歌词偏移控制行 -- */
+.settings-offset-row {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px;
+}
+.settings-offset-row .btn-glass { padding: 6px 10px; font-size: 12px; }
+.settings-offset-label { font-size: 13px; color: var(--text-sub); white-space: nowrap; }
+.settings-offset-val { font-size: 12px; color: var(--primary); min-width: 36px; text-align: center; }
+
+/* -- 设置内的强调信息盒（如震动高级控制） -- */
+.settings-info-box {
+    margin-top: 10px; padding: 8px 10px;
+    background: rgba(68,204,255,0.08); border-radius: 10px;
+    border: 1px solid rgba(68,204,255,0.2);
+}
+.settings-info-box .settings-row { margin-bottom: 6px; }
+.settings-info-box .settings-row:last-child { margin-bottom: 0; }
+
+/* -- 说明文本 -- */
+.settings-hint { font-size:11px; color:var(--text-sub); }
+.settings-hint-after-card { margin:6px 0 0; }
+.settings-hint-after-row { margin:-4px 0 10px 82px; }
+.settings-hint-center { text-align:center; margin:4px 0 0; }
+
+/* -- 警告标注（如实验性功能提示） -- */
+.settings-warning {
+    font-size:11px; color:var(--warn,#e8a840); margin-bottom:10px;
+    display:flex; align-items:center; gap:6px;
+}
+
+/* 🚀 v3.6.x: 一键节能锁定交叉淡变控件 */
+.drawer-box.cf-locked { opacity: 0.5; }
+.drawer-box.cf-locked .settings-toggle-card,
+.drawer-box.cf-locked .settings-slider-row,
+.drawer-box.cf-locked .settings-segmented { pointer-events: none; }
+.energy-lock-hint { margin-top: 4px; }
+
+/* -- 抽屉背景变体 -- */
+.drawer-box.accent-energy { background:rgba(255,193,7,0.06); border-color:rgba(255,193,7,0.15); }
+.drawer-box.accent-appearance { background:rgba(232,180,184,0.06); border-color:rgba(232,180,184,0.15); }
 
 
 

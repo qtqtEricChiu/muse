@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.5.2
+# MBolka Player - Ultimate Nexus v3.6.3
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.5.2-blue)
+![Version](https://img.shields.io/badge/version-3.6.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -45,11 +45,15 @@
 - A-B 段落重复模式（长按播放按钮激活）
 - 十段均衡器 (EQ) + 8 种预设（下拉菜单选择，与触觉-映射模式一致）
 - 0.5x~2.0x 变速播放 + 升降调控制
-- 淡入淡出无缝切歌 (Crossfade)
+- 淡入淡出无缝切歌 (Crossfade) — 可配置时长/曲线/响度归一化，淡变视觉指示条+封面溶解+歌名分阶滑入
 - 睡眠定时器 (15/30/60分钟)
 - **自动播放策略优雅降级**：`NotAllowedError` 捕获后监听用户手势自动恢复，引导 Toast 15 秒安全过期（v3.2.3）
 - **PWA Window Controls Overlay**：Windows Chrome 标题栏随切歌实时刷新曲目名、完全窗口水平居中；OS 沉浸顶 bar 颜色 = `<meta name="theme-color">`，始终跟随专辑封面色 / 主题默认色 / 深色模式实时沉浸（v3.4.2 修复取色模式锁死紫色问题）
 - **WCO 假沉浸标题栏（顶部取色）**：隐藏标题栏时，右侧系统金刚键背景自动取页面顶部附近颜色（`js/theme-color.js` `updateTopColor()` + `js/utils.js` `extractTopColor()`），让系统窗口控制区与页面背景视觉融合，达成"假沉浸"效果（v3.4.4）；切歌、自定义背景上传/清除均同步计算顶部取色
+- **后台交叉淡变保活**：rAF 后台冻结时由 `onended` + `visibilitychange` 双路兜底强制收尾，确保后台播放不卡死
+- **AI 翻译合规标识**：LRC 头部含"文曲大模型"行自动检测并标注紫色「AI 翻译」Badge，模型名称彻底清除
+- **均衡器自动补偿增益**：10 段级联滤波器末端串接增益节点，按合成幅频响应自动拉回余量，避免提升后削波失真；首/末频段改 shelf 减少染色，低频降 Q 降低相位互调
+- **创作信息智能解析**：80+ 角色标识（含中英文），多角色合并（如"制作人/作曲/编曲"）自动拆为独立行；超长名字列表按分隔符分块换行保持完整；出版信息括号保护避免误拆；EN_ROLES 长词条优先匹配避免复合角色被截断
 
 ### 🎮 全方位操控
 - 完整键盘快捷键（Space、方向键、J/K、WASD 等）
@@ -179,7 +183,25 @@
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
 
-### v3.5.2 (2026-07-07) — 标题栏伪沉浸开关
+### v3.6.3 (2026-07-09) — 审计采纳 + 创作信息补全 + 点击复制 + 进度条偏移 + coverflow 调整（最新）
+
+- **审计 v2 采纳**：无障碍（`prefers-reduced-motion` / 滚动条 / focus-visible）、动画节能（CSS 属性精确化/发光半径/透明度）、JS 健壮性（多文件 `isFinite` / `isConnected` 守卫 / 常量提取）
+- **歌词创作信息补全**：文案/古筝/古筝编写/小提琴/小提琴编写 角色入正则
+- **歌曲名/歌手名：点击复制**：`navigator.clipboard` + fallback 复制，Toast 提示
+- **沉浸舱进度条偏移根治**：`isProgressDragging` 共享污染 — 本地标志隔离 + `cachedRect` 守卫
+- **曲库 coverflow 上移 + 艺术家标签下移**：CSS flex 垂直居中 + `order: 2` 标签后置
+
+### v3.6.2 (2026-07-09) — 封面内存钉死 + OPPO Sans + EQ失真 + 创作信息 + 交叉淡变引擎 + 活跃槽重构 + 后台保活 + AI翻译 + 沉浸舱进度条 + 审计采纳
+
+- **交叉淡变后台保活**：`onended` + `visibilitychange` 双路兜底强制收尾，后台 rAF 冻结时可靠切歌
+- **沉浸舱进度条与主界面功能对等**：ARIA 无障碍属性、touch-action 防触控干扰、宽度/布局双重稳定
+- **AI 翻译合规标识**：自动检测"文曲大模型"字样并标注紫色 Badge，模型名称彻底清除
+- **淡变指示条渐变色流转 + 退场动画**：CF-bar 内渐变色循环滚动，退场时平滑收缩淡出
+- **歌词栏高斯模糊出入场动画**：切歌自动模糊过渡，面板开合渐入渐出
+- **设置面板 UI 标准化**：统一设计语言（toggle-card/segmented/slider-row 等规范组件）
+- **交叉淡变后续补丁**：后台切回前台播放正确槽修复、后台节流静默停止 v3 路修复、`onerror` 续播修复、进度条悬停异常值守卫
+
+### v3.6.0 (2026-07-09) — 交叉淡变(Crossfade)功能与全部修复
 
 - **设置-外观新增「标题栏伪沉浸」开关**（`cfg.wcoPseudoImmersive`，默认开启）：控制 PWA 标题栏 `theme-color` 是否跟随专辑封面/背景顶部取色；关闭后标题栏使用常规主题色，不再取顶部颜色
 - **紧急修复线上构建导致播放器被压成标题条的 bug**：`css/base-layout.css` 中 `.player-wrapper` 规则缺少闭合大括号，导致构建后 `.player-wrapper` 被错误合并了按钮的 `height:50px` 等属性；已补全 `}` 并修正 `build.js` CSS 顺序、清理 `style.css` 重复进度条规则
@@ -722,7 +744,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.5.2
+MBolka Player v3.6.3
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -786,4 +808,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.5.2**
+**© MocaBolka 2026 | v3.6.3**

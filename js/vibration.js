@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Vibration Engine v3.5.1
+ * MBolka Player - Vibration Engine v3.6.3
  * Audio-to-rumble mapping via Gamepad API dual-rumble
  */
 
@@ -166,7 +166,11 @@ function _sendRumble(strong, weak) {
                 weakMagnitude: weak,
                 strongMagnitude: strong
             });
-        } catch(e) { /* 静默忽略 */ }
+        } catch(e) {
+            // 🚀 v3.6.x: 手柄断开重连时 playEffect 抛 InvalidStateError，后续手柄同样会失败，
+            //   遇之跳出循环，避免对失效手柄反复无效调用
+            if (e instanceof DOMException && e.name === 'InvalidStateError') break;
+        }
     }
 }
 

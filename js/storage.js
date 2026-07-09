@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Storage v3.5.1
+ * MBolka Player - Storage v3.6.3
  * IndexedDB, directory handles, metadata cache, play stats, error logging,
  * theme logic, dark mode, immersive/fullscreen toggle
  */
@@ -148,12 +148,13 @@ function _flushMetaBatch() {
         const tx = idb.transaction('metadata', 'readwrite');
         const store = tx.objectStore('metadata');
         for (const { key, data } of batch) store.put({ key, data, timestamp: Date.now() });
-    } catch(e) {}
+    } catch(e) { console.warn('[cacheMetadata] 批量写入失败', e); }
 }
 async function cacheMetadata(key, data) {
     if (!idb) return;
     checkAndCleanIfNeeded(); // v3.0.2: 写入前检查容量
     _metaBatchQueue.push({ key, data });
+    if (_metaBatchQueue.length > 200) _metaBatchQueue.shift(); // 🚀 v3.6.x: 队列上限保护，防止事务失败堆积
     if (_metaBatchQueue.length >= 20) _flushMetaBatch();
     else if (!_metaBatchScheduled) {
         _metaBatchScheduled = true;
@@ -182,19 +183,21 @@ const _errorLogsCache = [];
 
 async function logError(type, message, file) {
     try {
-        // 写入 IndexedDB
+        // 写入 IndexedDB（带错误回调降级，失败仅丢内存）
         if (idb) {
             const tx = idb.transaction('errors', 'readwrite');
             tx.objectStore('errors').put({ type, message, file: file ? file.name : '', time: Date.now() });
+            tx.onerror = (e) => { console.warn('[logError] IDB 错误日志写入失败，已降级仅内存缓存', e && e.target && e.target.error); };
         }
         // 写入内存缓存
         const entry = { type, message, file: file ? file.name : '', time: new Date().toISOString() };
         _errorLogsCache.push(entry);
         if (_errorLogsCache.length > 500) _errorLogsCache.shift();
-        // 写入 localStorage
-        try {
-            localStorage.setItem('MBolka_ErrorLogs', JSON.stringify(_errorLogsCache));
-        } catch(e) {}
+        // 🚀 v3.6.x: localStorage 同步写移至空闲时段，避免高频错误日志（交叉淡变 CF_*）阻塞主线程
+        const payload = JSON.stringify(_errorLogsCache);
+        const _writeLS = () => { try { localStorage.setItem('MBolka_ErrorLogs', payload); } catch(e) {} };
+        if (window.requestIdleCallback) requestIdleCallback(_writeLS);
+        else setTimeout(_writeLS, 0);
     } catch(e) {}
 }
 
@@ -298,17 +301,20 @@ function getTotalListenTime() {
 
 // === 播放统计追踪 ===
 let playStartTime = 0;
-audio.addEventListener('play', () => { playStartTime = Date.now(); });
-audio.addEventListener('pause', () => {
-    if (playStartTime && currentIndex >= 0 && playlist[currentIndex]) {
-        const elapsed = (Date.now() - playStartTime) / 1000;
-        if (elapsed > 1) {
-            const key = playlist[currentIndex].file.name;
-            if (!playStats[key]) playStats[key] = { title: playlist[currentIndex].title, artist: playlist[currentIndex].artist, count: 0, lastPlay: 0, totalTime: 0 };
-            playStats[key].totalTime += elapsed;
+// 🔥 v3.6.2: 主槽 audio 与备用槽 cfAudioB 都统计播放时长（交叉淡变切到 B 后不漏计）
+forEachAudioEl((el2) => {
+    el2.addEventListener('play', () => { playStartTime = Date.now(); });
+    el2.addEventListener('pause', () => {
+        if (playStartTime && currentIndex >= 0 && playlist[currentIndex]) {
+            const elapsed = (Date.now() - playStartTime) / 1000;
+            if (elapsed > 1) {
+                const key = playlist[currentIndex].file.name;
+                if (!playStats[key]) playStats[key] = { title: playlist[currentIndex].title, artist: playlist[currentIndex].artist, count: 0, lastPlay: 0, totalTime: 0 };
+                playStats[key].totalTime += elapsed;
+            }
         }
-    }
-    playStartTime = 0;
+        playStartTime = 0;
+    });
 });
 
 

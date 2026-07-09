@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBolka Player - Ultimate Nexus v3.5.2</title>
+    <title>MBolka Player - Ultimate Nexus v3.6.3</title>
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
@@ -16,6 +16,19 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700;6..72,800&family=Geist:wght@100..900&display=swap"></noscript>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js" integrity="sha384-JpTt7qxVx1X/pHeYiCfqFdKRu2HF1MBGr1kEXtbNIGwwryGWMbbW78onU3bdkAHZ" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="css/style.css">
+    <!-- 🚀 v3.6.2: OPPO Sans 3.0 跨域字体（CORS 已验证 ACAO:*，来自 OPPO CDN） -->
+    <style id="oppo-sans-fontface">
+      @font-face {
+        font-family: 'OPPO Sans 3.0 R';
+        src: url('https://www.oppo.com/content/dam/statics/fonts/cn/OPPOSans3.0cn-Regular.woff2') format('woff2');
+        font-weight: 400; font-style: normal; font-display: swap;
+      }
+      @font-face {
+        font-family: 'OPPO Sans 3.0 M';
+        src: url('https://www.oppo.com/content/dam/statics/fonts/cn/OPPOSans3.0cn-Medium.woff2') format('woff2');
+        font-weight: 500; font-style: normal; font-display: swap;
+      }
+    </style>
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/base-layout.css">
     <link rel="stylesheet" href="css/immersive.css">
@@ -193,6 +206,11 @@
   <path d="M10 9H8" />
   <path d="M16 13H8" />
   <path d="M16 17H8" />
+    </symbol>
+    <symbol id="icon-type" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 7V4h16v3" />
+      <path d="M9 20h6" />
+      <path d="M12 4v16" />
     </symbol>
     <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10" />
@@ -469,7 +487,7 @@
                     <button class="btn-ctrl focusable" id="imm-btnNext" style="width:50px; height:50px; font-size:16px;"><svg class="btn-icon"><use href="#icon-next"/></svg></button>
                 </div>
                 <div style="flex: 1;">
-                    <div class="progress-area" id="imm-progArea">
+                    <div class="progress-area" id="imm-progArea" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
                         <div class="prog-bg"><div class="prog-fill" id="imm-progFill"></div></div>
                         <div class="ab-marker a" id="imm-abMarkerA" style="display:none;"></div>
                         <div class="ab-marker b" id="imm-abMarkerB" style="display:none;"></div>
@@ -518,7 +536,15 @@
             <div class="search-container">
                 <input type="text" class="search-input focusable" id="coverLibSearch" tabindex="0" placeholder="搜索专辑 / 艺术家...">
             </div>
-            <div class="cover-lib-grid" id="coverLibGrid"></div>
+            <div class="cover-lib-sortbar" id="clAlbumSortbar">
+                <span class="cover-lib-sort-bar-label">排序</span>
+                <button class="cover-lib-sort-btn active focusable" data-sort="default" tabindex="0">默认</button>
+                <button class="cover-lib-sort-btn focusable" data-sort="artist" tabindex="0">按艺术家</button>
+            </div>
+            <div class="cover-lib-stage">
+                <div class="coverflow-artist-indicator" id="clArtistIndicator"></div>
+                <div class="cover-lib-grid" id="coverLibGrid"></div>
+            </div>
         </div>
     </div>
 
@@ -572,61 +598,65 @@
                 <div class="settings-body">
                     <div class="drawer-box" style="background:rgba(232,184,75,0.08);border-color:rgba(232,184,75,0.2);" data-tab-group="0">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-folder"/></svg> 载入音乐 (Ctrl+O)</div>
-                <button class="btn-glass focusable" id="btnLoadFolder" style="width:100%;justify-content:center;background:var(--primary);color:var(--text-on-primary);border:none;padding:14px;"><svg class="ui-ico"><use href="#icon-folder"/></svg> 打开文件夹</button>
-                <p style="font-size:11px;color:var(--text-sub);text-align:center;margin:8px 0 0;">支持 MP3 / FLAC / WAV / M4A / OGG + LRC / VTT / CUE</p>
+                <button class="btn-glass focusable settings-btn-full" id="btnLoadFolder" style="background:var(--primary);color:var(--text-on-primary);border:none;padding:14px;"><svg class="ui-ico"><use href="#icon-folder"/></svg> 打开文件夹</button>
+                <p class="settings-hint settings-hint-center">支持 MP3 / FLAC / WAV / M4A / OGG + LRC / VTT / CUE</p>
             </div>
 
-            <div class="drawer-box" style="background:rgba(232,184,75,0.06);border-color:rgba(232,184,75,0.15);" data-tab-group="1">
-                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 封面取色</div>
-                <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">自动提取专辑封面颜色作为主题色</p>
-                <button class="btn-glass focusable" id="btnToggleColorMode" style="width: 100%; justify-content: center; margin-bottom: 8px;"><svg class="ui-ico"><use href="#icon-palette"/></svg> <span id="colorModeLabel">开启取色</span> (Y / C)</button>
-                <div id="colorModePreview" style="display:none;height:8px;border-radius:4px;margin-top:8px;transition:background 0.5s;"></div>
-            </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 主题色</div>
                 <div class="theme-preset-grid" id="themePresetGrid"></div>
-                <p style="font-size:11px;color:var(--text-sub);margin-top:8px;">提示：取色模式开启时，专辑封面颜色自动覆盖预设主题</p>
+                <p class="settings-hint settings-hint-after-card">提示：取色模式开启时，专辑封面颜色自动覆盖预设主题</p>
             </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-images"/></svg> 背景图片</div>
-                <button class="btn-glass focusable" id="btnSetBg" style="width: 100%; justify-content: center; margin-bottom: 10px;"><svg class="ui-ico"><use href="#icon-images"/></svg> 上传图片</button>
-                <button class="btn-glass focusable" id="btnClearBg" style="width: 100%; justify-content: center; color: #ff6b6b; border-color: rgba(255,107,107,0.3);"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 恢复默认</button>
+                <button class="btn-glass focusable settings-btn-full" id="btnSetBg"><svg class="ui-ico"><use href="#icon-images"/></svg> 上传图片</button>
+                <button class="btn-glass focusable settings-btn-full settings-btn-danger" id="btnClearBg"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 恢复默认</button>
                 <input type="file" id="bgInput" accept="image/*">
             </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-moon"/></svg> 显示调节</div>
-                <button class="btn-glass focusable" id="btnToggleDarkMode" style="width: 100%; justify-content: center; margin-bottom: 15px;"><svg class="btn-icon"><use href="#icon-moon"/></svg> 深色模式</button>
-                <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 8px;">背景模糊强度: <span id="blurVal">40px</span></div>
-                <input type="range" class="focusable" id="blurSlider" min="0" max="100" value="40">
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-moon"/></svg> 深色 / 护眼模式</span>
+                        <span class="settings-toggle-card-desc">切换深色/护眼与标准显示模式</span>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="darkModeToggleSwitch"><span class="toggle-slider"></span></label>
+                </div>
+                <div class="settings-slider-label">背景模糊强度: <span id="blurVal">40px</span></div>
+                <div class="settings-slider-row">
+                    <input type="range" class="focusable" id="blurSlider" min="0" max="100" value="40">
+                    <span class="settings-slider-value" id="blurSliderVal">40px</span>
+                </div>
             </div>
-            <!-- 🚀 v3.5.0: 沉浸式外观（跟随强调色 + 背景沉浸） -->
-            <div class="drawer-box" style="background:rgba(232,180,184,0.06);border-color:rgba(232,180,184,0.15);">
+            <!-- 🚀 v3.6.2: 沉浸式外观（封面取色 + 背景沉浸），已移至设置-外观选项卡 -->
+            <div class="drawer-box accent-appearance" data-tab-group="1">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 沉浸式外观</div>
-                <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">让专辑封面/自定义背景成为全屏沉浸背板，并控制强调色是否跟随封面取色</p>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
-                    <div>
-                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-palette"/></svg> 跟随强调色</span>
-                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">专辑封面主色调驱动全域强调色（与「封面取色」同源）</p>
+                <p class="settings-hint settings-hint-after-title">让专辑封面/自定义背景成为全屏沉浸背板，并控制封面取色驱动强调色</p>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-palette"/></svg> 封面取色</span>
+                        <span class="settings-toggle-card-desc">自动提取专辑封面颜色驱动全域强调色（与背景沉浸同源）</span>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
                         <input type="checkbox" id="followAccentToggle">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
-                    <div>
-                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-images"/></svg> 背景沉浸</span>
-                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">背景全屏沉浸；开启深色模式时自动叠加半透明黑遮罩（分层 alpha 合成）</p>
+                <div id="colorModePreview" style="display:none;height:8px;border-radius:4px;margin-top:4px;margin-bottom:8px;transition:background 0.5s;"></div>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-images"/></svg> 背景沉浸</span>
+                        <span class="settings-toggle-card-desc">背景全屏沉浸；开启深色模式时自动叠加半透明黑遮罩（分层 alpha 合成）</span>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
                         <input type="checkbox" id="bgImmersiveToggle">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div id="wcoPseudoImmersiveBox" style="display:none;align-items:center;justify-content:space-between;margin-top:8px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
-                    <div>
-                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-layers"/></svg> 标题栏伪沉浸</span>
-                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">PWA 标题栏（theme-color）根据封面/背景顶部颜色取色融合；关闭后使用主题色</p>
+                <div id="wcoPseudoImmersiveBox" class="settings-toggle-card" style="display:none;">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-layers"/></svg> 标题栏伪沉浸</span>
+                        <span class="settings-toggle-card-desc">PWA 标题栏（theme-color）根据封面/背景顶部颜色取色融合；关闭后使用主题色</span>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
                         <input type="checkbox" id="wcoPseudoImmersiveToggle">
@@ -634,13 +664,45 @@
                     </label>
                 </div>
             </div>
+            <!-- 🚀 v3.6.2: 字体（OPPO Sans 3.0 跨域启用 + R/M 字重选项），归入设置-外观选项卡 -->
+            <div class="drawer-box accent-appearance" data-tab-group="1">
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-type"/></svg> 字体</div>
+                <p class="settings-hint settings-hint-after-title">使用 OPPO Sans 3.0（跨域加载自 OPPO CDN）替代默认界面字体</p>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-type"/></svg> 启用 OPPO Sans</span>
+                        <span class="settings-toggle-card-desc">使用 OPPO Sans 3.0 渲染界面文字（需联网加载字体文件）</span>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0">
+                        <input type="checkbox" id="useOppoSansToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div id="oppoSansWeightBox" class="settings-sub-group" style="display:none;">
+                    <div class="settings-slider-label">字重</div>
+                    <div class="settings-segmented">
+                        <button class="btn-glass focusable oppoSansWeightBtn" data-weight="R">R · Regular</button>
+                        <button class="btn-glass focusable oppoSansWeightBtn" data-weight="M">M · Medium</button>
+                    </div>
+                    <div id="oppoKeepEnglishBox" class="settings-toggle-card" style="display:none;">
+                        <div class="settings-toggle-card-body">
+                            <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-type"/></svg> 保留英文字体</span>
+                            <span class="settings-toggle-card-desc">OPPO Sans 仅替换中文字体，英文使用原有 CDN 字体</span>
+                        </div>
+                        <label class="toggle-switch focusable" tabindex="0">
+                            <input type="checkbox" id="oppoKeepEnglishToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
             <div class="drawer-box" id="audioOutputBox" style="display:none;">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-volume"/></svg> 音频输出设备</div>
-                <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">选择音频输出设备（仅 Windows Chrome/Edge 支持）</p>
-                <select id="audioOutputSelect" class="settings-select focusable" style="width:100%;margin-bottom:8px;">
+                <p class="settings-hint settings-hint-after-title">选择音频输出设备（仅 Windows Chrome/Edge 支持）</p>
+                <select id="audioOutputSelect" class="settings-select focusable" style="width:100%;">
                     <option value="">默认设备</option>
                 </select>
-                <button class="btn-glass focusable" id="btnRefreshAudioDevices" style="width:100%;justify-content:center;font-size:12px;"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 刷新设备列表</button>
+                <button class="btn-glass focusable settings-btn-full" id="btnRefreshAudioDevices" style="font-size:12px;"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 刷新设备列表</button>
             </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-sliders"/></svg> 均衡器</div>
@@ -653,41 +715,75 @@
                     <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.05" value="1.00" class="focusable">
                     <span class="val" id="speedVal">1.00x</span>
                 </div>
-                <button class="btn-glass focusable" id="btnTogglePitch" style="width:100%;justify-content:center;margin-top:8px;"><svg class="ui-ico"><use href="#icon-lock"/></svg> 保持音调</button>
-            </div>
-            <div class="drawer-box" data-tab-group="0">
-                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 淡入淡出切歌</div>
-                <div style="font-size:11px;color:var(--warn,#e8a840);margin-bottom:8px;"><svg class="ui-ico"><use href="#icon-alert"/></svg> 实验性功能，可能无法正常生效，不推荐开启</div>
-                <div style="display:flex;align-items:center;gap:12px;">
-                    <button class="btn-glass focusable" id="btnToggleCrossfade" style="flex:1;justify-content:center;"><svg class="ui-ico"><use href="#icon-pause"/></svg> 关闭</button>
-                    <span style="font-size:13px;color:var(--text-sub);">时长:</span>
-                    <input type="range" id="crossfadeSlider" class="focusable" min="1" max="8" step="0.5" value="3" style="width:100px;">
-                    <span id="crossfadeVal" style="font-size:13px;color:var(--primary);">3.0s</span>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-lock"/></svg> 保持音调</span>
+                        <span class="settings-toggle-card-desc">变速时保持音高不变；关闭则音调随速度起落</span>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="pitchToggleSwitch"><span class="toggle-slider"></span></label>
                 </div>
+            </div>
+            <div class="drawer-box" id="crossfadeBox" data-tab-group="0">
+                <div class="drawer-title"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 淡入淡出切歌</div>
+                <p class="settings-warning"><svg class="ui-ico"><use href="#icon-alert"/></svg> 实验性功能，推荐本地大文件使用</p>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-refresh"/></svg> 淡入淡出</span>
+                        <span class="settings-toggle-card-desc">启用后曲间交叉渐变过渡</span>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="crossfadeToggleSwitch"><span class="toggle-slider"></span></label>
+                </div>
+                <div class="settings-slider-row">
+                    <span class="settings-slider-label" style="min-width:38px;">时长:</span>
+                    <input type="range" id="crossfadeSlider" class="focusable" min="1" max="10" step="0.5" value="3">
+                    <span class="settings-slider-value" id="crossfadeVal">3.0s</span>
+                </div>
+                <div class="settings-segmented">
+                    <span class="settings-slider-label">曲线:</span>
+                    <button class="btn-glass focusable cf-curve-btn" data-curve="exponential">指数</button>
+                    <button class="btn-glass focusable cf-curve-btn" data-curve="linear">线性</button>
+                    <button class="btn-glass focusable cf-curve-btn" data-curve="equal-power">等功率</button>
+                </div>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title">响度归一化</span>
+                        <span class="settings-toggle-card-desc">平滑不同曲目的响度差异，切歌过渡更自然</span>
+                    </div>
+                    <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="crossfadeNormalizeToggle" checked><span class="toggle-slider"></span></label>
+                </div>
+                <p class="settings-warning energy-lock-hint" id="crossfadeEnergyHint" style="display:none;">
+                    <svg class="ui-ico"><use href="#icon-zap"/></svg> 一键节能已开启，交叉淡变已暂停；请关闭一键节能后重试
+                </p>
             </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-file-text"/></svg> 歌词显示</div>
-                <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 4px;">字号: <span id="lrcFontSizeVal">18px</span></div>
-                <input type="range" class="focusable" id="lrcFontSizeSlider" min="12" max="32" value="18" style="margin-bottom:12px;">
-                <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 4px;">行距: <span id="lrcLineHeightVal">2.2</span></div>
-                <input type="range" class="focusable" id="lrcLineHeightSlider" min="1.2" max="3.5" step="0.1" value="2.2" style="margin-bottom:12px;">
-                <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 8px;">对齐方式:</div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn-glass focusable lrc-align-btn active" data-align="center" style="flex:1;justify-content:center;">居中</button>
-                    <button class="btn-glass focusable lrc-align-btn" data-align="left" style="flex:1;justify-content:center;">左对齐</button>
+                <div class="settings-slider-label">字号: <span id="lrcFontSizeVal">18px</span></div>
+                <div class="settings-slider-row">
+                    <input type="range" class="focusable" id="lrcFontSizeSlider" min="12" max="32" value="18">
+                    <span class="settings-slider-value" id="lrcFontSizeSliderVal">18px</span>
                 </div>
-                <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 8px; margin-top: 12px;">垂直对齐:</div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn-glass focusable active" id="btnLrcAlignCenter" style="flex:1;justify-content:center;">居中</button>
-                    <button class="btn-glass focusable" id="btnLrcAlignTop" style="flex:1;justify-content:center;">偏上</button>
+                <div class="settings-slider-label">行距: <span id="lrcLineHeightVal">2.2</span></div>
+                <div class="settings-slider-row">
+                    <input type="range" class="focusable" id="lrcLineHeightSlider" min="1.2" max="3.5" step="0.1" value="2.2">
+                    <span class="settings-slider-value" id="lrcLineHeightSliderVal">2.2</span>
                 </div>
-                <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size:13px;color:var(--text-sub);"><svg class="ui-ico"><use href="#icon-clock"/></svg> 歌词偏移:</span>
-                    <button class="btn-glass focusable" id="btnLrcOffsetMinusFine" tabindex="0" style="padding:6px 10px;">-0.1s</button>
-                    <button class="btn-glass focusable" id="btnLrcOffsetMinus" tabindex="0" style="padding:6px 12px;">-0.5s</button>
-                    <span id="lrcOffsetVal" style="font-size:13px;color:var(--primary);">0.0s</span>
-                    <button class="btn-glass focusable" id="btnLrcOffsetPlus" tabindex="0" style="padding:6px 12px;">+0.5s</button>
-                    <button class="btn-glass focusable" id="btnLrcOffsetPlusFine" tabindex="0" style="padding:6px 10px;">+0.1s</button>
+                <div class="settings-slider-label">对齐方式:</div>
+                <div class="settings-segmented">
+                    <button class="btn-glass focusable lrc-align-btn active" data-align="center">居中</button>
+                    <button class="btn-glass focusable lrc-align-btn" data-align="left">左对齐</button>
+                </div>
+                <div class="settings-slider-label settings-slider-label-mt">垂直对齐:</div>
+                <div class="settings-segmented">
+                    <button class="btn-glass focusable active" id="btnLrcAlignCenter">居中</button>
+                    <button class="btn-glass focusable" id="btnLrcAlignTop">偏上</button>
+                </div>
+                <div class="settings-offset-row">
+                    <span class="settings-offset-label"><svg class="ui-ico"><use href="#icon-clock"/></svg> 歌词偏移:</span>
+                    <button class="btn-glass focusable" id="btnLrcOffsetMinusFine" tabindex="0">-0.1s</button>
+                    <button class="btn-glass focusable" id="btnLrcOffsetMinus" tabindex="0">-0.5s</button>
+                    <span class="settings-offset-val" id="lrcOffsetVal">0.0s</span>
+                    <button class="btn-glass focusable" id="btnLrcOffsetPlus" tabindex="0">+0.5s</button>
+                    <button class="btn-glass focusable" id="btnLrcOffsetPlusFine" tabindex="0">+0.1s</button>
                 </div>
             </div>
             <div class="drawer-box">
@@ -699,14 +795,13 @@
                     <button class="btn-glass focusable" id="btnSleepCancel" tabindex="0">取消</button>
                 </div>
             </div>
-            <div class="drawer-box" style="background:rgba(255,193,7,0.06);border-color:rgba(255,193,7,0.15);">
+            <div class="drawer-box accent-energy">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-zap"/></svg> 节能模式</div>
                 
-                <!-- 一键节能：去除所有可视化动效，保持正常亮度 -->
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
-                    <div>
-                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-battery"/></svg> 一键节能</span>
-                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">去除所有动效，保持正常亮度</p>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-battery"/></svg> 一键节能</span>
+                        <span class="settings-toggle-card-desc">去除所有动效，保持正常亮度</span>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
                         <input type="checkbox" id="oneClickEnergyToggle">
@@ -714,11 +809,10 @@
                     </label>
                 </div>
                 
-                <!-- 画面节能：仅将动画降至30帧 -->
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
-                    <div>
-                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-film"/></svg> 画面节能</span>
-                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">动画降至30帧，保留视觉效果</p>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-film"/></svg> 画面节能</span>
+                        <span class="settings-toggle-card-desc">动画降至30帧，保留视觉效果</span>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
                         <input type="checkbox" id="frameEnergyToggle">
@@ -726,11 +820,10 @@
                     </label>
                 </div>
                 
-                <!-- 临时节能：启动画中画时自动优化 -->
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
-                    <div>
-                        <span style="font-size:14px;color:var(--text-main);"><svg class="ui-ico"><use href="#icon-tv"/></svg> 临时节能</span>
-                        <p style="font-size:11px;color:var(--text-sub);margin:2px 0 0;">启动画中画时自动优化主界面</p>
+                <div class="settings-toggle-card">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-tv"/></svg> 临时节能</span>
+                        <span class="settings-toggle-card-desc">启动画中画时自动优化主界面</span>
                     </div>
                     <label class="toggle-switch focusable" tabindex="0">
                         <input type="checkbox" id="pipEnergyToggle" checked>
@@ -746,8 +839,8 @@
                     <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="rumbleToggle"><span class="toggle-slider"></span></label>
                 </div>
                 <!-- 🚀 v3.0.2: 设置页实时震动指示器 -->
-                <div id="settingsRumbleIndicator" style="display:none;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.08);">
-                  <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;"><svg class="ui-ico"><use href="#icon-radio"/></svg> 实时震动反馈</div>
+                <div id="settingsRumbleIndicator" style="display:none;padding:12px;background:rgba(255,255,255,0.04);border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+                  <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:8px;"><svg class="ui-ico"><use href="#icon-radio"/></svg> 实时震动反馈</div>
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
                     <span style="width:48px;font-size:11px;color:rgba(255,255,255,0.45);">强震</span>
                     <div style="flex:1;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
@@ -791,12 +884,12 @@
                     <input type="range" id="rumbleFloorSlider" class="focusable" min="0" max="0.5" step="0.01" value="0.30" style="flex:1;">
                     <span id="rumbleFloorVal" style="width:40px;text-align:right;font-size:12px;color:var(--primary);">0.30</span>
                 </div>
-                <p style="font-size:10px;color:var(--text-sub);margin:-6px 0 10px 82px;">低于此值的频谱能量被截断，越高越只保留节奏峰值</p>
+                <p class="settings-hint settings-hint-after-row">低于此值的频谱能量被截断，越高越只保留节奏峰值</p>
                 <div class="settings-row">
                     <span>自动门槛</span>
                     <label class="toggle-switch focusable" tabindex="0"><input type="checkbox" id="rumbleAutoFloorToggle"><span class="toggle-slider"></span></label>
                 </div>
-                <p style="font-size:10px;color:var(--text-sub);margin:-6px 0 10px 82px;">响度大时自动抬升门槛，安静时降回</p>
+                <p class="settings-hint settings-hint-after-row">响度大时自动抬升门槛，安静时降回</p>
                 <div class="settings-row">
                     <span>节流间隔</span>
                     <div class="custom-select-wrap">
@@ -818,7 +911,7 @@
                         </div>
                     </div>
                 </div>
-                <div style="margin-top:10px;padding:8px 10px;background:rgba(68,204,255,0.08);border-radius:10px;border:1px solid rgba(68,204,255,0.2);">
+                <div class="settings-info-box">
                     <div class="drawer-title" style="font-size:13px;"><svg class="ui-ico"><use href="#icon-wrench"/></svg> 马达独立控制</div>
                     <div class="settings-row">
                         <span style="color:#ff9944;">Strong Motor</span>
@@ -839,28 +932,28 @@
                         <input type="range" id="rumbleGainSlider" class="focusable" min="0" max="2" step="0.05" value="1.0" style="flex:1;">
                         <span id="rumbleGainVal" style="width:45px;text-align:right;font-size:12px;color:#fff;">100%</span>
                     </div>
-                    <button class="btn-glass focusable" id="btnTestRumble" tabindex="0" style="width:100%;justify-content:center;border-color:rgba(154,200,226,0.3);margin-top:12px;"><svg class="ui-ico"><use href="#icon-zap"/></svg> 测试震动 (500ms)</button>
+                    <button class="btn-glass focusable settings-btn-full" id="btnTestRumble" tabindex="0" style="border-color:rgba(154,200,226,0.3);margin-top:12px;"><svg class="ui-ico"><use href="#icon-zap"/></svg> 测试震动 (500ms)</button>
                 </div>
             </div>
             <!-- 📊 播放统计（单列） -->
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-bar-chart"/></svg> 播放统计 (T)</div>
-                <button class="btn-glass focusable" id="btnShowStats" style="width:100%;justify-content:center;"><svg class="ui-ico"><use href="#icon-bar-chart"/></svg> 查看统计</button>
+                <button class="btn-glass focusable settings-btn-full" id="btnShowStats"><svg class="ui-ico"><use href="#icon-bar-chart"/></svg> 查看统计</button>
             </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-clipboard"/></svg> 调试工具</div>
-                <button class="btn-glass focusable" id="btnExportLogs" style="width:100%;justify-content:center;"><svg class="ui-ico"><use href="#icon-clipboard"/></svg> 导出日志</button>
-                <button class="btn-glass focusable" id="btnClearCache" style="width:100%;justify-content:center;margin-top:8px;border-color:rgba(255,107,107,0.3);color:#ff6b6b;"><svg class="ui-ico"><use href="#icon-eraser"/></svg> 清理缓存</button>
-                <p style="font-size:10px;color:var(--text-sub);text-align:center;margin:4px 0 0;">清除元数据缓存和错误日志，释放存储空间</p>
+                <button class="btn-glass focusable settings-btn-full" id="btnExportLogs"><svg class="ui-ico"><use href="#icon-clipboard"/></svg> 导出日志</button>
+                <button class="btn-glass focusable settings-btn-full settings-btn-danger" id="btnClearCache"><svg class="ui-ico"><use href="#icon-eraser"/></svg> 清理缓存</button>
+                <p class="settings-hint settings-hint-center">清除元数据缓存和错误日志，释放存储空间</p>
             </div>
             <div class="drawer-box">
                 <div class="drawer-title"><svg class="ui-ico"><use href="#icon-keyboard"/></svg> 快捷键大全</div>
-                <button class="btn-glass focusable" id="btnOpenHelpShortcuts" style="width:100%;justify-content:center;"><svg class="ui-ico"><use href="#icon-keyboard"/></svg> 查看快捷键大全</button>
-                <p style="font-size:10px;color:var(--text-sub);text-align:center;margin:4px 0 0;">点击打开快捷键帮助面板</p>
+                <button class="btn-glass focusable settings-btn-full" id="btnOpenHelpShortcuts"><svg class="ui-ico"><use href="#icon-keyboard"/></svg> 查看快捷键大全</button>
+                <p class="settings-hint settings-hint-center">点击打开快捷键帮助面板</p>
             </div>
                 </div>
                 <div class="settings-footer">
-                    ©MocaBolka 2026 v3.5.2<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
+                    ©MocaBolka 2026 v3.6.3<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
                 </div>
             </div>
         </div>

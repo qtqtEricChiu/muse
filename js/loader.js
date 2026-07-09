@@ -1,9 +1,9 @@
 ﻿/*
- * MBolka Player - File Loader v3.5.1
+ * MBolka Player - File Loader v3.6.3
  * Metadata parsing, playlist rendering, cover wall, file processing, drag-drop, CUE parsing
  */
 
-// v3.0.3: 从 File 中单独提取封面，不存 IDB，按需调用
+// v3.0.3: 从 File 中单独提取封面，不存 IDB，按需调用（🚀 v3.5.x: 提取后立即降采样压内存）
 const extractArtOnly = (file) => {
     if (!window.jsmediatags) return Promise.resolve(null);
     return new Promise(resolve => {
@@ -13,7 +13,8 @@ const extractArtOnly = (file) => {
                     let b64 = '';
                     const d = tag.tags.picture.data;
                     for (let i = 0; i < d.length; i++) b64 += String.fromCharCode(d[i]);
-                    resolve(`data:${tag.tags.picture.format};base64,${window.btoa(b64)}`);
+                    const raw = `data:${tag.tags.picture.format};base64,${window.btoa(b64)}`;
+                    downscaleArt(raw).then(resolve).catch(() => resolve(raw));
                 } else { resolve(null); }
             },
             onError: () => resolve(null)
@@ -46,17 +47,140 @@ function _initMetaWorker() {
     } catch (_e) { return false; }
 }
 
+// 🚀 v3.5.x: Blob URL 复用池 —— 同一文件只持有 1 个 URL，避免每次解析都重新 mint 并累积泄漏
+const _blobUrlMap = new Map();
+function getBlobUrl(file) {
+    const key = `${file.name}_${file.size}_${file.lastModified}`;
+    const existing = _blobUrlMap.get(key);
+    if (existing) return existing;                 // 复用既有 URL
+    const url = URL.createObjectURL(file);
+    _blobUrlMap.set(key, url);
+    if (!loadedUrls.includes(url)) loadedUrls.push(url);
+    return url;
+}
+
+// 🚀 v3.5.x: 封面降采样（统一入口）——把任意分辨率的封面 data URL 压到 ≤320px JPEG，
+// 内存占用下降 10-20×，UI 观感无损（封面展示 ≤200px）。
+const downscaleArt = (src) => {
+    if (!src) return Promise.resolve(null);
+    if (src.startsWith('data:image/svg')) return Promise.resolve(src);
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const MAX = 320;
+            const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+            if (!w || !h) return resolve(src);
+            if (Math.max(w, h) <= MAX && src.startsWith('data:image/jpeg')) return resolve(src); // 已足够小且为 jpeg，跳过
+            const scale = Math.min(1, MAX / Math.max(w, h));
+            const tw = Math.max(1, Math.round(w * scale)), th = Math.max(1, Math.round(h * scale));
+            const cvs = document.createElement('canvas');
+            cvs.width = tw; cvs.height = th;
+            const ctx = cvs.getContext('2d');
+            ctx.drawImage(img, 0, 0, tw, th);
+            let out;
+            try { out = cvs.toDataURL('image/jpeg', 0.82); } catch (e) { out = src; }
+            resolve(out);
+        };
+        img.onerror = () => resolve(src);
+        img.src = src;
+    });
+};
+
+// 🚀 v3.5.x: 封面 art LRU 缓存层
+//   目标：不再让「整个歌单每首」都常驻一份 data URL（几百~上千首 → 数十 MB），
+//   而是只常驻最近使用上限内的封面；超出则把 song.art 置空（数据 URL 由 GC 回收），
+//   需要时经 ensureArt() 从文件懒重新提取。内存被钉死在 ~150×~50KB ≈ 7.5MB。
+const ART_LRU_CAP = 150;                 // 常驻封面上限
+const _artStore = new Map();            // key(文件指纹) -> { art, seq, song }
+const _artExtracting = new Map();        // key → Promise<art>（正在提取中的指纹；后来者 await 同一 Promise 而非返回 null，防重渲染竞态导致永久占位）
+let _artSeq = 0;
+function artKeyOf(song) {
+    if (!song || !song.file) return null;
+    return `${song.file.name}_${song.file.size}_${song.file.lastModified}`;
+}
+// 写入缓存并同步到 song.art（所有解析路径统一走这里，取代直接 meta.art = art）
+function cacheArt(song, art) {
+    const k = artKeyOf(song);
+    if (!k || !art) return;
+    _artStore.set(k, { art, seq: ++_artSeq, song });
+    song.art = art;
+    if (_artStore.size > ART_LRU_CAP * 1.4) evictArt();
+}
+// 淘汰最久未使用的，直到回到上限。被淘汰的 song.art 置空（数据 URL 由 GC 回收），store 项删除。
+function evictArt() {
+    if (_artStore.size <= ART_LRU_CAP) return;
+    // 🚀 v3.5.x: 硬保护当前播放歌曲封面——即便 seq 最旧也不驱逐，
+    //   避免播放中封面被挤出后需重新提取（playAudio 虽有 ensureArt 兜底，但硬保护更稳、零延迟）。
+    const protect = new Set();
+    if (typeof playlist !== 'undefined' && typeof currentIndex !== 'undefined' && playlist[currentIndex]) {
+        const pk = artKeyOf(playlist[currentIndex]);
+        if (pk) protect.add(pk);
+    }
+    const arr = [];
+    for (const [k, e] of _artStore) arr.push([k, e.seq]);
+    arr.sort((a, b) => a[1] - b[1]);       // 最旧在前
+    const remove = _artStore.size - ART_LRU_CAP;
+    let i = 0, removed = 0;
+    while (i < arr.length && removed < remove) {
+        const k = arr[i][0];
+        if (protect.has(k)) { i++; continue; }  // 受保护，跳过
+        const e = _artStore.get(k);
+        if (e && e.song) e.song.art = null; // 仅清引用，不持数据 URL
+        _artStore.delete(k);
+        removed++; i++;
+    }
+}
+// 标记热（最近使用），防止被淘汰
+function touchArt(song) {
+    const k = artKeyOf(song);
+    if (!k) return;
+    const e = _artStore.get(k);
+    if (e) e.seq = ++_artSeq;
+}
+// 确保 song.art 可用：命中缓存/已在 song 上直接返回；否则从文件懒提取并回填。
+// 可安全高频调用：song.art 命中即同步返回；提取中用 _artExtracting 共享 Promise，
+//   并发调用同文件的 ensureArt 会 await 同一提取而非返回 null，避免重渲染竞态导致永久占位。
+async function ensureArt(song) {
+    if (!song) return null;
+    if (song.art) { touchArt(song); return song.art; }
+    const k = artKeyOf(song);
+    if (!k) return null;
+    const e = _artStore.get(k);
+    if (e) { e.seq = ++_artSeq; song.art = e.art; return e.art; }
+    // 🚀 v3.5.x fix: 改用 Promise 共享而非 _artLoading 布尔去重——
+    //   重渲染时旧卡片被移除、新卡片调 ensureArt 可 await 同一提取，不会返回 null 后永远占位。
+    if (_artExtracting.has(k)) {
+        const art = await _artExtracting.get(k);
+        if (art) { song.art = art; touchArt(song); }
+        return art;
+    }
+    if (!window.jsmediatags || !song.file) return null;
+    const p = (async () => {
+        const raw = await extractArtOnly(song.file);
+        const art = raw ? await downscaleArt(raw) : null;
+        if (art) cacheArt(song, art);
+        return art;
+    })();
+    _artExtracting.set(k, p);
+    try {
+        return await p;
+    } finally {
+        _artExtracting.delete(k);
+    }
+}
+
 const parseMetadata = async (file) => {
     const key = `${file.name}_${file.size}_${file.lastModified}`;
     const cached = await getCachedMetadata(key);
     if (cached) {
-        const url = URL.createObjectURL(file);
-        if (!loadedUrls.includes(url)) loadedUrls.push(url);
+        const url = getBlobUrl(file);
         const result = { ...cached, url, file, error: false };
-        if (!result.art && window.jsmediatags) {
-            extractArtOnly(file).then(art => {
-                if (art) result.art = art;
-            }).catch(() => {});
+        if (result.art) {
+            // 🚀 v3.5.x: 旧缓存可能存的是全分辨率封面 → 统一降采样后再用，立即压低内存
+            return downscaleArt(result.art).then(art => { if (art) cacheArt(result, art); return result; });
+        }
+        if (window.jsmediatags) {
+            return extractArtOnly(file).then(art => { if (art) cacheArt(result, art); return result; }).catch(() => result);
         }
         return result;
     }
@@ -64,22 +188,25 @@ const parseMetadata = async (file) => {
     // 尝试 Worker 解析（惰性创建，仅在线协议）
     if (_initMetaWorker()) {
         return new Promise(resolve => {
-            const url = URL.createObjectURL(file);
+            const url = getBlobUrl(file);
             const meta = { title: file.name.replace(/\.[^/.]+$/, ""), artist: "未知", album: "", url, file, error: false, lrcText: null };
             const timeout = setTimeout(() => {
                 // Worker 超时 → 回退到内联解析
                 _pendingMeta.delete(key);
                 _parseInline(file, key, meta, resolve);
             }, WORKER_PARSE_TIMEOUT);
-            _pendingMeta.set(key, { resolve: (parsed) => {
+            _pendingMeta.set(key, { resolve: async (parsed) => {
                 if (parsed.title) meta.title = parsed.title;
                 if (parsed.artist) meta.artist = parsed.artist;
                 if (parsed.album) meta.album = parsed.album;
                 if (parsed.lrcText) meta.lrcText = parsed.lrcText;
-                if (parsed.art) meta.art = parsed.art;
+                if (parsed.art) {
+                    const a = await downscaleArt(parsed.art);
+                    if (a) cacheArt(meta, a);
+                }
                 if (!parsed.art && window.jsmediatags) {
                     extractArtOnly(file).then(art => {
-                        if (art) meta.art = art;
+                        if (art) cacheArt(meta, art);
                         _finalizeMeta(meta, key, resolve);
                     }).catch(() => _finalizeMeta(meta, key, resolve));
                 } else {
@@ -104,16 +231,18 @@ const parseMetadata = async (file) => {
 function _parseInline(file, key, meta, resolve) {
     if (window.jsmediatags) {
         jsmediatags.read(file, {
-            onSuccess: tag => {
+            onSuccess: async (tag) => {
                 if(tag.tags.title) meta.title = decodeText(tag.tags.title);
                 if(tag.tags.artist) meta.artist = decodeText(tag.tags.artist);
                 if(tag.tags.album) meta.album = decodeText(tag.tags.album);
                 if(tag.tags.lyrics) meta.lrcText = decodeText(tag.tags.lyrics.lyrics || tag.tags.lyrics);
                 if(tag.tags.picture) {
-                    let b64 = '';
                     const d = tag.tags.picture.data;
+                    let b64 = '';
                     for(let i=0; i<d.length; i++) b64 += String.fromCharCode(d[i]);
-                    meta.art = `data:${tag.tags.picture.format};base64,${window.btoa(b64)}`;
+                    const raw = `data:${tag.tags.picture.format};base64,${window.btoa(b64)}`;
+                    const a = await downscaleArt(raw);
+                    cacheArt(meta, a || raw);
                 }
                 _finalizeMeta(meta, key, resolve);
             },
@@ -126,7 +255,7 @@ function _parseInline(file, key, meta, resolve) {
 
 function _parseInlineFallback(file, key) {
     return new Promise(resolve => {
-        const url = URL.createObjectURL(file);
+        const url = getBlobUrl(file);
         const meta = { title: file.name.replace(/\.[^/.]+$/, ""), artist: "未知", album: "", url, file, error: false, lrcText: null };
         _parseInline(file, key, meta, resolve);
     });
@@ -441,10 +570,20 @@ function clearPlaylist() {
     currentIndex = -1;
     audio.pause();
     setPlayState(false);
-    audio.src = '';
+    // 🔥 v3.6.2: 不再执行 audio.src='' —— 该操作会令 slot A 的 MediaElementSourceNode
+    // 在 Chrome 中失联，且 cfEnsureContext 因 audioCtx_cf 已存在而不会重建，
+    // 导致后续交叉淡变 slot A 被动槽无声（硬切）。保留 src，仅重置交叉淡变状态。
+    if (typeof cfActive !== 'undefined') {
+        cfActive = 'A';
+        cfAirLocked = false;
+        cfState = CfState.IDLE;
+        ++cfTransitionId;
+        if (cfRafId) { cancelAnimationFrame(cfRafId); cfRafId = null; }
+        if (cfPreloadTimer) { clearTimeout(cfPreloadTimer); cfPreloadTimer = null; }
+    }
     el.mainTitle.textContent = 'MBolka Player Ultimate';
     el.mainArtist.textContent = '等待载入音乐...';
-    document.title = 'MBolka Player - Ultimate Nexus v3.5.1';
+    document.title = 'MBolka Player - Ultimate Nexus v3.6.3';
     renderPlaylist();
     updateEmptyState();
     showToast("播放列表已清空", iconSvg('ban'));
@@ -745,6 +884,9 @@ function releaseAllBlobUrls() {
         try { URL.revokeObjectURL(url); } catch(e) {}
     });
     loadedUrls = [];
+    // 🚀 v3.5.x: 同步清空复用池，避免遗留悬空引用
+    _blobUrlMap.forEach(url => { try { URL.revokeObjectURL(url); } catch(e) {} });
+    _blobUrlMap.clear();
 
     // 🚀 v2.7-preview2 P0: 额外释放 playlist 和 musicLibrary 中可能残留的 URL（防止漏网）
     [...playlist, ...musicLibrary].forEach(song => {
@@ -767,7 +909,7 @@ const parseMetadataWrapped = async function(file) {
                     title: file.name.replace(/\.[^/.]+$/, ""),
                     artist: "未知",
                     album: "",
-                    url: URL.createObjectURL(file),
+                    url: getBlobUrl(file),
                     file: file,
                     error: false,
                     lrcText: null
@@ -785,7 +927,7 @@ const parseMetadataWrapped = async function(file) {
             title: file.name.replace(/\.[^/.]+$/, ""),
             artist: "未知",
             album: "",
-            url: URL.createObjectURL(file),
+            url: getBlobUrl(file),
             file: file,
             error: true,
             lrcText: null

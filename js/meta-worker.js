@@ -1,5 +1,5 @@
 /**
- * MBolka Player — 元数据解析 Worker (P1-3, v3.5.0)
+ * MBolka Player — 元数据解析 Worker (P1-3, v3.6.3)
  * 在后台线程中用 jsmediatags 解析音乐文件标签，主线程只收结果。
  * 通信协议：
  *   → postMessage({ key: String, file: File })

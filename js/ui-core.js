@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - UI Core v3.5.2
+ * MBolka Player - UI Core v3.6.3
  * Modal management, button bindings, settings UI, theme presets, EQ panel, stats, BG settings
  */
 
@@ -196,9 +196,26 @@ bindBtn('btnLoadFolder', () => {
 
 bindBtn('btnToggleLrc', () => {
     const isH = el.lrcPanel.style.display === 'none';
-    el.lrcPanel.style.display = isH ? 'flex' : 'none';
-    el.btnToggleLrc.classList.toggle('active', isH);
-    if(isH) syncLyrics(true);
+    if (isH) {
+        el.lrcPanel.style.display = 'flex';
+        el.btnToggleLrc.classList.add('active');
+        // 🔥 v3.6.2: 歌词栏淡入（高斯模糊→清晰）
+        el.lrcPanel.classList.remove('lrc-panel-out');
+        void el.lrcPanel.offsetWidth;
+        el.lrcPanel.classList.add('lrc-panel-in');
+        syncLyrics(true);
+    } else {
+        // 🔥 v3.6.2: 歌词栏淡出后再隐藏，保证出入场动画完整
+        el.lrcPanel.classList.remove('lrc-panel-in');
+        el.lrcPanel.classList.add('lrc-panel-out');
+        setTimeout(() => {
+            if (el.lrcPanel.classList.contains('lrc-panel-out')) {
+                el.lrcPanel.style.display = 'none';
+                el.btnToggleLrc.classList.remove('active');
+                el.lrcPanel.classList.remove('lrc-panel-out');
+            }
+        }, 280);
+    }
 });
 
 bindBtn('btnToggleList', () => {
@@ -220,6 +237,7 @@ bindBtn('btnSettings', () => {
         renderThemePresets();
         renderEQPanel();
         initSettingsTabs(); // 🚀 v3.0.0: 初始化设置标签
+        if (typeof updateCrossfadeEnergyLock === 'function') updateCrossfadeEnergyLock(); // 🚀 v3.6.x: 反映一键节能锁定态
         updateFocusContext();
     });
 });
@@ -343,6 +361,23 @@ function updateModeUI() {
     el.btnMode.classList.toggle('active', isShuffle || isRepeatOne);
     el.immBtnMode.classList.toggle('active', isShuffle || isRepeatOne);
 }
+
+// 🚀 v3.6.2: 应用 OPPO Sans 字体（覆盖 --font-body 变量）
+function applyOppoSans() {
+    const root = document.documentElement;
+    if (cfg.useOppoSans) {
+        const fam = cfg.oppoSansWeight === 'M' ? "'OPPO Sans 3.0 M'" : "'OPPO Sans 3.0 R'";
+        if (cfg.oppoKeepEnglish) {
+            // OPPO Sans 仅作为中文字体回退，英文字体保留 Geist/CDN
+            root.style.setProperty('--font-body', "'Geist', " + fam + ", -apple-system, 'Segoe UI', Roboto, sans-serif");
+        } else {
+            root.style.setProperty('--font-body', fam + ", -apple-system, 'Segoe UI', Roboto, sans-serif");
+        }
+    } else {
+        root.style.removeProperty('--font-body');
+    }
+}
+
 function updateSettingsUI() {
     const btn = document.getElementById('btnToggleColorMode');
     if (btn) {
@@ -358,14 +393,28 @@ function updateSettingsUI() {
         preview.style.display = cfg.followAccentColor ? 'block' : 'none';
         if (cfg.followAccentColor && currentAlbumColor) preview.style.background = `linear-gradient(90deg, ${currentAlbumColor}, ${cfg.defaultColor})`;
     }
-    // 🚀 v3.5.0: 同步外观新增开关（跟随强调色 / 背景沉浸）
+    // 🚀 v3.6.2: 同步外观新增开关（封面取色 / 背景沉浸）
     const faToggle = document.getElementById('followAccentToggle');
     if (faToggle) faToggle.checked = cfg.followAccentColor;
     const biToggle = document.getElementById('bgImmersiveToggle');
     if (biToggle) biToggle.checked = cfg.bgImmersive;
-    // 🚀 v3.5.2: 同步标题栏伪沉浸开关
+    // 🚀 v3.6.2: 同步标题栏伪沉浸开关
     const wpiToggle = document.getElementById('wcoPseudoImmersiveToggle');
     if (wpiToggle) wpiToggle.checked = cfg.wcoPseudoImmersive;
+    // 🚀 v3.6.2: 同步 OPPO Sans 开关与字重
+    const osToggle = document.getElementById('useOppoSansToggle');
+    if (osToggle) osToggle.checked = cfg.useOppoSans;
+    const osWeightBox = document.getElementById('oppoSansWeightBox');
+    if (osWeightBox) osWeightBox.style.display = cfg.useOppoSans ? 'block' : 'none';
+    document.querySelectorAll('.oppoSansWeightBtn').forEach(b => {
+        b.classList.toggle('active', b.dataset.weight === cfg.oppoSansWeight);
+    });
+    // 🚀 v3.6.2: 同步保留英文字体开关
+    const keToggle = document.getElementById('oppoKeepEnglishToggle');
+    if (keToggle) keToggle.checked = cfg.oppoKeepEnglish;
+    const keBox = document.getElementById('oppoKeepEnglishBox');
+    if (keBox) keBox.style.display = cfg.useOppoSans ? 'block' : 'none';
+    applyOppoSans();
 }
 
 const cyclePlayMode = () => {
@@ -388,19 +437,28 @@ function toggleColorMode() {
     updateSettingsUI();
     applyThemeLogic();
     saveSettings();
-    showToast(cfg.followAccentColor ? "已开启取色跟随" : "已关闭取色跟随", iconSvg('palette'));
+    showToast(cfg.followAccentColor ? "已开启封面取色" : "已关闭封面取色", iconSvg('palette'));
 };
-document.getElementById('btnToggleColorMode').onclick = toggleColorMode;
-document.getElementById('btnToggleDarkMode').onclick = toggleDarkMode;
+// 🚀 v3.6.2: btnToggleColorMode 已并入「沉浸式外观」的封面取色开关，此处做空安全守卫
+const btnToggleColorMode = document.getElementById('btnToggleColorMode');
+if (btnToggleColorMode) btnToggleColorMode.onclick = toggleColorMode;
+document.getElementById('btnToggleDarkMode')?.remove(); // 🚀 v3.5.x: 已替换为 toggle-switch
+const darkModeToggle = document.getElementById('darkModeToggleSwitch');
+if (darkModeToggle) {
+    darkModeToggle.checked = cfg.darkMode;
+    darkModeToggle.addEventListener('change', function() {
+        toggleDarkMode(this.checked);
+    });
+}
 
-// 🚀 v3.5.0: 设置-外观「跟随强调色」开关（与取色模式同源，统一驱动 --primary 随专辑封面）
+// 🚀 v3.6.2: 设置-外观「封面取色」开关（与取色模式同源，统一驱动 --primary 随专辑封面；复用 followAccentToggle）
 const followAccentToggle = document.getElementById('followAccentToggle');
 if (followAccentToggle) followAccentToggle.addEventListener('change', () => {
     cfg.followAccentColor = followAccentToggle.checked;
     updateSettingsUI();
     applyThemeLogic();
     saveSettings();
-    showToast(cfg.followAccentColor ? "已开启跟随强调色" : "已关闭跟随强调色", iconSvg('palette'));
+    showToast(cfg.followAccentColor ? "已开启封面取色" : "已关闭封面取色", iconSvg('palette'));
 });
 
 // 🚀 v3.5.0: 设置-外观「背景沉浸」开关（专辑封面/自定义背景全屏沉浸 + 夜间半透明黑遮罩叠加）
@@ -413,7 +471,7 @@ if (bgImmersiveToggle) bgImmersiveToggle.addEventListener('change', () => {
     showToast(cfg.bgImmersive ? "已开启背景沉浸" : "已关闭背景沉浸", iconSvg('images'));
 });
 
-// 🚀 v3.5.2: PWA 检测 — 仅 standalone 模式显示标题栏伪沉浸开关
+// 🚀 v3.6.2: PWA 检测 — 仅 standalone 模式显示标题栏伪沉浸开关
 (function() {
     const box = document.getElementById('wcoPseudoImmersiveBox');
     if (!box) return;
@@ -424,7 +482,7 @@ if (bgImmersiveToggle) bgImmersiveToggle.addEventListener('change', () => {
     }
 })();
 
-// 🚀 v3.5.2: 设置-外观「标题栏伪沉浸」开关（PWA 标题栏 theme-color 取封面/背景顶部颜色融合）
+// 🚀 v3.6.2: 设置-外观「标题栏伪沉浸」开关（PWA 标题栏 theme-color 取封面/背景顶部颜色融合）
 const wcoPseudoImmersiveToggle = document.getElementById('wcoPseudoImmersiveToggle');
 if (wcoPseudoImmersiveToggle) wcoPseudoImmersiveToggle.addEventListener('change', () => {
     cfg.wcoPseudoImmersive = wcoPseudoImmersiveToggle.checked;
@@ -433,18 +491,58 @@ if (wcoPseudoImmersiveToggle) wcoPseudoImmersiveToggle.addEventListener('change'
     saveSettings();
     showToast(cfg.wcoPseudoImmersive ? "已开启标题栏伪沉浸" : "已关闭标题栏伪沉浸", iconSvg('layers'));
 });
+
+// 🚀 v3.6.2: 设置-外观「启用 OPPO Sans」开关
+const useOppoSansToggle = document.getElementById('useOppoSansToggle');
+if (useOppoSansToggle) useOppoSansToggle.addEventListener('change', () => {
+    cfg.useOppoSans = useOppoSansToggle.checked;
+    updateSettingsUI();
+    applyOppoSans();
+    saveSettings();
+    showToast(cfg.useOppoSans ? "已启用 OPPO Sans" : "已恢复默认字体", iconSvg('type'));
+});
+
+// 🚀 v3.6.2: OPPO Sans 字重 R/M 切换
+document.querySelectorAll('.oppoSansWeightBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        cfg.oppoSansWeight = btn.dataset.weight;
+        updateSettingsUI();
+        applyOppoSans();
+        saveSettings();
+        showToast("OPPO Sans 字重：" + (cfg.oppoSansWeight === 'M' ? 'Medium' : 'Regular'), iconSvg('type'));
+    });
+});
+
+// 🚀 v3.6.2: 设置-外观「保留英文字体」开关（OPPO Sans 仅替换中文字体，保留 Geist/CDN 英文字体）
+const oppoKeepEnglishToggle = document.getElementById('oppoKeepEnglishToggle');
+if (oppoKeepEnglishToggle) oppoKeepEnglishToggle.addEventListener('change', () => {
+    cfg.oppoKeepEnglish = oppoKeepEnglishToggle.checked;
+    updateSettingsUI();
+    applyOppoSans();
+    saveSettings();
+    showToast(cfg.oppoKeepEnglish ? "OPPO Sans 仅替换中文" : "OPPO Sans 替换全部字体", iconSvg('type'));
+});
+
 document.getElementById('blurSlider').oninput = function() {
     cfg.blurAmt = this.value;
     document.getElementById('blurVal').textContent = `${this.value}px`;
+    const bv = document.getElementById('blurSliderVal');
+    if (bv) bv.textContent = `${this.value}px`;
     applyThemeLogic(); saveSettings();
 };
 
 document.getElementById('lrcFontSizeSlider').oninput = function() {
     cfg.lrcFontSize = parseInt(this.value);
+    document.getElementById('lrcFontSizeVal').textContent = `${this.value}px`;
+    const fv = document.getElementById('lrcFontSizeSliderVal');
+    if (fv) fv.textContent = `${this.value}px`;
     applyLrcSettings(); saveSettings();
 };
 document.getElementById('lrcLineHeightSlider').oninput = function() {
     cfg.lrcLineHeight = parseFloat(this.value);
+    document.getElementById('lrcLineHeightVal').textContent = this.value;
+    const lhv = document.getElementById('lrcLineHeightSliderVal');
+    if (lhv) lhv.textContent = this.value;
     applyLrcSettings(); saveSettings();
 };
 document.querySelectorAll('.lrc-align-btn').forEach(btn => {
@@ -635,32 +733,36 @@ function renderEQPanel() {
     // 🩹 v3.2.3: 播放速度/音调/Crossfade 已在 HTML 中定义独立 drawer-box，此处仅绑定事件
     // 速度/音调
     const _speedSlider = document.getElementById('speedSlider');
-    const _pitchBtn = document.getElementById('btnTogglePitch');
     if (_speedSlider) {
         _speedSlider.value = playbackRate;
         _speedSlider.oninput = function() { setPlaybackRate(parseFloat(this.value)); };
     }
-    if (_pitchBtn) {
-        // 🚀 v3.4.x: SVG 图标 + 文字，避免覆盖按钮内置图标
-        // 🚀 v3.5.0: 复用 setBtnText helper
-        setBtnText(_pitchBtn, preservesPitch ? 'lock' : 'music', preservesPitch ? '保持音调' : '允许变调');
-        _pitchBtn.onclick = togglePitchPreserve;
+    // 🚀 v3.5.x: btnTogglePitch 替换为 pitchToggleSwitch
+    const _pitchToggle = document.getElementById('pitchToggleSwitch');
+    if (_pitchToggle) {
+        _pitchToggle.checked = preservesPitch;
+        _pitchToggle.addEventListener('change', function() {
+            togglePitchPreserve(this.checked);
+        });
     }
 
     // Crossfade
-    const _cfBtn = document.getElementById('btnToggleCrossfade');
+    const _cfToggle = document.getElementById('crossfadeToggleSwitch');
     const _cfSlider = document.getElementById('crossfadeSlider');
-    if (_cfBtn) {
-        // 🚀 v3.4.x: SVG 图标 + 文字替代 emoji
-        // 🚀 v3.5.0: 复用 setBtnText helper
-        setBtnText(_cfBtn, crossfadeEnabled ? 'check' : 'pause', crossfadeEnabled ? '已开启' : '关闭');
-        _cfBtn.onclick = function() {
-            crossfadeEnabled = !crossfadeEnabled;
-            setBtnText(this, crossfadeEnabled ? 'check' : 'pause', crossfadeEnabled ? '已开启' : '关闭');
-            if (crossfadeEnabled) { cfEnsureContext(); cfPreloadNext(); }
+    if (_cfToggle) {
+        _cfToggle.checked = crossfadeEnabled;
+        _cfToggle.addEventListener('change', function() {
+            crossfadeEnabled = this.checked;
+            if (crossfadeEnabled) {
+                cfSetupScanner();   // 🔥 v2.8.9 修复：开启时立即重启扫描器，无需手动切歌一次才生效
+                cfPreloadNext();
+            } else if (cfRafId) {
+                cancelAnimationFrame(cfRafId);
+                cfRafId = null;
+            }
             saveSettings();
             showToast(crossfadeEnabled ? '淡入淡出已开启（实验性功能）' : '淡入淡出已关闭', iconSvg('alert'));
-        };
+        });
     }
     if (_cfSlider) {
         _cfSlider.value = crossfadeDuration;
@@ -671,6 +773,46 @@ function renderEQPanel() {
             saveSettings();
         };
     }
+
+    // 🔥 v3.6.2: 曲线选择按钮
+    document.querySelectorAll('.cf-curve-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.curve === crossfadeCurve);
+        btn.onclick = function() {
+            document.querySelectorAll('.cf-curve-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            crossfadeCurve = this.dataset.curve;
+            saveSettings();
+            showToast(`淡变曲线: ${this.textContent}`, iconSvg('refresh'));
+        };
+    });
+
+    // 🔥 v3.6.2: 响度归一化开关
+    const _normToggle = document.getElementById('crossfadeNormalizeToggle');
+    if (_normToggle) {
+        _normToggle.checked = crossfadeNormalize;
+        _normToggle.onchange = function() {
+            crossfadeNormalize = this.checked;
+            saveSettings();
+            showToast(crossfadeNormalize ? '响度归一化已开启' : '响度归一化已关闭', iconSvg('refresh'));
+        };
+    }
+
+    // 🚀 v3.6.x: 一键节能开启时锁定交叉淡变控件 + 显示提示（不丢用户设置，退出节能后恢复）
+    //   在开关动作 (app.js) 与设置面板打开时都调用，确保锁定态即时反映。
+    window.updateCrossfadeEnergyLock = function () {
+        const locked = oneClickEnergySaving === true;
+        const box = document.getElementById('crossfadeBox');
+        const toggle = document.getElementById('crossfadeToggleSwitch');
+        const slider = document.getElementById('crossfadeSlider');
+        const norm = document.getElementById('crossfadeNormalizeToggle');
+        const hint = document.getElementById('crossfadeEnergyHint');
+        if (box) box.classList.toggle('cf-locked', locked);
+        if (toggle) { toggle.disabled = locked; toggle.checked = crossfadeEnabled; }
+        if (slider) slider.disabled = locked;
+        if (norm) norm.disabled = locked;
+        document.querySelectorAll('.cf-curve-btn').forEach(b => b.disabled = locked);
+        if (hint) hint.style.display = locked ? 'flex' : 'none';
+    };
 
     // 🚀 v2.8.2: 性能模式UI已整合到节能板块，此处不再单独显示
     // (保留兼容映射：旧版 performanceMode 已映射到 cfg.frameEnergyEnabled)
@@ -1107,22 +1249,101 @@ function updateNetworkStatus() {
     }
 }
 
-// ===== 错误日志导出 =====
+// ===== 诊断日志导出 =====
 
+// 🔥 v3.6.2: 全面诊断快照导出（含播放器运行时状态、音频槽、淡变引擎、设置、错误日志）
 const exportErrorLogs = () => {
     const logs = JSON.parse(localStorage.getItem('MBolka_ErrorLogs') || '[]');
-    if (!logs.length) return showToast("暂无错误日志", iconSvg('clipboard'));
-    const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+
+    // 收集当前播放器状态
+    const snapshot = {
+        _exportedAt: new Date().toISOString(),
+        _exportReason: 'manual',
+        playback: {
+            currentIndex,
+            isPlaying,
+            isShuffle,
+            isRepeatOne,
+            isImmersiveMode,
+            playlistLength: playlist?.length ?? 0,
+        },
+        currentSong: (currentIndex >= 0 && playlist?.[currentIndex]) ? {
+            title: playlist[currentIndex].title,
+            artist: playlist[currentIndex].artist,
+            fileSize: playlist[currentIndex].file?.size,
+            hasArt: !!playlist[currentIndex].art,
+        } : null,
+        crossfade: {
+            enabled: crossfadeEnabled,
+            duration: crossfadeDuration,
+            curve: crossfadeCurve,
+            normalize: crossfadeNormalize,
+            state: cfState === CfState.IDLE ? 'IDLE' : cfState === CfState.PRELOADING ? 'PRELOADING' : 'FADING',
+            airLocked: cfAirLocked,
+            activeSlot: cfActive,
+            transitionId: cfTransitionId,
+            pendingNextIdx: _cfPendingNextIdx,
+            pendingNextVol: _cfPendingNextVol,
+        },
+        audioSlots: [
+            {
+                slot: 'A (audio)',
+                src: audio?.src ? audio.src.slice(0, 80) + (audio.src.length > 80 ? '…' : '') : null,
+                readyState: audio?.readyState,
+                paused: audio?.paused,
+                volume: audio?.volume,
+                currentTime: audio?.currentTime,
+                duration: audio?.duration,
+                ended: audio?.ended,
+            },
+            {
+                slot: 'B (cfAudioB)',
+                src: cfAudioB?.src ? cfAudioB.src.slice(0, 80) + (cfAudioB.src.length > 80 ? '…' : '') : null,
+                readyState: cfAudioB?.readyState,
+                paused: cfAudioB?.paused,
+                volume: cfAudioB?.volume,
+                currentTime: cfAudioB?.currentTime,
+                duration: cfAudioB?.duration,
+                ended: cfAudioB?.ended,
+            },
+        ],
+        visibility: {
+            hidden: document.hidden,
+            visibilityState: document.visibilityState,
+        },
+        performance: {
+            memory: performance?.memory ? {
+                usedJSHeapSize: performance.memory.usedJSHeapSize,
+                totalJSHeapSize: performance.memory.totalJSHeapSize,
+                jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+            } : null,
+            timing: performance?.timing ? {
+                navigationStart: performance.timing.navigationStart,
+                domComplete: performance.timing.domComplete,
+            } : null,
+        },
+        config: (() => {
+            try {
+                const stored = JSON.parse(localStorage.getItem('MBolka_Cfg_v3') || localStorage.getItem('MBolka_Cfg_v2') || '{}');
+                const { art, ...safe } = stored; // 排除 art blob
+                return safe;
+            } catch { return null; }
+        })(),
+        errors: logs,
+    };
+
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `MBolka_ErrorLogs_${new Date().toISOString().slice(0,10)}.json`;
+    a.href = url; a.download = `MBolka_Diagnostic_${new Date().toISOString().slice(0,19).replace(/[:]/g,'-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast("错误日志已导出", iconSvg('clipboard'));
+    showToast("诊断快照已导出", iconSvg('clipboard'));
 };
 
 // === 曲库独立面板 (v2.4.0 静态重构) ===
 let coverLibSortMode = 'album'; // album / artist / recent
+let coverLibAlbumSort = 'default'; // 🚀 仅 album 模式下的子排序：default（歌曲数降序）/ artist（同艺术家相邻+首字母）
 
 
 
@@ -1213,8 +1434,8 @@ const applyBgImmersive = () => {
     document.documentElement.style.setProperty('--bg-scrim-alpha', finalAlpha.toFixed(3));
 };
 
-function toggleDarkMode() {
-    cfg.darkMode = !cfg.darkMode;
+function toggleDarkMode(force) {
+    cfg.darkMode = force != null ? force : !cfg.darkMode;
     document.body.classList.toggle('dark-mode', cfg.darkMode);
     updateDarkModeUI();
     applyBgImmersive(); // 🚀 v3.5.0: 夜间模式切换需重算沉浸遮罩叠加
@@ -1222,11 +1443,14 @@ function toggleDarkMode() {
     showToast(cfg.darkMode ? "已开启深色/护眼模式" : "已恢复标准模式", cfg.darkMode ? iconSvg('moon') : iconSvg('sun'));
 };
 function updateDarkModeUI() {
-    const btn = document.getElementById('btnToggleDarkMode');
-    // 🚀 v3.4.x: SVG 图标 + 文字替代 emoji
-    if (btn) btn.innerHTML = cfg.darkMode ? iconSvg('sun') + ' 标准模式' : iconSvg('moon') + ' 深色模式';
+    const toggle = document.getElementById('darkModeToggleSwitch');
+    if (toggle) toggle.checked = cfg.darkMode;
     document.body.classList.toggle('dark-mode', cfg.darkMode);
 }
+
+// 🚀 v3.6.x: 沉浸模式切换后移除 will-change 的延时——与 CSS transition(0.5s) 留余量，
+//   过早移除会让 GPU 层在动画尾段跳变；值统一在此管理，CSS 改动时同步更新
+const IMM_WILLCHANGE_MS = 800;
 
 function toggleImmersiveMode() {
     isImmersiveMode = !isImmersiveMode;
@@ -1259,7 +1483,7 @@ function toggleImmersiveMode() {
     setTimeout(() => {
         el.viewMain.style.willChange = 'auto';
         el.viewImm.style.willChange = 'auto';
-    }, 800);
+    }, IMM_WILLCHANGE_MS);
 }
 
 const toggleFullscreen = () => {

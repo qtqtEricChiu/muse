@@ -1,9 +1,9 @@
-/* 🚀 v3.5.2: 独立 Service Worker — Network-First（带缓存回退）离线缓存策略
+/* 🚀 v3.6.3: 独立 Service Worker — Network-First（带缓存回退）离线缓存策略
    ⚠️ 原 CacheFirst 会把 js/visualizer.js 等源码永久缓存（CACHE_NAME 写死 v3.3.3，
     install 不重跑），导致源码修改在浏览器里不生效。改为 Network-First：
    在线时始终拉取最新源码（开发改动即时可见），离线/失败时回退缓存。 */
-const CACHE_NAME = 'mbolka-v3.5.2';
-const RUNTIME_CACHE = 'mbolka-runtime-v3.5.2';
+const CACHE_NAME = 'mbolka-v3.6.3';
+const RUNTIME_CACHE = 'mbolka-runtime-v3.6.3';
 const CACHE_URLS = [
     '/', '/index.html',
     '/css/variables.css', '/css/base-layout.css', '/css/style.css',

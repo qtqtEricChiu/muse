@@ -1,5 +1,5 @@
 ﻿/*
- * MBolka Player - Entry Point v3.5.1
+ * MBolka Player - Entry Point v3.6.3
  * Namespace export, initialization, event binding
  * All modules loaded via index.html <script> tags before this file
  */
@@ -36,6 +36,7 @@ async function initApp() {
     applyLrcSettings();
     initCrossfadeEngine();   // 🔥 v2.8.9: 初始化交叉淡变引擎
     cfSetupScanner();        // 🔥 v2.8.9: 交叉淡变扫描器
+    startPlaybackWatchdog(); // 🔥 v3.6.2: 后台播放看门狗（兜底 rAF 冻结）
     updateFavQuickBtn();
     
     // 🔥 v2.8.13: 初始化音频输出设备选择功能
@@ -76,12 +77,50 @@ async function initApp() {
     if (!loaded) {
         // 没有持久化目录，显示空状态
         updateEmptyState();
+    } else {
+        // 🚀 v3.6.x: 原「3 秒后强制重载首歌封面」已移除——
+        //   现 playAudio 在 cfSyncSongUI 前 await ensureArt(song)，首歌封面与取色在启动即同步就绪，
+        //   不再需要 3 秒后补刀（且补刀会与即时同步竞态）。见 audio-core.js playAudio。
     }
 
     // 如果设置了EQ增益，初始化EQ
     if (eqGains.some(g => g !== 0) && audioCtx) {
         initEQ();
     }
+
+    // 🚀 v3.6.x: 启动恢复一键节能（与开关 checked 态保持一致），并挂起交叉淡变
+    //   —— 修正「开关显示开启但节能未生效」的旧不一致，使交叉淡变锁定态一致。
+    if (cfg.oneClickEnergyEnabled) {
+        oneClickEnergySaving = true;
+        enterEnergySaving(EnergyMode.ONE_CLICK);
+        cfSuspendForEnergy();
+    }
+
+    // 🚀 v3.6.3: 主界面 + 沉浸舱 歌曲名/歌手名 → 点击复制（替换原生选中复制）
+    const _copyTargets = [
+        { el: el.mainTitle, label: '歌曲名' },
+        { el: el.mainArtist, label: '歌手名' },
+        { el: el.immTitle, label: '歌曲名(沉浸)' },
+        { el: el.immArtist, label: '歌手名(沉浸)' },
+    ];
+    _copyTargets.forEach(t => {
+        if (!t.el) return;
+        t.el.classList.add('click-copy');
+        t.el.addEventListener('click', () => {
+            const text = t.el.textContent.trim();
+            if (!text || text === '沉浸式音乐舱' || text === '就绪' || text === 'MBolka Player Ultimate' || text === '等待载入音乐...') return;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`${text} — 已复制`, iconSvg('clipboard'));
+            }).catch(() => {
+                // clipboard 不可用时 fallback
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast(`${text} — 已复制`, iconSvg('clipboard'));
+            });
+        });
+    });
 
     // === 统一事件绑定 (从 index.html 内联 script 迁移至此，确保加载时序一致) ===
 
@@ -150,10 +189,17 @@ async function initApp() {
             oneClickEnergySaving = e.target.checked;
             if (e.target.checked) {
                 enterEnergySaving(EnergyMode.ONE_CLICK);
+                // 🚀 v3.6.x: 一键节能自动暂停交叉淡变，省去淡变重叠期双路音频解码
+                cfSuspendForEnergy();
+                showToast("一键节能已开启，已暂停交叉淡变以省电", iconSvg('zap'));
             } else {
                 exitEnergySaving(EnergyMode.ONE_CLICK);
+                // 🚀 v3.6.x: 退出节能后按用户原设置恢复交叉淡变
+                cfResumeFromEnergy();
                 showToast("一键节能已关闭", iconSvg('zap'));
+                if (crossfadeEnabled) showToast("交叉淡变已恢复", iconSvg('refresh'));
             }
+            updateCrossfadeEnergyLock();   // 🚀 v3.6.x: 同步设置面板锁定态
             saveSettings();
         });
     }
@@ -200,13 +246,29 @@ async function initApp() {
             exitEnergySaving(EnergyMode.VISIBILITY);
 
             // 如果完全没有节能需求，恢复渲染
-            if (!shouldBeEnergySaving() && analyser) {
-                requestAnimationFrame(renderVisLoop);
-            }
+            startVisLoop();
 
             // 🩹 v3.2.3: 节能模式下恢复标签页时重新启动歌词降频定时器
             if (shouldBeEnergySaving() && !lrcTimer) {
                 lrcTimer = setInterval(() => syncLyrics(true), 500);
+            }
+
+            // 🔥 v3.6.2: 恢复可见时检查「淡变卡在 FADING」——后台 rAF 冻结后 fade 从未推进，
+            // cfState 永远到不了 IDLE。若过时未完成则强制收尾。
+            // ⚠️ 不递增 cfTransitionId：在途 fade rAF 通过 fade 顶部的 cfState!==FADING 守卫自行退出。
+            if (typeof cfState !== 'undefined' && cfState === CfState.FADING && _cfPendingNextIdx >= 0) {
+                if (typeof logError === 'function') logError('CF_VIS_RECOVER', `可见性恢复: 强制完成卡住的淡变`, null);
+                cfFinishTransition(_cfPendingNextIdx, _cfPendingNextVol, cfTransitionId);
+            }
+
+            // 🔥 v3.6.2: 应播却暂停（后台被浏览器暂停）→ 回前台立即续播当前歌
+            if (typeof isPlaying !== 'undefined' && isPlaying && typeof getActivePlayAudio === 'function') {
+                const a = getActivePlayAudio();
+                if (a && a.paused && !a.ended) {
+                    if (typeof logError === 'function') logError('VIS_RESUME', `可见性恢复: 续播被暂停的媒体: ${playlist[currentIndex]?.title}`, null);
+                    a.volume = parseFloat(el.volSlider.value);
+                    a.play().catch(() => {});
+                }
             }
         }
     });

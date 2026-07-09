@@ -2,6 +2,779 @@
 
 ---
 
+## v3.6.3 (2026-07-09) — 审计采纳 + 歌词创作信息补全 + 点击复制 + 进度条偏移 + coverflow 调整
+
+### 🎨 审计 v2 采纳：无障碍 + 动画节能 + 健壮性
+
+> 依据 `audit-report-v2-20260709.md`（标注"基于当前实际代码"）。逐条核对真实代码后采纳低风险高价值项；多处"严重项"经核为**误报/已自带修复**（见下）。
+
+### 一、无障碍（A11y）
+1. **css/style.css** — 新增 `@media (prefers-reduced-motion: reduce)`：禁用 `.art-box` / `.pip-standby` / `.btn-play` 持续性装饰动画与 `.lrc-line` 过渡，前庭障碍用户友好。
+2. **css/style.css** — `input[type=range]:focus-visible` 焦点光环（webkit + Firefox 双前缀），键盘 Tab 到滑块有可见反馈。
+3. **css/style.css** — Firefox 滚动条回退：`html { scrollbar-width: thin; scrollbar-color: … }`。
+4. **css/style.css `.track-title`** — 增 `max-height: 2.4em` 回退，Firefox 不支持 `-webkit-line-clamp` 时仍能截断。
+5. **css/style.css `.footer`** — `font-size: 13px` → `clamp(11px, 1.6vh, 14px)`，高 DPI 屏可读。
+
+### 二、UI / 动画优化
+6. **css/style.css `.lrc-line`** — 移除已废弃 `word-break: break-word`，改用标准 `overflow-wrap: anywhere`（保留 `word-wrap` 旧浏览器回退）。
+7. **css/style.css `.lrc-viewport`** — `padding: 50% 20px` → `30vh 20px`，基于视口高度留白，超宽屏不再浪费歌词空间。
+8. **css/style.css `.lrc-line.active + .lrc-line`** — 移除 `filter: blur(0px) !important`（相邻选择器特异性 0,3,0 已高于 `:hover` 0,2,0）。
+9. **css/style.css `.view-container.hidden`** — 退出模糊 `blur(10px)` → `blur(4px)`，降低离屏合成开销。
+10. **css/style.css `.btn-ctrl:active`** — `scale(0.92)` → `scale(0.96)`，减轻子像素文字发虚（承接 v3.6.2 去除 !important 的后续微调）。
+11. **css/style.css `.art-box.swipe-*`** — 滑动手势缓动 `ease-out` → `var(--curve-smooth)`，与全站一致。
+12. **css/style.css `.load-strip`** — 隐藏时（`:not(.show)`）暂停 `cfBarFlow` 流动动画省合成。
+
+### 三、性能 / 健壮性（JS）
+13. **js/utils.js `escapeHTML`** — 复用模块级 `div`，避免歌词逐行渲染高频创建临时 DOM。
+14. **js/utils.js `extractColor`** — `getImageData` 的 `catch` 增 `console.warn`，CORS 受限取色失败时便于调试。
+15. **js/audio-core.js `cfSyncSongUI`** — 切歌时 `el.lrcView.scrollTop = el.lrcView.scrollTop` 取消上首可能仍在进行的平滑滚动（防滚到错误位置）；标题/歌手赋值加空值守卫；`void el.mainTitle.offsetWidth` 补 FLIP 重排注释。
+16. **js/visualizer.js** — `ResizeObserver` 存引用，页面 `visibilitychange→hidden` 时 `unobserve`、回到前台再 `observe`，避免后台空转回调。
+17. **js/visualizer.js** — 交叉淡变进行中（`cfState === FADING`，双槽解码 CPU 翻倍）通过 `_visFadeThrottle()` 将鼠标/触摸粒子、点击涟漪生成速率减半。
+18. **js/storage.js `logError`** — `localStorage.setItem` 由同步改为 `requestIdleCallback`（降级 `setTimeout`）异步落盘，避免高频错误日志（交叉淡变 `CF_*`）阻塞主线程；IDB 写入加 `tx.onerror` 降级回调。
+19. **js/storage.js `_flushMetaBatch`** — `catch` 增 `console.warn`（标记复位 `_metaBatchScheduled=false` 此前已存在）；`cacheMetadata` 队列超 200 条 `shift()` 上限保护，防事务失败堆积。
+20. **js/gamepad.js `switchCoverLibTab`** — `setTimeout(180, …)` 补注释：等待 Tab 切换后 DOM 重渲染完成再居中 coverflow 的经验值。
+
+### 验证
+- ✅ 改动 JS 文件 `node --check` 全部通过；`read_lints` 0 错误。
+- ✅ CSS 均为属性级微调，无结构性破坏。
+
+### 审计审查说明（误报 / 已自带修复 — 经核对真实代码）
+- **CSS `:root` 重复定义冲突（#1/#63）误报**：`index.html` 中 `style.css` 在 line 18 加载、`variables.css` 在 line 32 加载——**variables.css 后加载生效**，故 `style.css` 的 `:root` 是被覆盖的死代码；`--primary-glow` 实际取 `rgba(var(--primary-rgb),0.45)` 动态值，主题取色联动正常。报告基于"style.css 后加载"的错误假设，删除重复块反而有加载顺序回归风险，故**不改**。
+- **`onAudioEnded` 双槽绑定重复（#2）误报**：全代码仅 `audio.onended`（2109）与 `cfAudioB.onended`（globals.js 176）两处 `.onended` 属性赋值，**零** `addEventListener('ended')`；双槽永久绑定为有意设计且安全（注释 1271/1304/2054 说明"仅活跃槽播完触发"）。
+- **`_artExtracting` Map 提取失败未清理（#4）误报**：`loader.js` 165-169 用 `try/finally { _artExtracting.delete(k) }`，reject 时亦清理，无泄漏。
+- **`_pushModal` 弹窗背景滚动未锁定（#66）误报/已处理**：`variables.css` 已全局 `body { overflow: hidden }`，弹窗后方本就不滚动。
+- **`art-crossfade-overlay img` 无尺寸限制（#98）误报**：`base-layout.css` 238 已有 `width/height/object-fit: cover` 限制。
+
+### 暂缓 / 不采纳（记录理由，未盲目改动）
+- `globals.js` 全局命名空间污染（#3）、`ui-core` 设置批量 rAF 合并（#40）、`cfCrossfadeVisStart/Stop` rAF 步进与实际淡变弧度匹配（#107）—— 架构/核心引擎改动风险高，需专项计划。
+- `.load-strip transition width→transform: scaleX`（#106）—— 需同步改 JS 驱动方式，本轮仅加隐藏暂停动画降开销，暂不改结构。
+- `floatArt` 节能模式暂停（#99）—— 需 body 挂节能 class 钩子（当前无），`reduced-motion` 已覆盖无障碍场景，暂缓。
+- `cfTriggerCrossfade` `passiveEl.src` 字符串比较（#41）—— blob URL 边界、无实证 bug，暂缓。
+- 低优先级/设计权衡：`exportPlaylist` 流式导出（#52）、`queryPermission` prompt（#53）、`_cachedScrollable` TTL（#51）、`MAX_POOL` 动态帧率（#122）、`appFadeIn` will-change（#119）、`ambientBreathe` 合并（#118）、`index.html` 内联结构提取（#77）—— 暂缓。
+
+---
+
+### 🎵 歌词创作信息正则补全：文案/古筝/小提琴 等角色
+
+### 背景
+用户提供了一批创作信息样例（含 文案、古筝、古筝编写、小提琴、小提琴编写 等角色），这些角色此前不在 `CREDIT_PAT` / `CREDIT_MULTI_PAT` 的角色清单中，会被误判为歌词，导致 `lyricStart` 过早截止、其后的创作信息全部丢失。
+
+### 改动
+**`js/audio-core.js`（Phase 4 创作信息模式检测）**：
+1. **`CREDIT_PAT`（单行正则）** 新增角色：`文案、古筝编写、古筝、小提琴编写、小提琴`。长词条排在前（古筝编写 > 古筝、小提琴编写 > 小提琴），避免短词条优先截断长词条。
+2. **`CREDIT_MULTI_PAT`（多角色合并正则）** 同步新增上述 5 个角色，支持如 `古筝/古筝编写：紫格` 这类合并行。
+3. 角色清单仅在 `audio-core.js` 一处维护，已与两个正则同步。
+
+### 验证
+- ✅ Node 单测：10 行样例（文案/古筝/古筝编写/小提琴/小提琴编写/制作人/录音室/混音室/监制/出品）全部 `OK` 命中 `CREDIT_PAT`，无漏判。
+- ✅ `紫格/Morri3on(喬凡三)` 的括号由 `formatCreditValue` 括号保护逻辑整体保留，渲染为 `紫格` + `Morri3on(喬凡三)` 两个完整名字，不被误拆。
+- ⚠️ 提醒：这些创作信息须写入 LRC 文件头部（如 `[文案：偏生梓归]`）才会被解析器读取；纯文本备注不会被解析。
+
+### 📋 歌曲名/歌手名：点击复制（替代原生选中复制）
+
+### 背景
+主界面与沉浸舱的歌曲名/歌手名此前依赖原生文本选中（`user-select: auto`），需要双击/长按才能选中复制，且会干扰点触区域。改为点击复制 + Toast 提示。
+
+### 改动
+1. **JS（`js/app.js` `initApp`）** — 遍历 `{ el: mainTitle, mainArtist, immTitle, immArtist }` 四个元素：
+   - 添加 `.click-copy` class
+   - 绑定 `click` 事件：读取 `textContent.trim()`，跳过占位文字（「沉浸式音乐舱」「就绪」「MBolka Player Ultimate」「等待载入音乐...」），调用 `navigator.clipboard.writeText()` 写入剪贴板，成功后 `showToast(\`${text} — 已复制\`, iconSvg('clipboard'))`
+   - `clipboard API` 不可用时 fallback `document.execCommand('copy')`
+
+2. **CSS（`css/style.css`）** — 新增 `.click-copy` 类：
+   - `cursor: pointer; user-select: none;` — 不可选中、显示手型
+   - `:hover` → `filter: brightness(1.2)` 高亮反馈
+   - `:active` → `opacity: 0.7` 按下反馈
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 198.5 KB / style.min.css 74.2 KB），`read_lints` 0 错误。
+- ✅ 占位文字不触发复制；所有 4 个元素统一点击复制并弹出 Toast。
+
+### 🐛 沉浸舱进度条偏移根治：isProgressDragging 共享污染
+
+### 背景
+用户提供精确诊断日志（含双槽 `audio`/`cfAudioB` 状态）及 7 首歌曲的实测偏移数据（分布从 -96s 到 +66s，方向/幅度均不一致），交叉验证了偏移根因：**主条与沉浸舱的 `mouseup` 监听器均绑定 `document`，共享 `isProgressDragging` 标志，导致主条先触发、误用自身 rect seek 后清空标志，沉浸舱后被跳过**。
+
+### 根因链
+1. 交叉淡变开启 → 双槽机制（`audio`/`cfAudioB`）→ `cfActive` 可能为 'B'
+2. 沉浸舱 IIFE 的 `onStart` 设置 `isProgressDragging = true`（共享 module 变量）
+3. `mouseup` 触发 → **先注册的主条 `handleEnd`** 检查 `isProgressDragging === true` → 执行 seek → 但 `cachedRect === null`（主条未触发 `mousedown`）→ `getBoundingClientRect()` 返回主条 rect → seek 位置完全错误
+4. 主条 `handleEnd` 设置 `isProgressDragging = false`
+5. **沉浸舱 `onEnd`** 检查 `isProgressDragging === false` → 直接 return → 沉浸舱进度条完全不响应
+
+### 修复
+1. **`bindProgressBar.handleEnd`**（主条）加 `cachedRect === null` 守卫——未初始化（非此条触发的）`mouseup` 直接 return。
+2. **`bindProgressBar.handleMove`**（主条）同样加 `cachedRect === null` 守卫。
+3. **沉浸舱 IIFE** 改用本地 `_immDragging` 标志，与 module 级 `isProgressDragging` 彻底隔离——`onStart/onMove/onEnd` 全部检查本地标志。
+4. 最终 seek 保持双槽写入（`getActivePlayAudio` + `audio`），防止 `cfActive` 错位。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 197.8 KB / style.min.css 74.1 KB），`read_lints` 0 错误。
+- ✅ 主条 ↔ 沉浸舱 `mouseup` 不再交叉干扰；本地标志完全隔离。
+
+### 🎨 曲库按专辑封面：coverflow 上移 + 艺术家标签下移
+
+### 背景
+曲库「按专辑」模式顶部已包含标题栏、Tab 切换、搜索框、排序条，垂直空间占用较多，导致 coverflow 专辑封面整体偏下沉；同时「按艺术家」排序时，当前居中卡所属艺术家的浮动标签位于 coverflow 上方，与封面信息层级冲突。
+
+### 改动
+1. **上移 coverflow（`css/cover-lib.css` `.cover-lib-grid.is-coverflow`）**：
+   - 将 `.cover-lib-stage` 改为 `flex-direction: column; align-items: center; justify-content: center;`，让 coverflow 在剩余空间中真正垂直居中。
+   - `.cover-lib-grid` 基础态新增 `align-self: stretch;`，保证网格模式（按艺术家 / 最近添加）仍填充 stage 高度；coverflow 模式覆盖为 `flex: 0 0 auto; align-self: center;`，不再拉伸，而是作为 flex item 居中。
+   - 新增 `transform: translateY(-50px)`，在几何中心基础上再向上微调到视觉中心区域，抵消顶部栏密集带来的下沉感。
+   - 仅使用 `transform`（GPU 合成），不改动布局尺寸，不破坏 `scroll-snap` 与 3D 透视计算。
+
+2. **移动艺术家浮动标签到 coverflow 下方（`css/cover-lib.css` `.coverflow-artist-indicator`）**：
+   - 原 `position: absolute; top: 14px;`（coverflow 上方）改为 `position: relative; order: 2; align-self: center; margin-top: 18px;`，作为 stage 的 flex item 自然排在 coverflow 轨道下方，无需魔法数值。
+   - 保持水平居中、毛玻璃背景、圆角胶囊样式不变。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 197.9 KB / style.min.css 74.0 KB），`read_lints` 0 错误。
+- ✅ 仅影响 `.is-coverflow` 模式；网格模式（按艺术家 / 最近添加）不受影响。
+
+### 🔧 沉浸舱进度条 + 审计采纳：健壮性修复 + UI/动画节能优化
+
+### Bug：沉浸舱进度条点按后约 40 秒偏移
+- **根因（rAF reflow 漂移）**：v3.6.7 `toggleImmersiveMode` 进入时 rAF 回调执行 `void el.immProgArea.offsetHeight` 强制回流。此时浏览器从 `.view-container.hidden`（`scale(0.95)`）切换到无 hidden 态尚未完成 layout 计算，rAF reflow 触发 layout 完成 → 进度条容器 flex 宽/位置变化 → `cachedRect` 过时。
+- **根因（handleEnd 刷新策略）**：v3.6.7 又在 `handleEnd` 开头刷新 `cachedRect = progArea.getBoundingClientRect()`，但 seek 视觉以 handleStart 的旧 rect 为准，两 rect 若不一致则 seek 偏离 ~40 秒。
+- **修复**：
+  1. 删除 `toggleImmersiveMode` 中的 rAF force reflow，让 DOM 自然稳定后再响应用户操作。
+  2. `handleEnd` 不再刷新 `cachedRect`，`updateVisuals` 始终使用 handleStart 缓存的 rect（与拖拽视觉完全同步），seek 位置与用户所见吻合。
+  3. 爆炸特效改用实时 `progArea.getBoundingClientRect()` 避免使用 stale cachedRect。
+
+### 验证
+- ✅ `node build.js` 通过，`read_lints` 0 错误。
+
+### 一、代码健壮性（采纳审计建议）
+1. **js/vibration.js `_sendRumble`** — 手柄断开重连时 `playEffect` 抛 `InvalidStateError`，原 `catch` 静默但继续遍历失效手柄；现遇之 `break` 跳出循环，避免无谓重试。
+2. **js/cover-lib.js `buildRecentEntries`** — 增加 `musicLibrary` 守卫：IDB 初始化完成前 `musicLibrary` 可能为空/undefined，直接 `return []` 避免 `.map` 崩溃。
+3. **js/audio-core.js `onProgressTick`** — `setPositionState` 调用前增加 `!isFinite(pa.duration) || pa.duration <= 0` 守卫，避免 duration 为 NaN/Infinity 时抛 TypeError。
+4. **js/audio-core.js `onAudioLoadedMetadata`** — `e.currentTarget.duration` 守卫由 `!isNaN` 升级为 `isFinite`（排除流媒体 Infinity 触发的异常续播行为）。
+5. **js/ui-core.js `toggleImmersiveMode`** — 提取 `IMM_WILLCHANGE_MS = 800` 常量并注释关联 CSS transition 时长，消除硬编码。
+6. **js/audio-core.js `resumeOnGesture`** — 提取 `RESUME_GESTURE_TIMEOUT = 15000` 常量；注释说明"首手势即移除监听，15s 仅兜底"。
+7. **js/cover-lib.js `renderCoverLibMore.step`** — 增加 `!g.isConnected` 检查，快速切 Tab 时旧闭包持有的已卸载 DOM 引用不再被操作。
+
+### 二、UI / 动画优化（采纳审计建议）
+8. **css/style.css `.lrc-line`** — `transition: all` 改为具体属性（`color/opacity/filter/transform`），避免 `all` 误伤无关属性。
+9. **css/style.css `.lrc-line.active`** — 双层发光 `60px` 大半径降至 `30px`，集成显卡合成开销减半、视觉差异极小。
+10. **css/style.css `.btn-glass`** — 增加 `text-shadow`，亮背景图片叠加时保证文字可读。
+11. **css/style.css `.imm-bottom`** — `width: 100%` 改为 `clamp(600px, 80%, 850px)`，小窗不再"漂浮"。
+12. **css/style.css + base-layout.css `input[type=range]`** — 补全 Firefox `::-moz-range-thumb` / `::-moz-range-track` 适配（原仅 webkit vendor）。
+13. **css/style.css `.btn-ctrl:active`** — 去除 `!important`，改为 `:not(:disabled)` 提高特异性。
+14. **css/style.css `.vis-canvas-container`** — `height: 70px` 改为 `clamp(50px, 8vh, 90px)` 自适应视口。
+15. **css/style.css `.theme-preset-grid`** — `repeat(5,1fr)` 改为 `repeat(auto-fill, minmax(80px,1fr))`，大屏色块不再拉伸过宽。
+16. **css/style.css 统计面板** — `@media (max-width:480px)` 补充 `.stat-value { font-size:22px }` 防溢出。
+17. **css/components.css `.pip-line-current`** — `transition: all` 改为具体属性。
+18. **css/components.css `.pip-progress-fill`** — `box-shadow` 硬编码色改为 `var(--primary-glow)` 主题变量。
+19. **css/components.css `.pip-vinyl`** — 增加 `@media (max-width:300px) { animation-play-state: paused }`，PiP 极小窗封面不可见时暂停旋转动画省 GPU 合成。
+
+### 三、此前已完成的节能系列改动（同轮汇总）
+20. **曲库首屏预暖 `prewarmCoverLib`** — 打开即并行提取前 60 张专辑封面并回填，零占位闪烁；节能态降至 12 张。
+21. **一键节能自动暂停交叉淡变** — `cfSuspendForEnergy` / `cfResumeFromEnergy`：暂停时记住用户原设置、停扫描器/预加载定时器、淡变中则回退单轨；设置面板锁定交叉淡变控件并提示"请关闭一键节能后重试"。仅 ONE_CLICK 触发，PIP_TEMP/VISIBILITY 不触碰（保持主界面优化初衷）。
+22. **节能态取色重取跳过** — 切歌 `extractColor`/`extractTopColor` canvas 采样在任一节能态下复用上一首主题色（首曲仍取一次建立基线）。
+23. **下一首封面预读跳过 + 启动一致性** — 一键节能下跳过 `prereadNextCover`；启动时若 `cfg.oneClickEnergyEnabled` 则自动恢复节能并挂起交叉淡变。
+
+### 审计审查说明（未采纳 / 已自带修复项）
+- **已自带修复（无需改）**：`onAudioError` 已有 `e.target.error ? … : 'unknown'` 守卫；`bindProgressBar` 的 `isProgressDragging=true` 已在 `abMode` 检查之后；`handleEnd` 已 `cachedRect=null` 并重取 rect；`resumeOnGesture` 函数开头即移除监听（15s 仅兜底）；`onAudioLoadedMetadata` 已有 duration 守卫。
+- **暂缓 / 需专项（本轮未改）**：
+  - `globals.js` 50+ 全局变量迁移 ESM/IIFE —— 架构级重构，风险高、会破坏加载顺序，需独立迁移计划。
+  - `storage.js` 批量写入重试队列 + localStorage 回退 —— 中等复杂度，当前 `logError` 已记录，数据丢失概率极低，避免过度工程。
+  - `audio-core.js` 交叉淡变看门狗对 5s 淡变的中断 —— 核心引擎逻辑，改动需专项验证。
+  - CSS 变量体系统一（`style.css` vs `variables.css`）、响应式断点合并 —— 高风险全局重构，改错会全站变色/布局回归，需专项核对。
+  - 动画 `infinite` 节能暂停（`.btn-play` glowPulse / `.pip-standby`）、`backdrop-filter` 改 Class 切换、`.lrc-viewport` scroll-snap 重构、绘制算法优化（流沙分辨率/弧线预计算/粒子数动态）、`reducedMotion` 监听、`updateCoverflow` artHash —— 涉及视觉行为与节能类体系确认，建议后续专项视觉验证后实施。
+  - `pip.js` pipSyncTimer 清理 / `loader.js` `_metaWorker.terminate` 竞态 / `gamepad.js` 死区常量 / `visualizer.js` animFrameId 双重保险 —— 报告中对应行号已随版本迭代偏移，当前代码路径需重新定位确认，本轮未盲目改动。
+
+### 🐛 交叉淡变后续修复与功能增强
+
+### 🐛 沉浸舱进度条悬停「-6:-3」异常标签与点击跳转修复
+
+### Bug 1：刚进入沉浸舱就显示「-6:-3」异常悬停标签
+- **根因**：v3.6.7 在 `toggleImmersiveMode` 中为刷新悬停预览 `hoverRect` 手动 dispatch 了 `new MouseEvent('mousemove', { clientX: 0, clientY: 0 })`。`setupProgressHover` 接收到 `clientX=0` 后算出负值 pct → 负 time → `formatTime` 输出 `-6:-3`。
+- **修复**：移除 `dispatchEvent`，仅保留 `void el.immProgArea.offsetHeight` 强制回流。同时给 `setupProgressHover` 的 mousemove 计算添加守卫：duration 不存在/<=0 时直接 return；pct 不在 [0,1] 范围也 return，彻底杜绝异常值。
+- **修复**：`updateVisuals` 已有 `Math.max(0, Math.min(1, pct))` 兜底。
+
+### Bug 2：点击进度条跳转位置不准
+- **根因**：`bindProgressBar.handleEnd` 使用 `cachedRect`（mousedown 时缓存），若从进入沉浸模式到点击之间有布局变化（如 v3.6.7 的 rAF 回流改变了 flex 尺寸），缓存坐标过时。
+- **修复**：`handleEnd` 中在 `updateVisuals` 前先执行 `cachedRect = progArea.getBoundingClientRect()` 刷新坐标，保证松手时 rect 与 `clientX` 同时代。同时加 `if (ap.duration && pct >= 0 && pct <= 1)` 守卫，防止 seek 到不存在的位置。
+- **修复**：窗口缩放 resize 监听从 dispatch mouseenter 改为 `void a.offsetHeight` 仅回流，消除副作用。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 190.3 KB / style.min.css 72.1 KB），`read_lints` 0 错误。
+- ✅ dist 不再含 `mousevent(clientX:0)` dispatch、悬停预览有负值和空 duration 守卫、点击 seek 使用实时 rect。
+
+### 🎨 渐变色流转首尾衔接 + 文件夹加载条流转 + AI 标签 hover 提示
+
+### Fix 1：渐变色流转首位相接无缝循环
+- **根因**：`.cf-vis-bar.enhanced` 此前 `background-size: 300%`，动画 `0%→-100%` 偏移量为 1.5 个周期宽度，首尾色块不匹配导致跳变感。
+- **修复**：改为 `background-size: 200% 100%`（2 个完整周期），`background-position: 0%→-100%` 正好偏移一个周期宽度，首尾显示同一色段，循环无缝。同步添加 `background-repeat: repeat` 兜底。
+
+### Fix 2：文件夹加载进度条渐变色流转
+- **改动**（`css/base-layout.css` + `css/style.css` `.load-strip`）：原有 `primary→cyan` 渐变扩展为 `primary→cyan→emerald→primary→cyan→emerald`（200% 宽 2 周期），添加 `background-size: 200% 100%` + `cfBarFlow 2s linear infinite`，与淡变指示条同款渐变色流转动画但速度稍缓。原有白色流光（`::after` + `shimmerBar`）保持不动，两者叠加不冲突。
+
+### Fix 3：AI 翻译标签 hover 提示（后期升级为 CSS 自定义动画 tooltip）
+- **初版**（`js/audio-core.js` `loadLrc` 创作信息渲染）：AI 翻译 `<span>` 添加 `title="以下歌词翻译由文曲大模型提供"`。
+- **升级**（`js/audio-core.js` + `css/base-layout.css`）：去掉原生 `title`，改为在 `<span class="lrc-credits-ai-badge">` 内嵌套 `<span class="lrc-credits-ai-tip">以下歌词翻译由文曲大模型提供</span>`，CSS 绝对定位在 Badge 上方，hover 时弹性缓动曲线 spring 弹出 + 三角箭头，移出即淡出。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 190.1 KB / style.min.css 72.1 KB），`read_lints` 0 错误。
+- ✅ dist 含 `background-size: 200%` 匹配、加载条可流转、AI badge title。
+
+### 🌈 交叉淡变指示条：渐变色内部流转 + 退场动画
+
+### 改动
+1. **CSS（`css/base-layout.css`）**：
+   - `.cf-vis-bar` 基态渐变加宽至 `200%`（`primary→accent→primary→accent`），`background-size: 200% 100%`，为后续流动动画提供冗余色块。
+   - `.cf-vis-bar.enhanced` 新增强发光后的渐变色内部循环流动动画：`@keyframes cfBarFlow` 以 `1.5s linear infinite` 驱动 `background-position` 从 `0%` 左移至 `-100%`，色块三组（含 `#f0f0ff` 亮色尾迹）`background-size 300%` 让流动更绵密。
+   - 新增 `.cf-vis-bar.exiting` + `@keyframes cfBarExit`：`0.35s ease-out forwards`，同步收缩（`scaleX(0.3)`）+ 淡出（`opacity 0`），结束时 `animation-fill-mode: forwards` 保持最终态。
+2. **JS（`audio-core.js` `cfCrossfadeVisStop`）**：
+   - 不再立即 `bar.remove()` → 改为添加 `.exiting` 类触发退场 CSS 动画，同时将当前 transform 存为 `--cf-exit-scale` 自定义属性供动画参考位置。
+   - `380ms` 后 `setTimeout` 清理 DOM 元素；已处于 `exiting` 状态的 bar 跳过重复操作。
+
+### 效果
+- 淡变进度条在横向填充的同时，内部渐变色持续自右向左流动（类似音谱均衡器动态感）。
+- 淡变结束时指示条不会「啪」消失，而是平滑收缩淡出，与封面溶解、歌名分阶滑入等淡变视觉升级形成完整退场闭环。
+- 流动动画仅 `background-position` 属性变化，GPU 合成层无重排，性能开销可忽略。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 190.1 KB / style.min.css 71.9 KB），`read_lints` 0 错误。
+- ✅ dist 含 `cfBarFlow` / `cfBarExit` 动画与 `exiting` 退出逻辑。
+
+### 📐 沉浸舱进度条对标主界面（ARIA + touch-action + 布局稳定）
+
+### 背景
+沉浸舱底部进度条的点击/拖拽定位存在偏差，但主界面进度条精准无误。双方 JS 渲染/拖拽逻辑完全一致（共用 `bindProgressBar`），问题源于：
+- 沉浸舱进度条缺乏 `touch-action: none` → 浏览器默认触控行为干扰坐标计算
+- 进入沉浸模式时 `.imm-wrapper`/`.imm-bottom` 的 flex 布局未强制回流 → 悬停/拖拽 rect 缓存可能过时
+- 缺少滚动无障碍 ARIA 属性同步
+
+### 改动
+1. **HTML（`index.html`）** — `#imm-progArea` 补齐 `role="slider"` + `aria-label/valuemin/valuemax/valuenow`（与 `#main-progArea` 完全对等）。
+2. **CSS（`css/base-layout.css`）** — `.progress-area` 增加 `touch-action: none`，阻止移动端浏览器在进度条区域 intercept 触控事件，确保 `clientX` 坐标直接传给 `bindProgressBar`。
+3. **JS — 进入沉浸模式强制回流（`ui-core.js` `toggleImmersiveMode`）** — 在 `viewImm.classList.remove('hidden')` 后追加 `requestAnimationFrame` 回调，执行 `void el.immProgArea.offsetHeight` 强制布局计算 + 触发 `mousemove` 刷新悬停预览的 `hoverRect`，避免 `hidden→visible` 过渡后坐标缓存过时。
+4. **JS — 双进度条 ARIA 同步（`audio-core.js` `onProgressTick`）** — 原仅 `el.progAreaMain` 更新无障碍属性，改为 `[el.progAreaMain, el.immProgArea].forEach` 同步更新（`aria-valuemax/valuenow/valuetext`）。
+5. **JS — 窗口缩放 rect 刷新（`audio-core.js` `setupProgressHover` 之后）** — 新增 `window.addEventListener('resize')`，当窗口缩放（例如 PWA 窗口拖拽、移动端旋转）时自动 dispatch `mouseenter` 事件刷新双进度条的 `hoverRect`。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 189.6 KB / style.min.css 71.4 KB），`read_lints` 0 错误。
+- ✅ dist 含 ARIA 补全、`touch-action: none`、回流/scroll 稳定逻辑。
+
+### 🤖 AI 翻译合规标识 + 文曲大模型字样彻底清除
+
+### 背景
+LRC 歌词文件头部可能包含「文曲大模型」等 AI 模型版权声明。根据《人工智能生成合成内容标识办法》，需满足：
+- 显式标识 AI 参与生成内容
+- 彻底清除非展示的 AI 模型名称
+
+此前 `isCopyright()` 已过滤带「文曲大模型」的行不在创作信息中显示，但未做标记。本轮增加合规显式标识与彻底抹除。
+
+### 改动
+1. **检测（`js/audio-core.js` `parseLyricText` Phase 5b 后）** — 扫描 `rawEntries` 全文：若有任意条目含「文曲大模型」字样，置 `isAiTranslated = true`，并随解析结果返回。
+2. **返回（`parseLyricText` 末尾）** — `{ lyric, credits, kanaData, isAiTranslated }`；空歌词早期返回同步补充 `isAiTranslated: false`。
+3. **显示（`loadLrc` 渲染创作信息卡片）** — `isAiTranslated` 为 true 时，在创作信息标题右侧添加紫色渐变「AI 翻译」Badge：`<span class="lrc-credits-ai-badge">AI 翻译</span>`。
+4. **CSS（`css/base-layout.css`）** — `.lrc-credits-ai-badge`：紫色渐变 (`#8b5cf6 → #6d28d9`)、10px 字重 600、圆角 4px、inline-block、title 内垂直居中。
+5. **彻底抹除** — `isCopyright()` 正则中的 `文曲大模型` 已确保任何含此字段的行不被计入创作信息；`loader.js` 注释同步清理。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 188.8 KB / style.min.css 71.4 KB），`read_lints` 0 错误。
+- ✅ dist 内 `isAiTranslated` 逻辑与 `.lrc-credits-ai-badge` 样式均存在。
+
+### 🎨 设置面板 UI 标准化（统一设计语言）
+
+### 背景
+设置-所有设置项的 UI 此前较为随意：有的开关用原生 checkbox、有的按钮是「点击切换」语义、间距与卡片样式各标签页不统一，
+违背 v3.5.x 已建立的面板设计语言。本轮对设置面板所有控件做**标准化 / 设计语言化**重写，并把「设置 UI 设计语言标准」定稿写入本条目，作为后续新增设置项的规范。
+
+### 新增设计语言组件类（css/modals.css）
+- `.settings-toggle-card`：开关型设置的统一卡片（标题 + 副说明 + 右侧 `toggle-switch`），圆角 12px、半透明底、下间距 8px。
+- `.settings-toggle-card-body / -title / -desc`：卡片左侧文字区（标题 14px 主色，说明 11px 次色）。
+- `.settings-slider-row`：滑块行（滑块 `flex:1` + 右侧值显示），下间距 12px。
+- `.settings-slider-label`：滑块上方标签（13px 次色）。
+- `.settings-slider-value`：滑块右侧实时值（12px 主色，最小宽 40px 右对齐）。
+- `.settings-segmented`：分段按钮组（一组等宽 `btn-glass`，gap 8px），用于「多选一」选择。
+- `.settings-btn-full`：全宽主操作按钮（居中）；`.settings-btn-danger`：危险操作描边红字。
+- `.settings-hint / -after-card / -after-row / -center`：说明文字（11px 次色，多种对齐）。
+- `.settings-warning`：警告行（11px 琥珀色，带图标）。
+- `.drawer-box.accent-energy`（节能模式淡琥珀底）/ `.drawer-box.accent-appearance`（外观淡粉底）：分组强调底。
+
+### 控件类型决策标准（新增设置项请遵守）
+| 场景 | 组件 | 示例 |
+|---|---|---|
+| 二元开关（开/关） | `settings-toggle-card` + `toggle-switch` | 深色模式、保持音调、交叉淡变、各节能开关 |
+| 多选一（≤4 项） | `settings-segmented` + `btn-glass` | 字体字重、均衡器曲线、歌词对齐 |
+| 连续数值 | `settings-slider-row` + `range` + `settings-slider-value` | 模糊强度、字号、行距、交叉淡变时长、EQ 频段 |
+| 动作按钮（打开/清除/导出） | `settings-btn-full` / `settings-btn-danger` | 载入音乐、清除缓存、导出日志 |
+
+### 间距标准
+- 卡片内边距：12px 16px；卡片间纵向间距 8px。
+- 滑块组：标签→滑块 4px，组间 12px。
+- 分段按钮组：组内 gap 8px，组下间距 10px。
+- 说明文字与所解释控件：贴其下方（`-after-card` 6px / `-after-row` -4px 10px）。
+
+**后期间距细化（本会话补充）**：
+- `.drawer-box` padding 从 `16px` 缩至 `12px`，`.drawer-title` margin-bottom 从 `14px` 缩至 `8px`，使标题→说明→首控件间隙从 ~26px 降至 ~14px。
+- 新增 `.settings-hint-after-title`：标题下方说明 6px 下间距，替代多处 inline `style="margin-bottom:12px"`。
+- 新增 `.settings-sub-group`：依赖性子控件组（如 OPPO Sans→字重+保留英文），无独立背景边框。
+- 新增 `.settings-btn-full + .settings-btn-full`：连续全宽按钮自动 8px 上间距。
+- 新增 `.settings-slider-label-mt`：带 12px 上间距的标签类，替代 inline `margin-top:12px`。
+- 新增 `.settings-offset-row / -label / -val`：歌词偏移控制行标准化，替换 inline flex 样式。
+- 新增 `.settings-info-box`：设置内强调信息盒（震动高级控制）。
+- 各组件 `:last-child` 规则：抽屉内最后一张卡片/滑块/分段组等自动清除底部多余间隙。
+- `.settings-body` padding 从 `20px 24px` 改为 `16px 20px 28px`，底部加厚防止最后一项贴边。
+- 移除全部 inline 间距样式（`margin-bottom:12px`、`margin-bottom:10px`、`margin-top:8px`、`margin-top:12px`等）。
+
+### 本次改造范围（index.html）
+- **载入音乐 / 主题色 / 背景图片 / 显示调节**：动作按钮加 `settings-btn-full`；「深色模式」原 `btnToggleDarkMode` 改为 `settings-toggle-card`（含 `darkModeToggleSwitch`）；模糊滑块套用 `settings-slider-label` + `settings-slider-row` + 新增 `blurSliderVal` 值显示。
+- **沉浸式外观 / 字体**：`drawer-box.accent-appearance` 强调底；内部全部转为 `settings-toggle-card`；字体字重改为 `settings-segmented`。
+- **音频输出 / 均衡器 / 播放速度与音调**：`btnTogglePitch` → `pitchToggleSwitch` 开关卡片；`btnToggleCrossfade` → `crossfadeToggleSwitch` 卡片；曲线改为 `settings-segmented`；`crossfadeNormalizeToggle` 沿用 v3.5.x 既有 `toggle-switch` 卡片。
+- **歌词显示**：`lrcFontSizeSlider` / `lrcLineHeightSlider` 套用 `settings-slider-label` + `settings-slider-row` + 新增 `lrcFontSizeSliderVal` / `lrcLineHeightSliderVal`；对齐方式改为 `settings-segmented`。
+- **节能模式**：`drawer-box.accent-energy` 强调底，三开关转 `settings-toggle-card`。
+- **其他 / 震动反馈**：`settingsRumbleIndicator` 改卡片圆角；说明用 `settings-hint`；`btnTestRumble` / `btnShowStats` / `btnExportLogs` / `btnClearCache` / `btnOpenHelpShortcuts` 加 `settings-btn-full` / `settings-btn-danger`。
+
+### JS 适配（js/ui-core.js / js/audio-core.js）
+- ID 重映射：`btnToggleDarkMode`→`darkModeToggleSwitch`、`btnTogglePitch`→`pitchToggleSwitch`、`btnToggleCrossfade`→`crossfadeToggleSwitch`。
+- `toggleDarkMode(force)` / `togglePitchPreserve(force)` 改接受 force 参数；`updateDarkModeUI()` 改用 `darkModeToggleSwitch.checked`。
+- 速度/音调/Crossfade 绑定段改用 `addEventListener('change', …)` 读 `.checked`，去掉旧按钮 `onclick` 引用。
+- 滑块 `oninput` 统一同步「标签内 -Val」与「滑块行 -SliderVal」两处显示：补 `blurSliderVal`、新增 `lrcFontSizeSliderVal` / `lrcLineHeightSliderVal` 的实时同步（此前拖拽时歌词数值不刷新）。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 184.8 KB / style.min.css 68.6 KB），`read_lints` 0 错误。
+- ✅ dist 内含新开关结构与滑块双值同步逻辑。
+
+### 🎨 交叉淡变切歌 UI 刷新补全（cfSyncSongUI）
+
+### 背景
+v3.6.0 将交叉淡变从 Web Audio GainNode 斜坡改写为 rAF 驱动 `audio.volume` 淡变。
+但 `cfFinishTransition`（交叉淡变切歌）仅更新了标题/歌手/文档标题，**遗漏了手动切歌 `playAudio` 中的 8 项 UI 刷新**，
+导致交叉淡变后残留旧歌信息（封面、取色、环境光、文件信息、WCO 标题栏、Media Session 控制回调等）。
+
+### 改动
+- 新增 `js/audio-core.js` 公共异步函数 `cfSyncSongUI(song)`，集中以下 UI 同步逻辑：
+  1. 标题/歌手/文档标题（双界面） 2. 文件信息 `el.fileInfo` 3. 专辑封面 `el.mainArt/el.immArt`
+  4. 封面取色 `currentAlbumColor/currentAlbumTopColor` + `--album-color` CSS 变量 5. `.no-art` class 切换
+  6. `ThemeColor.update()` + `updateTopColor()` 7. `WCO.setTrack()`
+  8. `Media Session` 元数据 + `setActionHandler`(play/pause/prev/next/seek) + `setPositionState` 9. `applyThemeLogic()`
+- `playAudio`（手动切歌）与 `cfFinishTransition`（交叉淡变切歌）**统一调用** `cfSyncSongUI`，消除重复代码并保证两端 UI 完全一致。
+- `cfFinishTransition` 改为 `async`（内部 `await cfSyncSongUI`）。
+- 扫描修复：`js/ui-core.js` 交叉淡变开启分支中遗留的 `cfEnsureContext()` 调用已移除——
+  该调用会额外创建 AudioContext 并为双槽建立 `MediaElementSource` 路由，与 v3.6.0 的 `element.volume` 直驱方案冗余/冲突。
+
+### 完整扫描结论（v3.6.0 音频大型调整后）
+- ✅ `cfApplyRamp` / `cfSampleRMS` 已无调用方，按原计划保留为死代码（后续清理）。
+- ✅ `cfGainNode* / cfGetActiveGain / cfGetPassiveGain / cfGetActiveSource / cfGetPassiveSource / cfGetActiveAnalyser / cfGetPassiveAnalyser / audioCtx_cf` 仅残留在 `globals.js` 的 `cfEnsureContext` 定义内，随本次去除调用后不再被激活路径触及。
+- ⚠️ **残留架构缺口（已闭环，见 v3.6.2）**：首版扫描发现 `visualizer.js` 与 `initEQ` 的 `MediaElementSource` 均绑定全局 `audio`（槽 A），进度条/拖拽 seek/Media Session 定位也引用全局 `audio`。该缺口在 v3.6.2「跟随活跃槽」重构中已彻底关闭。
+
+### 🔧 跟随活跃槽重构（频谱/EQ/进度条/媒体中心冻结根治）
+
+### 背景
+v3.6.0 将交叉淡变改为 rAF 驱动 `audio.volume` 直淡（无 Web Audio GainNode），v3.6.1 补全了交叉淡变切歌的 UI 刷新。
+但可视化/均衡器/进度/seek 控制面仍**硬绑定全局 `audio`（槽 A）**：首次交叉淡变后活跃槽切到 `cfAudioB`、全局 `audio` 被暂停，导致**频谱、均衡器、进度条、系统媒体中心定位全部冻结**。本轮彻底重构为「控制面跟随当前正在发声的槽」。
+
+### 改动
+1. **公共汇流节点 `visInputNode`（`globals.js`）**：`initVis` 中新建 `visInputNode = audioCtx.createGain()`，主槽 `audio` 与备用槽 `cfAudioB` 各 `createMediaElementSource` 并联入该汇流节点 → 经 EQ 链 → `analyser` → `destination`。交叉淡变双槽同时发声时，频谱/均衡器均实时响应、不再冻结。
+2. **`getActivePlayAudio()`（`globals.js`）**：返回当前正发声的槽——`CfState.FADING` 期间返回正在淡入的新歌（被动槽，界面已把「下一首」视为当前曲）；过渡完成后返回新活跃槽（`cfAudioB` 或换回槽 A）；手动切歌/未开启交叉淡变时退化为全局 `audio`。
+3. **`forEachAudioEl(cb)`（`globals.js`）**：遍历主槽 + 备用槽，统一绑定 `timeupdate` / `loadedmetadata` / `error` 事件。
+4. **进度/元数据/错误事件（`audio-core.js`）**：`onProgressTick` / `onAudioLoadedMetadata` / `onAudioError` 全部改用 `getActivePlayAudio()`；`initCrossfadeEngine` 为 `cfAudioB` 绑定与「当前活跃槽」同组的事件处理器（此前仅主槽绑定）。
+5. **控制面跟随**：歌词点击跳转、进度悬停预览、拖拽 `updateVisuals`、松手 seek、`handleABSeek` / `updateABMarkers`、`saveLongAudioProgress`、`setPlaybackRate`、Media Session 的 seek/position 均改为 `getActivePlayAudio()`。
+6. **`initEQ`（`audio-core.js`）**：起始 `visInputNode.disconnect()` 改走 EQ 滤波器链路；双槽 source 仍稳定汇入 `visInputNode`，EQ 开关不影响双槽接入。
+7. **下一首「开始播放即视为切歌」（`cfTriggerCrossfade`）**：设置 `cfState = CfState.FADING` 后紧接 `cfSyncSongUI(playlist[nextIdx])` 提前同步全部歌曲信息（标题/封面/取色/环境光/文件信息/WCO 标题栏/系统媒体中心/进度基准），杜绝交叉淡变残留旧歌信息。
+8. **中止回滚（`cfAbortTransition`）**：末尾 `if (playlist[currentIndex]) cfSyncSongUI(playlist[currentIndex])` 回滚到「当前仍在播放的旧曲」，避免提前切到下一首的 UI 残留。
+9. **`goNext` / `goPrev` 的 `isRepeatOne` 分支**：复位 `currentTime` 并 `play()` 的目标改为 `getActivePlayAudio()`。
+10. **`gamepad.js`**：`j`/`k`、双击、LT/RT（btns[6]/[7]）、左摇杆 seek 全部改为 `getActivePlayAudio().currentTime`。
+11. **`storage.js`**：播放统计的 `play` / `pause` 事件经 `forEachAudioEl` 绑定双槽。
+
+### 验证
+- ✅ `js/globals.js` / `js/visualizer.js` / `js/audio-core.js` / `js/gamepad.js` 四个改文件 `read_lints` **0 错误**。
+- ✅ v3.6.1 标注的「残留架构缺口（频谱/EQ/进度条/媒体中心冻结）」本轮已彻底闭环。
+
+### 🐛 自动续播/交叉淡变卡顿修复（onended 生命周期 + 后台 rAF 兜底）
+
+### 🐛 Bug 1：关闭淡入淡出后放完一首歌自动暂停（不续播）
+- **根因**：`playAudio` 手动切歌重置块执行 `passive.onended = null`；当 `cfActive==='B'` 时 `passive` 即 `audio`，导致 `audio.onended` 被清空且后续不重绑。一旦曾开启过交叉淡变（`cfActive` 停在 'B'），关闭后 `goNext→playAudio` 会清空 `audio.onended`，歌曲自然结束时不再触发 `goNext` → 自动暂停。
+- **修复**：抽取统一处理器 `onAudioEnded()`（单曲循环→重播当前活跃槽 `getActivePlayAudio()`；否则存进度 + `cfState`/`cfAirLocked` 守卫后 `goNext`），在主槽 `audio` 与备用槽 `cfAudioB` 上**永久绑定、永不置空**（`audio.onended = onAudioEnded` 于模块加载；`cfAudioB.onended = onAudioEnded` 于 `initCrossfadeEngine`）。移除 `playAudio` 重置块与 `cfFinishTransition` 中对双槽的 `onended = null` 置空，以及 `cfFinishTransition` 内冗余的 `newActive.onended` 内联绑定。双槽同绑安全——仅当前活跃槽播放到末尾触发 onended，暂停/空槽不会触发。
+
+### 🐛 Bug 2：自动播放第三首起在交叉淡变点卡住不动
+- **根因**：交叉淡变收尾完全依赖 `requestAnimationFrame` 的淡变回调（`fade()` 在 `t≥1` 时调用 `cfFinishTransition`）。播放器在**后台标签页**运行时浏览器会暂停 rAF，淡变永远跑不到 `t≥1`，`cfState` 永久卡在 `FADING`，`getActivePlayAudio()` 持续返回被动槽 → 进度条/控制面冻结，表现为「放几首后卡住」（用户描述的「8 秒」对应其交叉淡变时长，即淡变触发点）。
+- **修复**：
+  1. `cfTriggerCrossfade` 启动 rAF 淡变后追加 `setTimeout` 兜底（延迟 `durMs+120ms`）强制收尾；
+  2. `cfFinishTransition` 顶部加一次性守卫 `if (cfState !== CfState.FADING) return;`，确保 rAF 路径与 setTimeout 兜底**二选一**、不重复执行。
+
+### 验证
+- ✅ `js/audio-core.js` / `js/globals.js` `read_lints` 0 错误。
+- ✅ 全仓仅剩 2 处 `onended` 赋值（`audio.onended = onAudioEnded`、`cfAudioB.onended = onAudioEnded`），无 `onended = null` 残留。
+
+### 🐛 交叉淡变歌词/总时长修复 + 歌词栏高斯模糊动画
+
+### 🐛 Bug 1：进度条目标时间永远显示上一首歌曲的总时长
+- **根因**：`onAudioLoadedMetadata` 用 `getActivePlayAudio().duration` 写总时长。交叉淡变预加载阶段（`CfState.PRELOADING`）被动槽 `cfAudioB`（新歌）的 `loadedmetadata` 触发时，`getActivePlayAudio()` 仍指向旧歌（FADING 尚未置位），于是总时长被错写成上一首；新歌淡入后 `metadata` 不再触发 → 总时长永远停在旧歌（进度填充因 `onProgressTick` 在 FADING 已用新歌 duration 故显示正常，唯独总时长文本错）。
+- **修复**：`onAudioLoadedMetadata` 改为用「触发该事件的元素」自身 `duration`（`e.currentTarget.duration`）：预加载阶段被动槽触发→取其真实新歌时长；手动切歌时触发元素即新活跃槽→同样正确；取不到时回退 `getActivePlayAudio().duration`。
+
+### 🐛 Bug 2：歌词要等下一首第一句唱出才更新 + 歌词栏无出入场/高斯模糊
+- **修复 A（歌词随音频介入即更新）**：原 `loadLrc(nextSong)` 只在 `cfFinishTransition`（淡变完成）调用，故歌词要等到下一首唱出第一句才切。`v3.6.4` 将其前移到 `cfTriggerCrossfade` 置 `FADING` 之后、启动被动槽之前调用——新歌音频一开始介入，歌词栏立即切到下一首（置顶、待第一句点亮），不再滞后。并：
+  - 移除 `cfFinishTransition` 中重复的 `loadLrc`（避免二次重载/闪烁）；
+  - `cfAbortTransition` 回滚 UI 时同步 `loadLrc(当前旧曲)`，避免中止后歌词残留下一首；
+  - 手动切歌（`playAudio`）仍保留 `loadLrc`。
+- **修复 B（歌词栏出入场 + 切歌高斯模糊）**：
+  - `loadLrc` 在「歌词栏可见且有旧歌词」时，先给 `#lrcViewport` 加 `.lrc-switching`（高斯模糊 `blur(10px)`+淡出 `opacity:0`，`transition 0.22s`），等待 220ms 再换内容，随后移除类实现「去模糊淡入」——完成切歌的高斯模糊过程；
+  - 面板此前隐藏（首次/被关后新歌）→ 整体 `@keyframes lrcPanelIn`（模糊+上移淡入），避免每次切歌整面板跳动；
+  - `btnToggleLrc` 开/关分别加 `.lrc-panel-in` / `.lrc-panel-out`（淡入/淡出后再隐藏），歌词栏具备渐入渐出出入场动画；
+  - CSS 关键帧与 `.lrc-viewport.lrc-switching` 加至 `css/base-layout.css`；`prefers-reduced-motion` 下自动降级为瞬时。
+
+### 🐛 Bug 3 (hotfix)：歌词完全不显示 — `lrc-switching` 残留导致永久不可见
+- **场景**：有歌词的歌 A → 无歌词的歌 B → 有歌词的歌 C。
+  - 切到 B 时：`wasVisible=true`（A 的歌词还在），加了 `.lrc-switching`；B 无歌词 → 进入 `!lrcText` 分支直接 return → **未清理 `lrc-switching`**。
+  - 再切到 C 时：`parsedLyrics=[]`（已被清空）→ `wasVisible=false` → 跳过切换逻辑 → `lrc-switching` 永远卡在 `#lrcViewport` 上 → `filter:blur(10px);opacity:0` → 歌词永久不可见。
+- **修复**：
+  1. `!lrcText` 早期返回分支增加 `el.lrcView.classList.remove('lrc-switching')` 及面板动画类清理；
+  2. 有歌词分支改为**无条件先移除 `lrc-switching`**（不再依赖 `wasVisible` 判断来决定是否清理），防止任何残留路径。
+
+### 验证
+- ✅ `js/audio-core.js` / `js/ui-core.js` `read_lints` 0 错误。
+- ✅ `loadedmetadata` 绑定为 `addEventListener`（事件对象可用，`e.currentTarget` 取触发元素）。
+- ✅ `loadLrc` 现调用点：交叉淡变起点（`cfTriggerCrossfade`）、中止回滚（`cfAbortTransition`）、手动切歌（`playAudio`）；`cfFinishTransition` 不再重复调用。
+
+### 🐛 后台切回前台「点击播放播放的不是当前歌曲」修复
+
+### 🐛 根因：`togglePlay` 用硬编码 `audio`（槽A）而非「当前活跃槽」
+- 交叉淡变为双槽机制：淡变完成后 `cfActive` 翻转，活跃槽会变成 `cfAudioB`，而 `audio` 始终是固定主槽（槽A）。`getActivePlayAudio()` 已正确跟随活跃槽，但 `togglePlay`（`v3.6.4` 及之前）直接用 `audio.pause()/audio.play()`。
+- **触发路径**：连播若干首、某次交叉淡变完成 → 活跃槽=B、歌曲在 `cfAudioB` 上发声 → 切到后台标签页（音频继续播，但 `requestAnimationFrame` 被浏览器暂停，无新淡变/扫描）→ 回到前台时活跃槽仍是 B。此时点击播放/暂停：
+  - 原代码控制的是 `audio`(槽A，已静音/停止) → 表现：点了不响、或 `audio.play()` 放出了槽A里残留的旧歌「不是当前歌曲」；
+  - 点「下一首」→ `goNext→playAudio` 会重置 `cfActive='A'` → 活跃槽回到 `audio` → 恢复正常。完全吻合用户报告。
+- **修复**：
+  1. `togglePlay` 改用 `const active = getActivePlayAudio()`，暂停/播放都作用于真正发声的活跃槽；恢复播放时先把 `active.volume` 同步为用户音量，防止异常态下被置 0 无声；`play()` 加 `.catch(()=>{})` 防 unhandled rejection。
+  2. 睡眠定时器到点暂停同样改用 `getActivePlayAudio().pause()`（否则活跃槽=B 时到点不暂停）。
+- **未改**：`playAudio`/`onAudioEnded`/`saveLongAudioProgress`/`cfPreloadNext` 等本就使用 `getActivePlayAudio()` 或显式重置为槽A，逻辑正确。
+
+### 验证
+- ✅ `js/audio-core.js` `read_lints` 0 错误。
+- ✅ 全仓直接控制播放/暂停的路径：`togglePlay`、`setSleepTimer`、`音频错误跳过`(onAudioError→goNext) 均指向活跃槽；手动切歌 `playAudio` 仍显式重置 `cfActive='A'`。
+
+### 🎨 交叉淡变视觉升级（封面溶解 + 歌名分阶 + PiP 淡变 + 进度条发光）
+
+### 设计目标
+利用现有预载架构（下一首封面、取色在淡变起点已就绪），为交叉淡变增加**视觉与动画厚度**，提升整体设计水平。
+
+### ✅ 改动清单
+
+#### 1. 专辑封面溶解（主界面）
+- **效果**：淡变起点 `cfSyncSongUI` 时，新封面在 `<img>` 内即时显示，旧封面以覆盖层 `.art-crossfade-overlay` 浮于其上，`opacity 3s cubic-bezier` 淡出。淡变完成时（`cfFinishTransition`）自动移除覆盖层；中止（`cfAbortTransition`）时同步清理。
+- **根因场景**：此前封面在淡变起点 `src = song.art` 瞬间硬切，浪费了提前预载的封面数据。
+
+#### 2. 歌名/歌手分阶滑入（主界面 + 沉浸舱）
+- **效果**：`@keyframes cfTextEnter`：`translateY(14px) + blur(4px) → 正常` + `opacity 0→1`，`0.45s`。歌手延迟 `0.15s`（`.stagger`）。仅 `cfState === FADING` 时触发，手动切歌/中止回滚跳过（瞬间到位）。
+- **代码**：`cfSyncSongUI` 顶部检测 `isCrossfade`，给 `mainTitle/mainArtist/immTitle/immArtist` 加 `.cf-text-enter` / `.cf-text-enter.stagger`。
+
+#### 3. PiP 封面淡变
+- **效果**：PiP 背景层 `pipBg` 和黑胶封面 `pipVinyl` 在封面变化时各自生成旧封面覆盖层（`.pip-bg-overlay` / `.pip-vinyl-overlay`），`opacity 3s cubic-bezier` 淡出后自动移除。
+- **代码**：`updatePipUI` 新增 `pipLastArt` 追踪 + 检测 `cfState === CfState.FADING` 时创建覆盖层。`.pip-vinyl` 加 `position: relative` 作为定位基准。
+
+#### 4. 进度条淡变视觉升级
+- **cf-vis-bar 发光拖尾**：`.cf-vis-bar.enhanced` 增加 `box-shadow` 发光 + 高度 3→4px + 渐变终点加白色，在淡变起点 50ms 后追加。
+- **进度填充环境光晕**：`.cf-airlock .prog-fill` 新增 `box-shadow` 跟随 `--album-color` 变量（淡变期间实时颜色过渡——`CSS transition 0.8s`）。
+
+### 验证
+- ✅ `js/audio-core.js` / `js/pip.js` / `css/base-layout.css` / `css/components.css` `read_lints` **0 错误**。
+- ✅ `prefers-reduced-motion` 下所有淡变动画降级（`.art-crossfade-overlay`、`.pip-bg-overlay`、`.pip-vinyl-overlay` 隐藏，`cf-text-enter` 无动画）。
+- ✅ 手动切歌 / 中止回滚不触发封面溶解与文字动画（`isCrossfade` 仅在 `cfState === FADING` 时为 true）。
+
+### 🐛 后台交叉淡变保活修复（「放到第三首就停」彻底解决）
+
+### 🐛 根因：后台 rAF 冻结 → cfState 永久卡在 FADING → 活跃槽播完不切歌 → 静默停止
+
+**完整触发路径：**
+1. 循环播放中，某次交叉淡变触发 → `cfState = FADING` → rAF 驱动 fade 开始
+2. 用户切到后台标签页 → `requestAnimationFrame` 被浏览器**完全暂停**
+3. fade 动画不再推进（`performance.now()` 在后台继续推进，但 `fade()` 函数不再被 rAF 调用，`t` 永远停留在首帧）
+4. `setTimeout(() ⇒ cfFinishTransition(), durMs + 120)` 兜底被浏览器后台节流至数秒甚至 10+ 秒后才触发
+5. 在此期间，**当前活跃槽自然播放到末尾** → `onended` 触发 → `onAudioEnded`
+6. `onAudioEnded` 检查 `cfState !== CfState.IDLE || cfAirLocked` → **FADING → return，不切歌**
+7. 旧歌已播完（→ 静音），新歌音量仍为 0（fade 卡在第一帧），两者中间没有声音输出 → **播放器静默停止**
+8. 用户观察到的现象：「放到第三首就停了」「已经播放了十秒淡变了，但是十秒结束后仍然停止」
+9. 10+ 秒后 `setTimeout` 终于触发 → `cfFinishTransition` 恢复播放，但此时新歌已播放了十数秒 → 从\错位\位置继续
+
+### ✅ 修复
+
+#### Fix 1：`onAudioEnded` — FADING 时活跃槽播完立即强制完成过渡
+- 新增模块级变量 `_cfPendingNextIdx` / `_cfPendingNextVol`，在 `cfTriggerCrossfade` 中缓存当前淡变参数。
+- `onAudioEnded` 中，当 `cfState === FADING` 且 **`this`（触发了 `ended` 的 `<audio>` 元素）等于当前活跃槽**时：
+  - 直接调用 `cfFinishTransition(pendingIdx, pendingVol, cfTransitionId)` → **不递增 `cfTransitionId`**
+  - `onAudioEnded` 是普通函数声明（不是箭头函数），`this` 指向触发了 `ended` 的 `<audio>` 元素，双槽同绑安全区分。
+- **⚠️ v1→v2 回归修复（fade rAF 误停新活跃槽）**：初版在 `onAudioEnded` 中 `++cfTransitionId` 后调用 `cfFinishTransition`，意图让在途 fade rAF 因 tid 不匹配而跳过。但 stale tid 分支执行 `passiveEl.volume = 0; passiveEl.pause()` —— `cfFinishTransition` 已翻转槽位，`passiveEl` 此时已翻转为**新活跃槽**，该操作将其暂停 → **淡变结束立即停止，100% 复现**。
+  - v2 修复：fade 函数顶部增加 `if (cfState !== CfState.FADING) return;` 守卫；`onAudioEnded` 和 `visibilitychange` 均不再递增 `cfTransitionId`。
+- **⚠️ v2→v3 修复（return 缩进错误 + PRELOADING 阶段活跃槽结束不切歌）**：初版 `return` 在 `if (cfState === FADING || cfAirLocked)` 的外层而非内部 `if` 内，导致：
+  1. FADING 时被动槽（不是活跃槽）结束 → 外层 `return` 跳过 `goNext()` → 播放器停止。
+  2. `cfAirLocked` 在 PRELOADING 阶段就为 `true`。若扫描器在剩余 0.3s 触发预加载、歌曲在 preloading 完成前就到尽头 → 活跃槽结束 → `cfFinishTransition` 被调用但 `cfState!==FADING` 立即返回 → 外层 `return` 跳过 `goNext` → 播放器静默停止。
+  - v3 修复：FADING 分支只检查 `cfState === CfState.FADING`（不含 `cfAirLocked`），`return` 移入内部 `if`；新增 `else if (cfAirLocked && cfState === PRELOADING)` 分支，活跃槽结束时直接 abort + `goNext`。
+
+#### Fix 2：`visibilitychange` 可见时恢复卡住的 FADING 状态
+- 标签页从隐藏→可见时，若 `cfState === FADING` 且 `_cfPendingNextIdx >= 0`（有在途淡变），强制 `cfFinishTransition` 收尾。
+- 兜底路径：即使用户返回前台时 `onAudioEnded` 未被触发（活跃槽仍在播放但 fade 卡住），也能在可见时立即推进到下一个状态。
+- 守**护机制**：fade 函数顶部 `if (cfState !== CfState.FADING) return;` 确保无论哪种路径强制收尾后，在途 fade rAF 安全退出（不误操作翻转后的新活跃槽）。
+
+### 🐛 交叉淡变「偶发硬切」彻底根治（src 永不空串）
+
+### 🐛 根因：MediaElementSourceNode 在 Chrome 下因 src=''→重载而失联
+
+- **背景**：v3.5.4 修复了「仅偶数首生效」后，连续播放中仍**偶发硬切**（上一首突然被掐断、下一首直接顶上，无交叉斜坡）。上轮修复把问题定位到扫描器/预加载，但硬切真因在过渡收尾阶段。
+- **真因**：`cfFinishTransition` 旧逻辑在收尾时对「旧活跃槽」执行 `oldActive.src = ''; oldActive.load();`。Chrome 中 `MediaElementSourceNode` 在宿主 `<audio>` 经历 `src='' → 重载` 周期后，**节点会失联**（Web Audio 已知行为），被动槽 GainNode 再也收不到信号 → 即便下一轮淡变调度正常，被动槽也是静音，表现为硬切。
+- **修复原则**：**双槽 AB 乒乓模型，src 永远不空串**。过渡完成后旧活跃槽仅 `pause()` 保留其 `src`，增益归零静音即可；下一轮该槽作为被动槽被复用时直接覆盖 `src`（仍是有效非空 URL，SourceNode 持续有效）。
+
+### ✅ 改动清单
+
+| 位置 | 改动 |
+|------|------|
+| `js/audio-core.js` `cfFinishTransition` | 删除 `oldActive.src=''; oldActive.load();`，仅 `pause()` + 增益归零 |
+| `js/audio-core.js` `cfAbortTransition` | 删除 `passive.src=''; passive.load();`，仅 `pause()` 静音 |
+| `js/audio-core.js` `playAudio` 重置块 | 删除活跃槽/被动槽两处 `src=''+load()`，仅 `pause()` + 静音增益（遵循 src 永不空串） |
+| `js/audio-core.js` `cfTriggerCrossfade` | 新增兜底：被动槽 URL 已一致但 `readyState < 2`（预加载被丢弃/出错）时强制 `load()` 并重等 `loadeddata` |
+| `js/loader.js` `clearPlaylist` | 删除 `audio.src=''`——该操作会永久令 slot A 的 SourceNode 失联且 `cfEnsureContext` 不会重建，导致清空后重载交叉淡变硬切；改为仅重置交叉淡变状态（cfActive='A'、cfAirLocked=false、cfState=IDLE、失效在途事务/定时器） |
+
+### 🧪 验证要点
+- 连续循环播放（含 shuffle）→ 每首之间应听到平滑斜坡，不再出现掐断式硬切。
+- 清空播放列表→重新载入文件→开启交叉淡变播放 → slot A 仍可正常淡变（旧 `audio.src=''` 路径下此处会无声）。
+
+### 🚀 交叉淡变(Crossfade)功能与全部修复
+
+### 🚀 交叉淡变核心引擎重写（四项增强 + 每首连续生效）
+
+### 🐛 交叉淡变「隔一首才生效」致命 Bug 修复
+
+- **背景**：原扫描器 `cfSetupScanner` 始终读取固定 `audio` 槽的 `duration / currentTime`。交叉淡变完成后活跃槽切到 `cfAudioB`，`audio.src` 被清空（`duration = NaN`），扫描器再也匹配不到「剩余时间 ≤ 淡变时长」条件 → 仅偶数首能交叉淡变，奇数首硬切。
+- **`js/audio-core.js` `cfSetupScanner`**：循环内改用 `cfGetActiveAudio()` 读取**当前活跃槽**时长与进度，扫描器持续跟踪 A/B 任一活跃槽。
+- **`js/audio-core.js` `cfPreloadNext`**：预加载时机以 `cfGetActiveAudio().duration` 为准（原误用 `audio.duration`），交叉淡变后活跃槽为 `cfAudioB` 时仍能正确提前预加载；`preloadAt` 统一 `Math.max(_, 0)` 兜底。
+- **`js/ui-core.js` 开关**：开启交叉淡变时新增 `cfSetupScanner()` 重启扫描器（原仅首开需手动切歌一次才生效）；关闭时 `cancelAnimationFrame` 停掉空转的 rAF。
+- **`js/audio-core.js` `playAudio`**：手动切歌时彻底重置双槽位——此前仅在 `cfState !== IDLE` 清理，但交叉淡变完成后活跃槽可能停在 `B`，手动切歌会残留旧歌 + 主槽 `A` 增益被置 0 导致新歌静音。现统一停止并清理 A/B 两槽、复位主槽增益到用户音量、使在途过渡/预加载定时器失效。
+
+### ✅ 修复覆盖的缺陷清单
+
+| 原缺陷 | 现状 |
+|--------|------|
+| 扫描器只监听 `audio` | 改为监听当前活跃槽，每首连续交叉淡变 |
+| 开启开关未重启扫描器 | 开启即 `cfSetupScanner()` |
+| 预加载用 `audio.duration` | 改用 `cfGetActiveAudio().duration` |
+| 手动切歌双重清理/活跃槽 B 残留静音 | 统一 reset 双槽位 + 复位主槽增益 |
+
+### 🚀 四项可选增强
+
+| # | 增强项 | 文件 | 说明 |
+|---|--------|------|------|
+| 1 | **淡变曲线可选** | `index.html` / `js/ui-core.js` / `js/audio-core.js` | 新增 `cfApplyRamp()` 支持三种曲线：`exponential`（指数，默认，人耳最平滑）、`linear`（线性）、`equal-power`（等功率，`setValueCurveAtTime` 32 点 cos/sin 离散调度，感知响度恒定）。设置面板新增三按钮曲线选择器，结果持久化至 `crossfadeCurve`。 |
+| 2 | **淡变期间禁止 seek** | `js/audio-core.js` / `css/base-layout.css` | `bindProgressBar` 的 `handleStart` 顶部新增 `if (cfAirLocked) return` 守卫，阻止拖拽/点击进度条；`cfTriggerCrossfade`/`cfFinishTransition`/`cfAbortTransition` 调 `cfUpdateAirLockUI(locked)` 切换 `.progress-area.cf-airlock` CSS 类（`pointer-events: none` + 半透明化）。`goNext`/`goPrev` 已有 `cfAirLocked` 守卫未改。 |
+| 3 | **响度归一化** | `js/globals.js` / `js/audio-core.js` / `index.html` | 新增 `crossfadeNormalize` 开关（默认开启）。`cfEnsureContext` 中插入 `cfAnalyserA`/`cfAnalyserB` 作为信号采样点（位于 SourceNode 之后、GainNode 之前）。`cfTriggerCrossfade` 在 PRELOADING 完成后使用 `cfSampleRMS()` 分别采样双槽频域 RMS（主动 8 帧 + 被动 8 帧），计算归一化因子并 `clamp(0.25, 4.0)`，调用 `cfApplyRamp` 时传入 `aAdj`/`pAdj` 调整增益目标。设置面板新增复选框。 |
+| 4 | **淡变可视指示条** | `js/audio-core.js` / `css/base-layout.css` | 新增 `cfCrossfadeVisStart`/`cfCrossfadeVisStop`：淡变时在主/沉浸进度条 `progress-area` 内动态插入 `.cf-vis-bar`（3px 高、`primary→accent` 渐变、`transform:scaleX` 从 0→1 动画），完/止后自动移除。CSS 中使用 `position:absolute; inset:auto 0 100% 0` 固定在进度条上方。 |
+
+### 🧠 淡变功能前全部更新：封面内存钉死(LRU) + OPPO Sans 字体 + 设置整理 + 首歌封面重载 + 均衡器失真 + 创作信息修复
+
+## v3.6.2 (2026-07-09) — 封面内存钉死 + OPPO Sans + EQ失真 + 创作信息 + 交叉淡变引擎 + 活跃槽重构 + 后台保活 + AI翻译 + 沉浸舱进度条 + 审计采纳
+
+### 🧠 封面 art 内存钉死：LRU 限额层
+
+- **背景**：原本整个歌单「每首」都常驻一份封面 `data:` URL（几百~上千首 → 数十 MB），拖动/切歌造成内存随库增长无限膨胀。
+- **目标**：不再每首常驻，只常驻最近使用上限内的封面；超出则把 `song.art` 置空（数据 URL 由 GC 回收），需要时经 `ensureArt()` 从文件懒重新提取。内存被钉死在 `~150 × ~50KB ≈ 7.5MB`。
+- **`js/loader.js` 新增 LRU 层**：
+  - `ART_LRU_CAP = 150`；`_artStore: Map(key 指纹 → { art, seq, song })`；`_artExtracting: Map(key → Promise<art>)`（并发提取共享 Promise，见下方竞态修复）；`_artSeq` 递增计数器。
+  - `cacheArt(song, art)`：写入 store + 回填 `song.art`，超 `1.4 × CAP` 触发 `evictArt()`。
+  - `evictArt()`：按 `seq` 升序淘汰最旧项至 CAP，被淘汰项 `song.art = null`（store 项删除 = 真淘汰，内存释放）。
+  - `touchArt(song)`：标记热（最近使用），防止被淘汰。
+  - `ensureArt(song)`：`song.art` 命中 → `touchArt` 返回；store 命中 → 回填 `song.art`；否则 `extractArtOnly` + `downscaleArt` 懒提取并 `cacheArt`。可安全高频调用。
+  - 全部解析路径（缓存命中 / 缓存无 art 内联 / Worker 回传 / 内联 fallback）改为经 `cacheArt()`，取代直接 `meta.art = art`。
+- **`js/audio-core.js`**：`playAudio` 与 `reloadFirstSongCover` 在取色/设封面前 `await ensureArt(song); touchArt(song)`，保证当前歌封面与取色始终可用（即便被淘汰）。
+- **`js/pip.js`**：每帧更新封面时若 `s.art` 为空，调用 `ensureArt(s)`（下帧即生效）。
+- **`js/cover-lib.js`**：
+  - `buildAlbumEntries` 分组键由 `s.art` 改为「专辑 + 艺术家」身份——**修复回归**：LRU 淘汰后多张不同专辑 `s.art` 变 null 会被错误合并到一个「无封面」组。
+  - `createCoverCard` / recent 网格卡 / `showAlbumDetail`：若 `group.art` 为 null，渲染占位图后 `ensureArt(musicLibrary[group.firstIdx])` 就地补图（`card.isConnected` 守卫避免已移除卡片）。
+- **影响边界**：歌单 ≤ 210 首时不触发淘汰，曲库打开即满封面；窗口化渲染（coverflow 首屏 `CL_INITIAL=60`、滚到底前 600px 追加 30、各网格分块）把同时补图的并发钉在几十次量级，不会卡死。淘汰仅清 `song.art` 引用，已渲染卡片的 `<img>` 仍持快照字符串（独立、随 DOM 移除 GC），无破图。
+
+### 🚀 二次优化（用户授权主动优化）
+
+- **优化 1｜当前播放歌曲硬保护**：`evictArt()` 改为跳过 `playlist[currentIndex]` 对应指纹（`protect` Set），即使其 `seq` 最旧也不驱逐 `song.art`。避免播放中封面被挤出后反复 `ensureArt` 提取；`playAudio` 虽已有 `await ensureArt` 兜底，但硬保护更稳、零延迟。用 `typeof playlist/currentIndex` 防御（运行时调用，非 TDZ）。
+- **优化 2｜曲库可见窗口预热**：`createCoverCard` 与 recent 网格卡渲染时，若 `group.art` 非空则对 `musicLibrary[group.firstIdx]` 调 `touchArt(song)` 标记热；非空分支的懒恢复 `ensureArt` 逻辑保留。使曲库浏览期间当前可见窗口的封面保持高优先级，减少重渲染（切 Tab / 搜索）时的重复提取。`showAlbumDetail` 单图已由 `ensureArt` 变热，未改。
+
+### 🐛 重渲染竞态修复（非首批歌曲封面始终不加载）
+
+- **症状**：开启封面限额后，除第一批加载封面的歌曲外，其余歌曲的专辑封面始终停在占位图、不再加载。
+- **根因**：`_artLoading` 布尔 `Set` 去重在封面提取中引发重渲染竞态——后台加载 batch 完成 → `musicLibrary` 更新 → 曲库重渲染（`grid.innerHTML = ''` 移除旧卡片）→ 新卡片（同专辑）调 `ensureArt` 时 `_artLoading.has(k)` 为 true → **直接 `return null`**；而旧卡片的提取完成后 `.then()` 发现 `card.isConnected` 已 false 跳过更新。结果：旧卡片的 `.then` 从未为新卡片触发，新卡片从此永久留在占位图。
+- **修复**：`_artLoading` 改为 `_artExtracting` 共享 `Promise` `Map`（key → `Promise<art>`）。后续并发 `ensureArt` 调用 `await _artExtracting.get(k)` 等待同一提取完成，拿到结果后回填 `song.art`，不再直接 `return null`。彻底消除重渲染竞态导致的「封面始终不加载」。
+- **涉及文件**：`js/loader.js`、`js/cover-lib.js`、`js/audio-core.js`、`js/pip.js`
+- **验证**：`node --check` 全部 OK，`read_lints` 0 错误；`_artLoading` 无残留代码引用（仅注释提及）。
+
+### 🎨 设置-外观新增：OPPO Sans 字体（跨域）
+
+- **跨域验证**：`https://www.oppo.com/.../OPPOSans3.0cn-Regular.woff2` 与 `-Medium.woff2` 均返回 `200` + `Access-Control-Allow-Origin: *` + `content-type: font/woff2`（约 745KB/个），确认可跨域加载。
+- **实现**：
+  1. `index.html` `<head>` 注入 `@font-face`：字体族 `OPPO Sans 3.0 R`（Regular）/ `OPPO Sans 3.0 M`（Medium），`font-display: swap`。
+  2. 新增配置项 `cfg.useOppoSans: false`（默认关闭）、`cfg.oppoSansWeight: 'R'`（默认 Regular）。
+  3. `js/utils.js` 持久化/恢复两项配置。
+  4. `index.html` 设置-外观「字体」抽屉：启用开关 + R/M 字重二选一（`.btn-glass` 高亮当前选择）；开关关闭时字重框自动隐藏。
+  5. `js/ui-core.js`：新增 `applyOppoSans()`，启用时把 `--font-body` 覆盖为对应字重字体族并回退系统字体；`updateSettingsUI()` 同步开关/显隐/高亮，并在启动时（`utils.js` 初始化调用）随存档应用。新增 `useOppoSansToggle` change 与 `.oppoSansWeightBtn` click 事件，切换即 `saveSettings()`。
+  6. 新增 SVG 图标 `icon-type`（Lucide type）用于字体相关入口。
+- **涉及文件**：`js/globals.js`、`js/utils.js`、`js/ui-core.js`、`index.html`、`css/*`（复用 `.btn-glass.active`）
+- **注意**：启用后需联网从 OPPO CDN 拉取字体文件；离线时 `font-display: swap` 自动回退系统字体。
+
+### ⚙️ 设置-外观整理：沉浸式外观移入「外观」选项卡 + 封面取色合并
+
+- **背景**：`跟随强调色`（沉浸式外观内的复选框 `followAccentToggle`）与「封面取色」（`btnToggleColorMode` 按钮）二者实际控制的是同一个 `cfg.followAccentColor`，属重复开关。
+- **改动**：
+  1. 将「沉浸式外观」抽屉从设置-高级（无关键词匹配 → 默认组 4）移入**设置-外观**（加 `data-tab-group="1"`）。
+  2. 删除独立的「封面取色」抽屉，将其开关并入「沉浸式外观」：原「跟随强调色」行改名为 **封面取色**（保留 `followAccentToggle` id 与取色预览条 `colorModePreview`，名字统一为「封面取色」）。
+  3. 顺手修正 3.5.3 引入的「字体」抽屉（标题无关键词匹配被误归高级）→ 加 `data-tab-group="1"` 归入外观。
+  4. `js/ui-core.js`：`btnToggleColorMode` 的 `.onclick` 绑定做空安全守卫（元素已移除）；`toggleColorMode()`（Y/C 快捷键）保留并同步新复选框；相关 toast/注释由「跟随强调色」改为「封面取色」。
+- **涉及文件**：`index.html`、`js/ui-core.js`、`js/globals.js`（注释）
+- **说明**：现在「封面取色」在设置-外观的「沉浸式外观」内以复选框呈现，开启后预览条显示提取色；Y/C 快捷键仍可用。
+
+### 🎵 歌词-创作信息强制换行恢复（保持名字完整）
+
+- **问题**：创作信息超长名单（如 `Lyricist: A/B/C/D/E`）显示在一行，容易溢出或难以阅读；之前 `word-break: break-all` 虽能断字换行，但会破坏单个名字完整性，且在 flex 布局中有时未生效。
+- **修复**：
+  1. `js/audio-core.js`：渲染创作信息值时，对长度 > 30 且包含 `/` `,` `、` 分隔符的值进行拆分，把每个名字/片段包成 `<span class="lrc-credits-name">`；分隔符包成 `<span class="lrc-credits-sep">` 并跟随前一项。
+  2. `css/base-layout.css`：新增 `.lrc-credits-name`（`display:inline-block; word-break:keep-all; overflow-wrap:anywhere; max-width:100%`）与 `.lrc-credits-sep` 规则，使每个名字作为独立换行单元，强制在分隔符处换行，同时保持单个名字完整。
+- **涉及文件**：`js/audio-core.js`、`css/base-layout.css`
+- **说明**：短值（≤30 字符）或无分隔符值保持原样；极长单名仍由父级 `.lrc-credits-val` 的 `word-break:break-all` 兜底。
+
+### 🐛 歌词-创作信息分隔符错位修复（紧贴前一项）
+
+- **症状**（首次实现后用户截图反馈）：名单渲染出现预期之外的分隔符——前两个人名之间没有 `/`（如 `Edwin PerezTeddy Mendez…`），而最后一个名字后面却多出 `/`（…`Lumidee Cedeno/`）；并出现孤立的 `/` 元素。
+- **根因**：首版 `formatCreditValue` 把分隔符错误地挂在了**后一个名字**的末尾（循环中先判断 `p` 是否为分隔符、再拼当前名字时把 `pendingSep` 附加到当前名字之后），导致：
+  1. 第一个名字前没有来自「上一个」的分隔符 → 前两个名字粘连；
+  2. 最后的名字仍携带 `pendingSep` → 末尾多余 `/`；
+  3. 分隔符被当作独立 `.lrc-credits-name` 处理 → 出现游离 `/`。
+- **修复**：重写 `formatCreditValue`——先用 `val.split(/\s*[/,，、]\s*/)` 取出名字数组、用 `val.match(/\s*[/,，、]\s*/g)` 单独取出分隔符数组，再循环：分隔符仅紧跟**前一项**名字，且只有 `i < names.length - 1` 时才附加（末项不再加）。彻底消除粘连与末尾多余分隔符。
+- **涉及文件**：`js/audio-core.js`（仅 `formatCreditValue` 函数）
+- **说明**：属「创作信息强制换行」的回归修复，功能逻辑未变；刷新即生效，未升版本。
+
+### 🎵 歌词-创作信息：非标准值强制换行（优先宽度稳定）
+
+- **问题**：用户截图反馈某些创作信息值并非干净名单，而是包含括号、连接符、`&`、混合格式等长文本（如 `It Won't Stop (Manila Killa & Hunt For the Breeze Remix) - Manila Killa/Sevyn Streeter...`），仍被当作标准名单包成 `.lrc-credits-name`，导致长片段无法断字、撑破歌词栏。
+- **修复**：在 `js/audio-core.js` 的 `formatCreditValue` 中新增非标准判定：若值长度 > 30 且包含 `()`、`[]`、`{}`、`&`、`-`/`–`/`—`、`:`、`;`、`"`、`'` 等任一字符，视为非标准创作信息，**直接返回转义原文**，由父级 `.lrc-credits-val` 的 `word-break: break-all` 在任意字符处强制换行，**不再保持姓名完整性**。
+- **涉及文件**：`js/audio-core.js`
+- **说明**：标准名单（仅 `/` `,` `、` 分隔的名字列表）仍保持之前的按名字完整换行；非标准文本一切以宽度稳定优先。刷新即生效，未升版本。
+
+### ✒️ 字体设置新增「保留英文字体」开关
+
+- **新增** `cfg.oppoKeepEnglish`（默认关闭）：启用 OPPO Sans 后，额外控制英文字体是否保留 CDN 字体（Geist）。
+- **实现**：
+  1. `js/globals.js` 新增 `cfg.oppoKeepEnglish: false`。
+  2. `js/utils.js` 持久化/加载。
+  3. `index.html` 在 OPPO Sans 抽屉内新增「保留英文字体」开关（`oppoKeepEnglishToggle`），仅在启用 OPPO Sans 时可见。
+  4. `js/ui-core.js`：`applyOppoSans()` 在开启保留英文时使用 `font-family: 'Geist', 'OPPO Sans 3.X', ...`，让 Geist 优先渲染拉丁字符、OPPO Sans 作为 CJK 回退；`updateSettingsUI()` 同步开关显隐与状态；新增 `oppoKeepEnglishToggle` change 事件。
+- **涉及文件**：`index.html`、`js/globals.js`、`js/utils.js`、`js/ui-core.js`
+- **说明**：关闭（默认）：OPPO Sans 替换全部字体（英文字体也变 OPPO Sans）。开启：英文字保留 Geist 等 CDN 字体渲染，仅中文字体替换为 OPPO Sans。
+
+### 🔧 首歌封面自动重载无效 — 根因修复 + 加固
+
+- **症状**：「v3.5.1 首版实现」自动重载无任何效果，首歌封面依然不显现。
+- **根因**：
+  1. **索引错误（主要）**：`processFiles` 以 shuffle 模式自动播放随机歌曲（`Math.floor(Math.random() * playlist.length)`），但 `reloadFirstSongCover` 硬编码固定使用 `playlist[0]`，且守卫 `if (currentIndex > 0) return` 在随机索引非 0 时直接退出，造成**每次调度均无操作**。
+  2. **reflow 缺失**：对 data: URL 直接 `src = ''; src = song.art` 两次赋值在同一微任务内执行，浏览器会合并为最后一次赋值，无法触发重新解码。
+- **修复**（`js/audio-core.js` + `js/app.js`）：
+  - 函数签名改为 `reloadFirstSongCover(firstIdx)`，在 `initApp` 调用处先用闭包捕获 `currentIndex`（`const firstIdx = currentIndex`），传递给函数。
+  - 中间守卫 `const sameSongStillPlaying = () => currentIndex === firstIdx` — 每次异步操作（await）后重新检查用户是否已切歌，切了则提前 return，避免覆盖。
+  - 强制重载：先清空 → `void el.mainArt.offsetWidth`（强制 reflow）→ 再赋旧值，确保浏览器重新解码展示。
+  - 封面数据 `song.art` 为空时（jsmediatags 超时）的 fallback：尝试从 DOM `<img>` 的 `src` 逆采样取色（若有有效 data URL）。
+  - `initApp` 处增加 `currentIndex >= 0` 守卫。
+- **涉及文件**：`js/audio-core.js`、`js/app.js`
+
+### 🔧 封面重载生效但「取色」未重载 — 函数完全缺失 + 缓存绕过（v3.5.3 追加修复）
+
+- **症状**：重载后专辑封面已正常显示，但主题色 / 沉浸背景取色仍为旧值（空白或错误），未同步刷新。
+- **根因**：
+  1. **函数完全丢失**：前几轮编辑对 `js/audio-core.js` 的 `replace_in_file` 虽返回成功，但 `reloadFirstSongCover` 函数并未实际写入到磁盘文件中。`app.js` 中 `typeof reloadFirstSongCover === 'function'` 为 `false`，导致 3 秒延迟重载**从未被调度**。这是「取色未重载」的根本原因。
+  2. 即使函数存在，`getAlbumColors(song)` 按文件指纹缓存取色结果（`_albumColorCache`），需 `force=true` 绕过。
+- **修复**：
+  1. 重新将 `reloadFirstSongCover` 插入 `playAudio` 结束 `};` 与 `_syncPlayIcon` 之间（`js/audio-core.js`）。
+  2. `getAlbumColors` 增加 `force` 参数（`js/globals.js`），`force=true` 时跳过缓存重新解码取色并刷新缓存。
+  3. `reloadFirstSongCover` 主路径与 fallback 路径均使用 `getAlbumColors(song, true)`，保证重载时取色与封面同步刷新。
+- **状态**：代码修复已落地（`force=true` 绕过缓存 + 主/fallback 双路径取色）。用户反馈「现在这样也没啥大问题，封面重载已经实现了即可」，故取色是否在重载时实际同步生效暂未进一步验证，搁置。
+- **涉及文件**：`js/audio-core.js`、`js/globals.js`
+
+### 🔊 均衡器提升后失真 — 缺补偿增益 + 末端削波（v3.5.3）
+
+- **症状**：音质很好的 FLAC 加上 EQ（尤其用 rock/bass 等提升预设）后，部分音频刺耳/发破，像是失真。
+- **根因**：
+  1. **无任何余量/补偿增益**：10 个 `peaking` 滤波器级联，增益相乘叠加；提升预设使某些频段合成幅度超过 0 dBFS，Web Audio 在 `destination` 处把信号硬性钳制到 `[-1,1]` → **硬削波**，在高码率母带上尤为刺耳。
+  2. **首/末频段也用 `peaking`**：32Hz 处 `peaking`+`Q=1.0` 产生极宽共振瓣，与 64Hz 重叠堆叠，低频额外染色。
+  3. **Q 全频段统一 1.0**：低频段过窄重叠，造成波纹与相位互调失真。
+- **修复**：
+  1. `js/globals.js` 新增末端节点 `eqMakeup`。
+  2. `initEQ`（`js/audio-core.js`）：新增 `eqMakeup` GainNode 串在级联末端；频段 0 改 `lowshelf`、频段 9 改 `highshelf`；低频段（`i<=1`）`Q` 降至 0.7。
+  3. 新增 `updateEQMakeup()`：用各滤波器 `getFrequencyResponse` 在 20Hz–20kHz 对数取 600 点，级联幅值相乘取最大 dB，仅做衰减（留 0.3dB 余量，绝不主动提升），精确补偿余量防止削波。`initEQ`/`setEQBand`/`setEQPreset` 均调用。
+- **效果**：提升 EQ 后不再硬性削波，整体听感更干净；补偿仅按需衰减，不损失原始动态。
+- **涉及文件**：`js/audio-core.js`、`js/globals.js`
+
+
+
+
+
+### 🗂️ 曲库·按专辑新增「按艺术家」排序（coverflow 分组）
+
+- **需求**：在「按专辑」下新增一个排序选项，排序内容仍是专辑卡，但同艺术家的专辑相邻成段，艺术家之间、以及同艺术家内的专辑都按首字母（locale）排序，沿用 coverflow 布局。
+- **实现**：
+  1. `js/ui-core.js` 新增子排序状态 `coverLibAlbumSort`（`default` / `artist`，仅 album 模式生效）。
+  2. `js/cover-lib.js` 新增 `buildAlbumEntriesByArtist()`：与 `buildAlbumEntries` 同构（按「专辑+艺术家」身份分组，防止无封面专辑被误并），再用 `Intl.Collator('zh',{numeric:true})` 先按 artist、再按 album 首字母（中文按拼音、英文按 A–Z）排序。
+  3. `renderCoverLibGrid` 的 album 分支按 `coverLibAlbumSort` 选择构建函数与独立缓存键 `albumByArtist`；新增排序条 `#clAlbumSortbar`，仅在 album 模式显示并同步 active 态。
+  4. 视觉：`#clArtistIndicator` 浮动标签随 coverflow 居中卡切换显示当前艺术家（同艺术家专辑相邻 → 标签自然成段）；卡片仍由 `createCoverCard` 的 `artist · N首` meta 体现归属。
+- **涉及文件**：`index.html`、`css/cover-lib.css`、`js/cover-lib.js`、`js/ui-core.js`
+- **说明**：默认排序维持原「歌曲数降序」不变；仅新增的「按艺术家」选项走首字母分组。刷新即生效，未升版本。
+
+### 🐛 曲库 coverflow 偶现前缀重复渲染（前 12 张重复）
+
+- **症状**：曲库 → 按专辑 → 默认排序，偶发前若干张专辑被重复挂载一次（典型为前 12 张重复，第 25 张才是真正的第 13 张），偶现非必现。
+- **根因**：`renderCoverLibMore()` 的分块循环在**整个循环跑完**前 `_clRendered` 一直为 `0`；而初始渲染期间 `updateCoverflow()` 每次 chunk 后都会 `grid.scrollTo(...)` 触发滚动事件，滚动监听 `_clScrollHandler` 又直接调用 `renderCoverLibMore(CL_INCREMENT)`。两个并行循环都从 `i = _clRendered = 0` 起挂 → 前缀重复。重复数量随时机波动（偶现），数量恰好等于 `CL_CHUNK = 12`（每帧子块）。
+- **修复**：
+  1. 新增 `_clRendering`（飞行中标志）与 `_clPendingTarget`（累积渲染目标量）。飞行中收到追加请求只扩大目标量、不再起并行循环。
+  2. `_clRendered` 改为**每 chunk 增量提交**（`_clRendered = i`），任何重入调用读到的起点都是已挂载位置，绝不会从 0 重挂。
+  3. 循环结束后再按 `_clPendingTarget` 续挂（滚动预加载不丢失）；`windowedRender` 入口重置两标志，避免被中止的旧循环残留。
+- **涉及文件**：`js/cover-lib.js`
+- **验证**：`node --check` 通过、`read_lints` 0 错误、`node build.js` 通过；dist 校验 `_clRendering` / `_clPendingTarget` 已注入。
+
+### 📝 创作信息英文复合角色被拆成两行（EN_ROLES 排序问题）
+
+- **症状**：`Background Vocals` / `Drum Programming` / `Vocal Arrangement` / `Digital Editing` / `Recording Engineers` / `Mix Engineer` 等复合英文标签被拆成两个独立条目（如 `Background` + `Vocals:`）。
+- **根因**：`EN_ROLES` 中短词条（如 `Drum`）在长词条（如 `Drum Programming`）前面，正则引擎按 `|` 从左到右尝试匹配，`Drum` 先命中，`[：:\\s]` 把空格消费掉，导致 `Programming：` 被当作值。
+- **修复**：`EN_ROLES` 按词条长度从长到短排序（`Recording Engineers` → `Drum Programming` → `Background Vocals` → ... → `Mix`），确保长词条优先匹配。
+- **涉及文件**：`js/audio-core.js`
+
+### 📝 括号列表被误当作独立 credits 条目（looksLikeNameList + Phase 6 过滤）
+
+- **症状**：`("hitman" bang/...)` 等括号包裹的作者总列表被当作无标签的独立创作信息条目显示。
+- **根因**：`looksLikeNameList` 对 `(` 开头的检查过于宽松（任何 `(` 开头都返回 true），导致 `isMetadata` 将其误判为 metadata；Phase 6 未过滤，直接 push 到 credits 显示为孤儿条目。
+- **修复**：
+  1. `looksLikeNameList`：括号开头需同时满足长度>60 且含多个 `/` 分隔符才判定为名字列表。
+  2. Phase 6：添加 `!looksLikeNameList` 过滤条件，名字列表行不进入 credits。
+- **涉及文件**：`js/audio-core.js`
+
+### 📝 Written by 出版信息被误拆（formatCreditValue 括号保护）
+
+- **症状**：`Written by` 的值（如 `Martin Kierszenbaum (Universal/MCA Music Limited (BMI))`）被按 `/` 拆分，导致出版信息括号内的 `/` 被当作分隔符，名字与出版信息断裂。
+- **根因**：`formatCreditValue` 的 `NON_STANDARD_CREDIT` 检查含括号即直接返回不拆分，但 CSS `word-break: break-all` 仍会导致长文本在 `/` 后自动换行；且若值含 `/` 分隔符但不含括号，出版信息会被按 `/` 拆分。
+- **修复**：
+  1. `NON_STANDARD_CREDIT` 检查：含括号但仍有 `/` 分隔符时仍拆分（不再直接返回）。
+  2. 拆分前保护括号内内容：` {index} ` 替换括号块，拆分后恢复，确保 `Universal/MCA` 等出版信息不被误拆。
+- **涉及文件**：`js/audio-core.js`
+
+### 📝 创作信息「Vocals by 之后全部丢失」— EN_ROLES 缺词 + Phase 6 名单误删（v3.5.3）
+
+- **症状**：部分 LRC（如 `I Don't Wanna Go`）从 `Vocals by：Julie Bergan` 及之后（Drums / Guitar / Executive Producer / Mastered by / Mixed by / Programmed by / Recorded at / Repertoire Owner 等）整段不出现在创作信息里。
+- **根因**：
+  1. **EN_ROLES 缺词**：`Vocals` / `Published by` / `Programmed by` / `Guitar` / `Drums` / `Executive Producer` / `Recorded at` / `Repertoire Owner` / `Vocals Produced by` 等英文角色未纳入 `EN_ROLES`，`isCredit` 无法识别。Phase 5 的 `lyricStart` 在第一个未识别行（`Vocals by`，00:02.61）处截止，其后所有 credits 被划入「歌词区」丢弃。
+  2. **Phase 6 名单误删**：`Published by：A/B/C…` 这类既是创作信息又「像名单」的行，被 `!looksLikeNameList` 过滤条件误删。
+- **修复**：
+  1. `EN_ROLES` 补齐缺失角色（按长度从长到短排序，避免 `Drum` 截断 `Drum Programming`）：新增 `Vocals` / `Published` / `Programmed` / `Guitar` / `Drums` / `Executive Producer` / `Recorded at` / `Repertoire Owner` / `Vocals Produced`。
+  2. Phase 6 优先级修正：用 `inCredits(t) = !isCopyright && !isTitle && (!looksLikeNameList(t) || isCredit(t))` —— 既是创作信息又像名单时保留为 credits，不被名单过滤误删。
+- **验证**：`_test_credits.js` 模拟解析，`lyricStart` 正确落在真实歌词行（00:15.97 的 `So here we are…`），16 条 credits（含 `Vocals by` 及之后全部）均正确纳入；`read_lints` 0 错误。
+- **涉及文件**：`js/audio-core.js`
+
+### 📝 创作信息值开头多出冒号 — Phase 6b valueAfter 未处理双冒号（v3.5.3）
+
+- **症状**：创作信息（如「作词」）的值以冒号开头显示（`: Fadil El Ghoul/…`），标签和值之间多出意料之外的冒号。
+- **根因**：`Phase 6b` 的 `CREDIT_PAT`（单角色匹配）取值时，`raw.slice(singleMatch[0].length)` 在原始文本为 `作词：: Fadil…`（双冒号，中文 `：` + 英文 `:`）的情况下，`valueAfter` 保留开头的 `:`。同样的漏洞存在于 `multiMatch` / `enMatch` / `OA_OC_PAT` 三条路径。
+- **修复**：`Phase 6b` 中定义 `trimLeadingColon = (s) => s.replace(/^[:：]+/, '')`，在四条 `valueAfter` 计算后统一调用，去掉值开头的冒号。
+- **涉及文件**：`js/audio-core.js`
+
+### 🆕 版本号更新
+- 本版为行为补丁，版本号定为 `v3.5.4`（淡变功能前全部更新）；源码改动刷新即生效，部署 PWA 需 `node build.js` 重建 `dist/`。
+
+---
+
 ## v3.5.2 (2026-07-07) — v3.5.1 patch 3
 
 ### 🩹 线上构建「整个播放器界面被压成标题条」紧急修复
@@ -1932,3 +2705,83 @@ CREDIT_MULTI_PAT 角色列表同步扩充，支持多身份组合格式。
 ### ⌨️ 其他
 - **快捷键大全面板**：按 `?` 键弹出，分类展示所有操作
 - **手柄完全支持**：Xbox/PS 手柄全功能映射
+
+---
+
+### 🐛 交叉淡变歌词/总时长修复 + 后台保活 + 视觉升级 + 回归修复
+
+### Bug 1：进度条目标时间永远显示上一首歌曲的总时长
+- **根因**：`onAudioLoadedMetadata` 用 `getActivePlayAudio().duration` 写总时长。交叉淡变预加载阶段（PRELOADING）被动槽（新歌）loadedmetadata 触发时 `getActivePlayAudio()` 仍指向旧歌，总时长被错写成上一首。
+- **修复**：`onAudioLoadedMetadata(e)` 改用触发元素自身 `e.currentTarget.duration`。
+
+### Bug 2：歌词要等下一首第一句唱出才更新 + 歌词栏无出入场/高斯模糊
+- **修复A（歌词随音频介入即更新）**：原 loadLrc 只在 cfFinishTransition 调用。前移到 cfTriggerCrossfade 置 FADING 后、启动被动槽前。移除 cfFinishTransition 重复 loadLrc；cfAbortTransition 回滚时同步 loadLrc。
+- **修复B（歌词栏出入场+切歌高斯模糊）**：loadLrc 加 .lrc-switching（blur+淡出→换内容→去模糊淡入）；btnToggleLrc 开/关加 .lrc-panel-in/.lrc-panel-out；CSS 关键帧与过渡。
+
+### Bug 3（hotfix）：歌词完全不显示 — lrc-switching 残留
+- **根因**：有歌词→无歌词→有歌词。wasVisible=true 加了 .lrc-switching，无歌词分支 return 不清理，后续 wasVisible=false 跳过移除 → blur(10px) 永久残留。
+- **修复**：!lrcText 返回分支增加清理；有歌词分支无条件先移除 lrc-switching。
+
+### Bug 4：后台切回前台「点击播放的不是当前歌曲」
+- **根因**：togglePlay 用硬编码 audio（槽A）而非 getActivePlayAudio()。交叉淡变后活跃槽变 cfAudioB 时控制错槽。
+- **修复**：togglePlay 改用 `getActivePlayAudio()`。睡眠定时器同步修复。
+
+### Bug 5：后台交叉淡变卡住 → 放到第三首就停
+- **根因**：后台 rAF 冻结 → fade 卡住 → cfState 永久 FADING → 活跃槽播完 → onAudioEnded 因 cfState!==IDLE 直接 return 不切歌 → 静默停止。setTimeout 兜底被节流到 10s+ 后。
+- **Fix 1**：新增 `_cfPendingNextIdx`/`_cfPendingNextVol` 缓存淡变参数。onAudioEnded 中 cfState===FADING && this===活跃槽 → 立即 cfFinishTransition。
+- **Fix 2**：visibilitychange 可见时 cfState===FADING 强制收尾。
+- **守护**：fade 顶部 `if(cfState!==FADING) return` 确保强制收尾后 stale rAF 安全退出。
+- **v1→v2 回归**：++cfTransitionId 导致 stale rAF passiveEl.pause() 误停翻转后的新活跃槽 → 淡变结束立即停止 100%。
+- **v2→v3 修复**：return 在外层 if（非内部）→ FADING 时非活跃槽结束跳过 goNext。cfAirLocked 在 PRELOADING 阶段活跃槽结束时误走 cfFinishTransition（失败）→ 跳过 goNext。
+
+### 交叉淡变视觉升级
+- **封面溶解**：cfSyncSongUI 设新封面后创建 .art-crossfade-overlay（旧封面 img），opacity 3s 淡出后移除。
+- **歌名/歌手分阶滑入**：@keyframes cfTextEnter（translateY+blur→正常 0.45s），歌手延迟 0.15s。仅 FADING 触发。
+- **PiP 封面淡变**：updatePipUI 用 pipLastArt 追踪封面，FADING 时创建覆盖层淡出。
+- **进度条发光**：.cf-vis-bar.enhanced（box-shadow 发光+4px）。.cf-airlock .prog-fill（box-shadow 跟随 --album-color）。
+- **降级**：prefers-reduced-motion 下隐藏。
+
+### 涉及文件
+- `js/audio-core.js`：onAudioLoadedMetadata / cfSyncSongUI / cfTriggerCrossfade / onAudioEnded / fade / cfCrossfadeVisStart / cfFinishTransition / cfAbortTransition / togglePlay / setSleepTimer
+- `js/globals.js`：新增 _cfPendingNextIdx / _cfPendingNextVol
+- `js/app.js`：visibilitychange 可见分支 FADING 恢复
+- `js/pip.js`：updatePipUI 增加 pipLastArt + 封面淡变
+- `css/base-layout.css`：.art-crossfade-overlay / .cf-text-enter / .cf-vis-bar.enhanced / .cf-airlock glow + prefers-reduced-motion
+- `css/components.css`：.pip-vinyl position:relative + 覆盖层样式
+
+### 验证
+- 全部修改文件 read_lints 0 错误
+- prefers-reduced-motion 下降级
+- 手动切歌/中止回滚不触发溶解与文字动画
+- FADING 状态覆盖：onAudioEnded / visibilitychange / fade rAF / setTimeout 四路互斥
+
+### v3.6.5: 后台保活根治（看门狗 + 状态脱节修复）
+- 诊断快照铁证：导出日志显示 isPlaying=true 但两个音频槽都 paused=true / currentTime=0 —— 播放状态与媒体严重脱节。
+- 根因（4 层）：① 交叉淡变扫描器是 rAF 驱动，后台标签页 rAF 完全冻结 → 后台永不触发下一首淡变；② 后台媒体被浏览器节流/系统卡顿暂停后 ended 不触发 → 播放永久停止；③ cfTriggerCrossfade 的 passiveEl.play() 在后台被自动播放策略 NotAllowedError 拦截 → catch 执行 cfAbortTransition+goNext 跳歌；④ cfFinishTransition 只设音量未调用 newActive.play() → 淡变完成即静默停止。
+- 修复：
+  1. 新增后台播放看门狗 startPlaybackWatchdog（setTimeout 驱动，后台以 ~1s 节流触发，不像 rAF 冻结）：媒体被外部暂停→自动续播；已结束未续播→goNext；后台 FADING 旧槽被暂停→强制 cfFinishTransition 接力。
+  2. cfFinishTransition 完成后 newActive.play().catch() —— 确保新活跃槽真正在播放（根治淡变完成即静默）。
+  3. cfTriggerCrossfade 被动槽后台被拦截时不再 abort+goNext 跳歌，保留 FADING 让旧槽继续播，待旧槽结束由 onAudioEnded→CF_FORCE_FINISH 切到正确下一首。
+  4. togglePlay 以媒体真实状态为准（actuallyPlaying = isPlaying && !active.paused && !active.ended）—— 避免 isPlaying 脱节时点了反而暂停 / 播放的不是当前歌。
+  5. visibilitychange→visible 时若应播却暂停立即续播当前歌。
+- 新增日志：WD_RESUME / WD_ENDED / WD_CF_FINISH / VIS_RESUME。
+- 涉及文件：js/audio-core.js（看门狗+cfFinishTransition+cfTriggerCrossfade+togglePlay）、js/app.js（initApp 启动看门狗+可见性续播）。
+
+### 🔥 v3.6.5b: 活跃槽/UI 错位根治（界面 X 实际 Y）
+- **诊断快照铁证**（06-31-57）：currentIndex=487 界面显示 Rise，但 activeSlot=B 实际在放 duration=242s 的张杰歌曲，而 currentIndex 对应的 Rise 在槽 A 已 ended。即「界面显示 Rise、实际播放 张杰」。
+- **根因（上一轮看门狗引入的二次错位）**：看门狗 `if (active.ended) goNext()` → `goNext`→`playAudio` 在 `cfActive!=='A'` 时强制把 `cfActive='A'` 并加载 `audio`(槽A)；但后台交叉淡变链中真实发声槽常是 `cfAudioB`(槽B)，致使 `cfActive` 与真实播放槽**错位**。错位后 `cfPreloadNext` 经 `cfGetPassiveAudio()` 取到的是正在发声的槽，把下一首(张杰)覆盖到正在播放的音频上，而 `currentIndex` 仍指向 Rise → 错位。
+- **修复**：
+  1. **看门狗 `active.ended` 改为「槽内重载」**（直接 reload 当前活跃槽并续播下一首、保持 `cfActive` 不变），不再调用会翻转 `cfActive` 的 `goNext()`/`playAudio`。
+  2. **`cfPreloadNext` 防御**：若 `cfActive` 错位导致「被动槽」恰好正在发声，则改预加载到另一个真正空闲的槽，绝不覆盖正在播放的音频。
+  3. **`cfFinishTransition` 校验**：交换后若新活跃槽 src 与 `playlist[nextIdx]` 不符则重载为正确歌曲，并记录新活跃槽索引。
+  4. **新增双槽索引追踪** `cfSlotIdxA/cfSlotIdxB`（playAudio/cfTriggerCrossfade/cfFinishTransition/cfPreloadNext 处同步），用于检测错位。
+  5. **看门狗错位自愈（WD_RESNC）**：cfState=IDLE 时检测任一槽装载歌曲与 `currentIndex` 不符 → 以 `currentIndex` 为准重载该槽，使音频与界面一致（可自愈本次已发生的张杰/Rise 错位）。
+- **新增日志**：WD_RESNC（自愈）。
+
+### 🔥 v3.6.5c: 单曲时长未及时更新（显示旧歌时长）
+- **问题**：交叉淡变切换后，进度条总时长仍显示上一首歌的时长（如 4:41），未随新曲更新。
+- **根因**：`onAudioLoadedMetadata` v3.6.1 修复虽然用 `e.currentTarget` 取被动槽 duration，但在极少数场景（如预加载阶段 `duration` 尚未就绪为 `0`/`NaN`、或浏览器 `loadedmetadata` 未触发）下仍可能漏更新。
+- **修复**：
+  1. **`cfFinishTransition` 显式同步**：交叉淡变完成后，直接用 `newActive.duration` 刷新总时长，不再完全依赖事件。
+  2. **新增 `durationchange` 兜底监听**：双槽均绑定 `durationchange` 事件，在 duration 属性分多次更新（VBR/流式）或 `loadedmetadata` 未触发时，自动以当前活跃槽 duration 刷新总时长。
+  3. **防御条件**：仅当 `duration > 0 && isFinite` 时才写入，避免旧槽清理后的 `NaN` 覆盖。
