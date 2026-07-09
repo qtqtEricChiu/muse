@@ -3,47 +3,81 @@
 .wco-titlebar {
     position: fixed;
     top: env(titlebar-area-y, 0);
-    left: 0;
-    width: 100vw;
+    left: env(titlebar-area-x, 0);
+    width: env(titlebar-area-width, 100vw);
     height: env(titlebar-area-height, 0);
     z-index: 99999;
-    transition: background 0.6s var(--curve-smooth, cubic-bezier(0.22,1,0.36,1));
+    transition: background 0.5s var(--curve-smooth, cubic-bezier(0.22,1,0.36,1));
     overflow: hidden;
-    /* 🚀 v3.4.2: 默认透明，让页面顶部背景自然延伸到标题栏左侧；右侧金刚键背景由 meta theme-color 控制 */
-    background: var(--wco-titlebar-bg, transparent);
-}
-.wco-drag-region {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    /* 🚀 v3.6.4: WCO 标题栏 = 右侧亮色块的「去饱和灰度」版本（左侧色块算法），
+       由 js/theme-color.js 计算并注入 --wco-theme-color；叠加顶部微光渐变增加层次 */
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 100%),
+        var(--wco-theme-color, rgba(10, 10, 26, 0.55));
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    padding: 0 16px 0 20px;
+    box-sizing: border-box;
+}
+.wco-titlebar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
+}
+.wco-drag-region {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
     gap: 8px;
     -webkit-app-region: drag;
     app-region: drag;
-    /* 🚀 v3.4.2: 在复杂背景上保持曲目标题可读 */
     text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    flex: 1;
+    min-width: 0;
 }
 .wco-brand {
     font-size: 14px;
     color: var(--primary, #e8b4b8);
     flex-shrink: 0;
-    -webkit-app-region: drag;
-    app-region: drag;
 }
 .wco-track-title {
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-main, #f2eee8);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
+    letter-spacing: 0.2px;
     -webkit-app-region: drag;
     app-region: drag;
+}
+.wco-nav {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+    flex-shrink: 0;
+    margin-right: 120px; /* 为系统窗口控制按钮留出空间（最小/最大/关闭） */
+}
+.wco-nav .btn-glass {
+    padding: 4px 10px;
+    font-size: 12px;
+    gap: 4px;
+    border-radius: 10px;
+    height: 28px;
+}
+.wco-nav .btn-glass .btn-icon {
+    width: 14px;
+    height: 14px;
 }
 .wco-titlebar button,
 .wco-titlebar input,
@@ -52,5 +86,8 @@
     app-region: no-drag;
 }
 body.wco-active .player-wrapper {
-    padding-top: 0;
+    padding-top: env(titlebar-area-height, 0);
+}
+body.wco-active .header {
+    display: none;
 }

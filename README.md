@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.6.3
+# MBolka Player - Ultimate Nexus v3.6.4
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.6.3-blue)
+![Version](https://img.shields.io/badge/version-3.6.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -742,7 +742,7 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.6.3
+MBolka Player v3.6.4
 ├── index.html          - HTML 结构
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
@@ -806,4 +806,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.6.3**
+**© MocaBolka 2026 | v3.6.4**

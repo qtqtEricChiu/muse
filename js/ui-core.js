@@ -471,16 +471,7 @@ if (bgImmersiveToggle) bgImmersiveToggle.addEventListener('change', () => {
     showToast(cfg.bgImmersive ? "已开启背景沉浸" : "已关闭背景沉浸", iconSvg('images'));
 });
 
-// 🚀 v3.5.4: PWA 检测 — 仅 standalone 模式显示标题栏伪沉浸开关
-(function() {
-    const box = document.getElementById('wcoPseudoImmersiveBox');
-    if (!box) return;
-    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-        box.style.display = 'flex'; // 恢复 flex 布局
-    } else {
-        box.style.display = 'none';
-    }
-})();
+
 
 // 🚀 v3.5.4: 设置-外观「标题栏伪沉浸」开关（PWA 标题栏 theme-color 取封面/背景顶部颜色融合）
 const wcoPseudoImmersiveToggle = document.getElementById('wcoPseudoImmersiveToggle');

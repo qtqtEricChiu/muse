@@ -344,16 +344,38 @@ function attachCoverCardClick(card, idx, openAction) {
 // 🚀 v3.3.3: 曲库已「取消卡片焦点」——居中即焦点，不再由 gamepad 焦点系统反向驱动 coverflow。
 // 上方 getCoverLibCenterCard() 是确认/激活的唯一入口。
 
+// 🔥 v3.6.4: 合并同专辑下不同 artist（如 feat. 合作曲）为统一的 artist 显示
+// 策略：去重 → 若有某个 artist 是其他所有 artist 的子串（如 aespa 是 aespa&G-DRAGON 的子串），取最短代表；
+//   否则取出现次数最多的 artist 作为代表。
+function mergeAlbumArtists(artists) {
+    const uniq = [...new Set(artists)].filter(a => a && a !== '未知');
+    if (uniq.length === 0) return '未知';
+    if (uniq.length === 1) return uniq[0];
+    const representative = uniq.find(a => a.length > 0 && uniq.every(b => a === b || b.includes(a)));
+    if (representative) return representative;
+    const counts = {};
+    let maxCount = 0, maxArtist = uniq[0];
+    for (const a of artists) {
+        counts[a] = (counts[a] || 0) + 1;
+        if (counts[a] > maxCount) { maxCount = counts[a]; maxArtist = a; }
+    }
+    return maxArtist;
+}
+
 // ---- 分组构建（纯数据，开销大，结果可缓存）----
 function buildAlbumEntries(filter) {
     const groups = new Map();
     musicLibrary.forEach((s, i) => {
-        // 🚀 v3.5.x: 按「专辑+艺术家」身份分组，而非按 art——
-        // 避免 LRU 淘汰远端专辑封面（s.art 变 null）后，多张不同专辑被错误合并到一个「无封面」组
-        const key = `${s.album || '未知专辑'}::${s.artist || '未知'}`;
-        if (!groups.has(key)) groups.set(key, { art: s.art || null, album: s.album || '未知专辑', artist: s.artist, songs: [], firstIdx: i });
-        groups.get(key).songs.push(i);
+        // 🔥 v3.6.4: 按「专辑名」分组，合并同一专辑下不同 artist（如 feat. 合作曲）的卡片
+        const key = s.album || '未知专辑';
+        if (!groups.has(key)) groups.set(key, { art: s.art || null, album: key, artists: [], songs: [], firstIdx: i });
+        const g = groups.get(key);
+        g.songs.push(i);
+        g.artists.push(s.artist || '未知');
+        if (!g.art && s.art) g.art = s.art;
     });
+    // 合并 artist 后再筛选/排序
+    groups.forEach(g => { g.artist = mergeAlbumArtists(g.artists); });
     let entries = [...groups.entries()];
     if (filter) {
         const q = filter.toLowerCase();
@@ -363,16 +385,22 @@ function buildAlbumEntries(filter) {
     return entries;
 }
 
-// 🚀 按专辑·按艺术家排序：分组同 buildAlbumEntries（按「专辑+艺术家」身份），
+// 🚀 按专辑·按艺术家排序：分组同 buildAlbumEntries（按「专辑名」身份），
 // 再按 artist 首字母（locale，中文按拼音、英文按 A-Z）排序；同艺术家内按专辑名首字母排序。
 // 排序内容仍是专辑卡，只是同艺术家的专辑相邻成段。
 function buildAlbumEntriesByArtist(filter) {
     const groups = new Map();
     musicLibrary.forEach((s, i) => {
-        const key = `${s.album || '未知专辑'}::${s.artist || '未知'}`;
-        if (!groups.has(key)) groups.set(key, { art: s.art || null, album: s.album || '未知专辑', artist: s.artist || '未知', songs: [], firstIdx: i });
-        groups.get(key).songs.push(i);
+        // 🔥 v3.6.4: 按「专辑名」分组，合并同一专辑下不同 artist
+        const key = s.album || '未知专辑';
+        if (!groups.has(key)) groups.set(key, { art: s.art || null, album: key, artists: [], songs: [], firstIdx: i });
+        const g = groups.get(key);
+        g.songs.push(i);
+        g.artists.push(s.artist || '未知');
+        if (!g.art && s.art) g.art = s.art;
     });
+    // 合并 artist 后再筛选/排序
+    groups.forEach(g => { g.artist = mergeAlbumArtists(g.artists); });
     let entries = [...groups.entries()];
     if (filter) {
         const q = filter.toLowerCase();

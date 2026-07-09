@@ -8,6 +8,9 @@ const WCO = (() => {
     let _titlebar = null;
     let _trackTitleEl = null;
     let _enabled = false;
+    let _appHeader = null;
+    let _navActions = null;
+    let _wcoNav = null;
 
     function init() {
         _titlebar = document.getElementById('wco-titlebar');
@@ -33,6 +36,12 @@ const WCO = (() => {
         _enabled = true;
         _titlebar.style.display = 'flex';
         document.body.classList.add('wco-active');
+        // 🚀 v3.6.4: 将顶部导航按钮迁入 WCO 标题栏，实现伪沉浸统一
+        if (!_appHeader) _appHeader = document.querySelector('.header');
+        if (!_navActions) _navActions = document.querySelector('.nav-actions');
+        if (!_wcoNav) _wcoNav = document.getElementById('wcoNav');
+        if (_navActions && _wcoNav) _wcoNav.appendChild(_navActions);
+        if (_appHeader) _appHeader.classList.add('wco-moved');
         _syncTrackTitle();
         // 🚀 v3.2.2: 启用时立即同步当前正在播放的曲目
         _syncCurrentTrack();
@@ -43,6 +52,11 @@ const WCO = (() => {
         _enabled = false;
         _titlebar.style.display = 'none';
         document.body.classList.remove('wco-active');
+        // 🚀 v3.6.4: 恢复导航按钮到原 header
+        if (_navActions && _appHeader && _wcoNav && _navActions.parentNode === _wcoNav) {
+            _appHeader.appendChild(_navActions);
+        }
+        if (_appHeader) _appHeader.classList.remove('wco-moved');
     }
 
     // 🚀 v3.2.2: 从全局播放状态同步当前曲目标题（切到 WCO 模式时兜底）

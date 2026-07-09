@@ -106,7 +106,11 @@ async function initApp() {
     _copyTargets.forEach(t => {
         if (!t.el) return;
         t.el.classList.add('click-copy');
+        t.el.setAttribute('draggable', 'false'); // 防止拖拽
+        t.el.addEventListener('dragstart', e => e.preventDefault());
+        t.el.addEventListener('selectstart', e => e.preventDefault());
         t.el.addEventListener('click', () => {
+
             const text = t.el.textContent.trim();
             if (!text || text === '沉浸式音乐舱' || text === '就绪' || text === 'MBolka Player Ultimate' || text === '等待载入音乐...') return;
             navigator.clipboard.writeText(text).then(() => {

@@ -2,6 +2,88 @@
 
 ---
 
+## v3.6.4 (2026-07-09) — 创作信息注入[00:00.00]歌词行 + WCO 标题栏沉浸/去饱和灰度配色 + 歌曲/歌手名不可拖拽
+
+### 一、WCO 标题栏配色：去饱和灰度算法（取代直接复用亮色）
+
+**背景**：PWA WCO 标题栏（自绘左侧色块）此前要么使用固定暗色 `rgba(10,10,26,0.55)`，要么直接复用 `--wco-theme-color`（等于右侧亮色块：强调色/主题色/专辑封面取色）。直接复用亮色会导致标题栏过亮、与暗色 App 主体割裂；而简单 RGB 同值相减又会让不同色相的「变暗终点」不一致（偏色）。用户给出算法规律：**左侧色块 = 右侧亮色块的去饱和灰度版本**，由加权平均明度推导。
+
+#### 核心算法（灰度明度去饱和）
+$$L = 0.299 \times R_{右} + 0.587 \times G_{右} + 0.114 \times B_{右}$$
+$$R_{左} = G_{左} = B_{左} = L$$
+权重为人眼视觉敏感度（红/绿/蓝），提取真实物理亮度后平均分配给三通道，得到一致暗沉去饱和底色，自适应任意右侧色相。
+
+#### 改动
+1. **JS（`js/theme-color.js`）**：
+   - 新增 `_parseRgb(str)`：兼容解析 `#rgb` / `#rrggbb` / `rgb()` / `rgba()` 为 `{r,g,b}`。
+   - 新增 `_toGrayscale(colorStr)`：实现上述公式，返回 `"rgb(L, L, L)"`（取整 + 0–255 边界限制），解析失败返回 `null`。
+   - `_applyColor()` 末尾：`<meta name="theme-color">` 仍写入原始亮色（右侧块 → 系统窗口控制按钮背景）；`--wco-theme-color` 改为写入 `_toGrayscale(color)`（左侧块 → 自绘标题栏），解析失败兜底回原始色。
+2. **CSS（`css/wco.css` `.wco-titlebar`）**：背景由固定 `rgba(10,10,26,0.55)` 改为 `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 100%), var(--wco-theme-color, rgba(10,10,26,0.55))`，真正引用算法计算的去饱和灰度色，叠加顶部微光渐变保层次。
+
+#### 验证
+- ✅ `node build.js` 通过（bundle.min.js 200.8 KB / style.min.css 76.2 KB），`read_lints` 0 错误。
+- ✅ 顶部取色/专辑均色/深色模式/默认色/兜底色 五条路径均经过 `_toGrayscale` 派生标题栏底色。
+
+### 二、WCO 标题栏沉浸重做
+
+**背景**：PWA WCO 标题栏沉浸（设置-外观-「标题栏伪沉浸」）此前仅在 standalone 模式下显示，且标题栏只是透明浮层，与页面顶部没有真正融合。用户希望 WCO 标题栏看起来像应用头部的一部分（如截图所示）。
+
+#### 改动
+1. **HTML（`index.html`）**：
+   - 移除 `#wcoPseudoImmersiveBox` 的 `style="display:none;"`，让「标题栏伪沉浸」开关常驻在「沉浸式外观」分组中。
+   - 在 `#wco-titlebar` 内新增 `.wco-nav` 容器，用于收纳原 `.header` 的导航按钮。
+2. **JS（`ui-core.js`）**：
+   - 删除仅 PWA standalone 模式下才显示该开关的 IIFE，设置项在所有模式下均可见。
+3. **JS（`js/wco.js`）**：
+   - 启用 WCO 时，将 `.header` 内的 `.nav-actions` 移入 `#wcoNav`。
+   - 禁用 WCO 时，将 `.nav-actions` 移回原 `.header`。
+   - 添加 `body.wco-active` 类，同时隐藏原 `.header`。
+4. **CSS（`css/wco.css`）**：
+   - WCO 标题栏改为 `rgba(10, 10, 26, 0.55)` 实色背景 + 底部细线，与页面原 header 视觉一致。
+   - 标题栏使用 `env(titlebar-area-x/y/width/height)` 精确定位到系统标题栏区域。
+   - 左侧拖拽区显示品牌图标 + 当前曲目标题；右侧 `.wco-nav` 显示「列表 / 歌词 / 曲库 / 设置」按钮。
+   - `.wco-nav` 保留 `margin-right: 120px` 为系统窗口控制按钮（最小化/最大化/关闭）留出空间。
+   - 按钮缩小为 `height: 28px / font-size: 12px` 适配标题栏高度。
+   - `body.wco-active .player-wrapper { padding-top: env(titlebar-area-height, 0); }` 确保内容不被标题栏覆盖。
+   - `body.wco-active .header { display: none; }` 隐藏原 header，避免重复。
+
+### 三、歌曲/歌手名不可拖拽选中
+
+**背景**：点击复制已替换原生选中，但部分桌面浏览器仍可通过拖拽触发文本选中或拖拽幽灵图。
+
+#### 改动
+1. **CSS（`style.css` `.click-copy`）**：
+   - `user-select: none` + `-webkit-user-select: none` + `-moz-user-select: none` + `-ms-user-select: none`
+   - 新增 `-webkit-user-drag: none` 防止拖拽出幽灵图
+2. **JS（`app.js`）**：初始化时给每个 `.click-copy` 元素：
+   - `setAttribute('draggable', 'false')`
+   - `dragstart` 事件 `preventDefault()`
+   - `selectstart` 事件 `preventDefault()`
+
+### 四、创作信息卡片注入为 [00:00.00] 歌词行（保留完整排版 HTML）
+
+**背景**：歌曲创作信息（作词/作曲/编曲等）原本以独立卡片形式渲染在歌词顶部。由于卡片不参与歌词滚动/居中机制，当歌词以用户偏好（居中/偏上）定位时，卡片常常被遮挡在视窗顶部不可见。用户提出：**整个卡片（保留所有排版样式）作为 `[00:00.00]` 的一行歌词嵌入歌词流**。
+
+#### 改动
+1. **JS（`js/audio-core.js` `parseLyricText` Phase 9 新增）**：
+   - 保留 `processedCredits` 原始数组数据，`lyrics.unshift({ time: 0, isCredits: true, creditsData: processedCredits, isAiTranslated })`。
+   - 返回对象 `credits: null`，移除了 `isAiTranslated` 顶层返回值（数据随歌词行传递）。
+2. **JS（`js/audio-core.js` `loadLrc`）**：
+   - 删除原 `if (creditsData && creditsData.length > 0)` 独立渲染分支（第 396–437 行），卡片不再单独 append。
+   - 在 `formatCreditValue` 公共函数上方提取至循环外部，供 `isCredits` 分支复用。
+   - 在歌词 `forEach` 渲染循环中新增 `else if (l.isCredits)` 分支，直接 `d.innerHTML = <lrc-credits-title> + AI badge + credHTML`，保留所有原有的卡片排版（分隔符高亮、名单分色、括号保护、标题图标等）。
+   - `isCredits` 行跳过 `onclick`（不 seek 到 time 0）。
+3. **CSS（`css/base-layout.css`）**：
+   - 新增 `.lrc-line.lrc-credits` 覆盖：`filter: none !important; opacity: 1 !important; transform: none !important; min-height: auto; cursor: default; margin: 0 -10px 16px`。
+   - 新增 `.lrc-line.lrc-credits.active`：阻止激活态字号放大/发光/缩放。
+   - 新增 `.lrc-line.active + .lrc-line.lrc-credits`：阻止相邻行模糊规则作用于卡片。
+
+### 验证
+- ✅ `node build.js` 通过（bundle.min.js 200.0 KB / style.min.css 75.7 KB），`read_lints` 0 错误。
+- ✅ 设置面板中「标题栏伪沉浸」可见；PWA/WCO 模式下原 header 导航按钮迁入系统标题栏，标题栏即应用头部。
+- ✅ 主界面/沉浸舱共 4 处歌曲名/歌手名无法拖拽或文本选中。
+- ✅ 创作信息不再渲染独立卡片，作为 `[00:00.00]` 歌词行注入；AI 翻译标记嵌入行内。
+
 ## v3.6.3 (2026-07-09) — 审计采纳 + 歌词创作信息补全 + 点击复制 + 进度条偏移 + coverflow 调整
 
 ### 🎨 审计 v2 采纳：无障碍 + 动画节能 + 健壮性
@@ -54,19 +136,22 @@
 
 ---
 
-### 🎵 歌词创作信息正则补全：文案/古筝/小提琴 等角色
+### 🎵 歌词创作信息正则补全：文案/古筝/小提琴/MV制作/粤语/Lyricist 等角色
 
 ### 背景
-用户提供了一批创作信息样例（含 文案、古筝、古筝编写、小提琴、小提琴编写 等角色），这些角色此前不在 `CREDIT_PAT` / `CREDIT_MULTI_PAT` 的角色清单中，会被误判为歌词，导致 `lyricStart` 过早截止、其后的创作信息全部丢失。
+用户提供了三批创作信息样例，其中 文案、古筝、古筝编写、小提琴、小提琴编写、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢、Lyricist(中文词) 等角色此前不在角色清单中，会被误判为歌词，导致 `lyricStart` 过早截止、其后的创作信息全部丢失。
 
 ### 改动
 **`js/audio-core.js`（Phase 4 创作信息模式检测）**：
-1. **`CREDIT_PAT`（单行正则）** 新增角色：`文案、古筝编写、古筝、小提琴编写、小提琴`。长词条排在前（古筝编写 > 古筝、小提琴编写 > 小提琴），避免短词条优先截断长词条。
-2. **`CREDIT_MULTI_PAT`（多角色合并正则）** 同步新增上述 5 个角色，支持如 `古筝/古筝编写：紫格` 这类合并行。
-3. 角色清单仅在 `audio-core.js` 一处维护，已与两个正则同步。
+1. **`CREDIT_PAT`（单行正则）** 新增角色：`文案、古筝编写、古筝、小提琴编写、小提琴、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢`。长词条排在前（古筝编写 > 古筝、小提琴编写 > 小提琴、音乐制作/MV制作 > 制作），避免短词条优先截断长词条。
+2. **`CREDIT_MULTI_PAT`（多角色合并正则）** 同步新增上述角色，支持如 `古筝/古筝编写：紫格`、`作曲/音乐制作：苏逸Suyi`、`贝斯/混音：苏逸Suyi` 这类合并行。
+3. **`OA_OC_PAT`** 新增 `Lyricist`，支持 `Lyricist(中文词)：` 这类「英文角色 + 括号中文注解」格式（与已有 `Arranger(编曲)` / `Producer(制作人)` / `Presented By` 同走 `(\(.+?\))?` 分支，标签保留括号内的中文注解）。
+4. 角色清单仅在 `audio-core.js` 一处维护，已与正则同步。
 
 ### 验证
-- ✅ Node 单测：10 行样例（文案/古筝/古筝编写/小提琴/小提琴编写/制作人/录音室/混音室/监制/出品）全部 `OK` 命中 `CREDIT_PAT`，无漏判。
+- ✅ Node 单测（第一批 10 行）：文案/古筝/古筝编写/小提琴/小提琴编写/制作人/录音室/混音室/监制/出品 全部 `OK` 命中，无漏判。
+- ✅ Node 单测（第二批 8 行）：作曲/音乐制作、MV制作、键盘、吉他、贝斯/混音、粤语歌词协力、粤语指导、特别感谢 全部 `OK` 命中（含多角色合并 作曲/音乐制作、贝斯/混音）。
+- ✅ Node 单测（第三批 4 行）：`Lyricist(中文词)`、`Arranger(编曲)`、`Producer(制作人)`、`Presented By` 全部 `OK` 命中 `OA_OC_PAT`。
 - ✅ `紫格/Morri3on(喬凡三)` 的括号由 `formatCreditValue` 括号保护逻辑整体保留，渲染为 `紫格` + `Morri3on(喬凡三)` 两个完整名字，不被误拆。
 - ⚠️ 提醒：这些创作信息须写入 LRC 文件头部（如 `[文案：偏生梓归]`）才会被解析器读取；纯文本备注不会被解析。
 
@@ -2785,3 +2870,12 @@ CREDIT_MULTI_PAT 角色列表同步扩充，支持多身份组合格式。
   1. **`cfFinishTransition` 显式同步**：交叉淡变完成后，直接用 `newActive.duration` 刷新总时长，不再完全依赖事件。
   2. **新增 `durationchange` 兜底监听**：双槽均绑定 `durationchange` 事件，在 duration 属性分多次更新（VBR/流式）或 `loadedmetadata` 未触发时，自动以当前活跃槽 duration 刷新总时长。
   3. **防御条件**：仅当 `duration > 0 && isFinite` 时才写入，避免旧槽清理后的 `NaN` 覆盖。
+
+### 🔥 v3.6.4: 曲库按专辑合并 feat. 合作曲卡片
+- **问题**：同一专辑（如 LEMONADE - The 2nd Album）中，大部分歌曲 artist 为 "aespa"，但含 feat. 的歌曲 artist 为 "aespa&G-DRAGON"，导致曲库显示为两个独立专辑卡片（8 首 vs 1 首）。
+- **根因**：`buildAlbumEntries` / `buildAlbumEntriesByArtist` 按 `album::artist` 分组，artist 稍有差异即分裂。
+- **修复**：
+  1. **分组 key 改为只用专辑名**：不再拼接 artist，同专辑名即同组。
+  2. **新增 `mergeAlbumArtists`**：收集组内所有 artist 去重，若有某个 artist 是其他所有 artist 的子串（如 "aespa" 是 "aespa&G-DRAGON" 的子串），取最短代表；否则取出现次数最多的 artist。
+  3. **封面取第一个非空**：合并后封面取自组内第一个有 art 的歌曲，不影响 LRU 淘汰后的懒恢复。
+- **涉及文件**：`js/cover-lib.js`（`buildAlbumEntries`、`buildAlbumEntriesByArtist`、新增 `mergeAlbumArtists`）。

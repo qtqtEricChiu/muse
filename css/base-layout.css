@@ -455,6 +455,29 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     max-width: 100%; /* 🔥 p4: 不再硬编码600px，由父容器约束 */
     box-sizing: border-box;
 }
+/* 🚀 v3.6.4: 作为歌词行嵌入歌词流的创作信息卡片，覆盖 lrc-line 默认样式 */
+.lrc-line.lrc-credits {
+    filter: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    min-height: auto;
+    cursor: default;
+    font-size: 12px;
+    line-height: 1.7;
+    margin: 0 -10px 16px; /* 抵消 lrc-line 的 padding:0 10px，让卡片撑满 */
+}
+.lrc-line.lrc-credits.active {
+    color: var(--text-sub);
+    font-size: 12px;
+    font-weight: 400;
+    text-shadow: none;
+    filter: none !important;
+    transform: none !important;
+}
+.lrc-line.active + .lrc-line.lrc-credits {
+    filter: none !important;
+    opacity: 1 !important;
+}
 .lrc-credits .lrc-credits-title {
     font-weight: 600;
     color: var(--text-main);

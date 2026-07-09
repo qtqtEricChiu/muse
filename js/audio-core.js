@@ -60,15 +60,17 @@ function parseLyricText(text) {
     // 🚀 v3.6.2: 补充缺失英文角色（Vocals/Published/Programmed/Guitar/Drums/Executive Producer/Recorded at/Repertoire Owner/Vocals Produced），避免被误判为歌词导致 lyricStart 过早截止、其后 credits 全部丢失
     const EN_ROLES = 'Recording Engineers|Executive Producer|Repertoire Owner|Vocal Arrangement|Background Vocals|Drum Programming|Digital Editing|Vocals Produced|All instruments|Mix Engineer|Synthesizer|Recorded at|Background|Programmed|Published|Recording|Keyboard|Remixed|Digital|Vocals|Guitar|Drums|Vocal|Bass|Drum|Mix';
     // 🔥 v3.6.2: 新增 文案、古筝、古筝编写、小提琴、小提琴编写 角色（长词条在前：古筝编写>古筝、小提琴编写>小提琴，避免被截断）
-    const CREDIT_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|制作统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|古筝编写|古筝|小提琴编写|小提琴|弦乐|弦乐编写|弦乐监制|所有乐器|录音|录音棚|录音师|录音室|录音工作室|主唱录音|弦乐录音|音频编辑|音乐编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|混音母带|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|制作|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
+    // 🔥 v3.6.3: 新增 音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢 角色（音乐制作/MV制作 排在 制作 之前避免截断）
+    const CREDIT_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|制作统筹|配唱制作人?|配唱制作|和声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|贝斯|键盘|合成器|鼓|鼓编程|古筝编写|古筝|小提琴编写|小提琴|弦乐|弦乐编写|弦乐监制|所有乐器|录音|录音棚|录音师|录音室|录音工作室|主唱录音|弦乐录音|音频编辑|音乐编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|混音母带|缩混|混音及母带后期|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|音乐制作|MV制作|制作|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)[：:\\s]', 'i');
     // 🔥 v2.8.13p5: 新增 混音室、母带处理、音乐设计 词条（CREDIT_PAT 与 CREDIT_MULTI_PAT 同步）
     // 🔥 v3.5.0: 新增 弦乐编写/弦乐监制/主唱录音/弦乐录音/音乐编辑/制作统筹/混音母带
     // 🔥 v2.8.13p2: 多角色合并格式（用/分隔，如"词/曲"、"编曲/混音/制作"、"Lyrics/Composed by"）
     // 🔥 v2.8.13p4: 角色列表扩展，与 CREDIT_PAT 主要角色同步，新增多身份组合支持
-    // 🔥 v3.6.2: 新增 文案、古筝、古筝编写、小提琴、小提琴编写（按长度从长到短排列，避免 古筝 截断 古筝编写 / 小提琴 截断 小提琴编写）
-    const CREDIT_MULTI_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|' + EN_ROLES + ')(\\/(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|' + EN_ROLES + '))+[：:\\s]', 'i');
+    // 🔥 v3.6.3: 新增 音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢（多角色合并组同步，如 作曲/音乐制作）
+    const CREDIT_MULTI_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|音乐制作|MV制作|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + ')(\\/(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|音乐制作|MV制作|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + '))+[：:\\s]', 'i');
     const EN_CREDIT_PAT = /^(Lyrics|Composed|Arranged|Produced|Mixed|Recorded|Mastered|Performed|Written)(\s+by)?[：:\s]/i;
-    const OA_OC_PAT = /^(OA|OC|OP|SP|ISRC|Arranger|Producer|Presented\s+By)(\(.+?\))?[：:\s]/i;
+    // 🔥 v3.6.3p1: 新增 Lyricist（支持 Lyricist(中文词)： 括号格式，与 Arranger/Producer/Presented By 同走 OA_OC_PAT 的 (\(\.+?\))? 分支）
+    const OA_OC_PAT = /^(OA|OC|OP|SP|ISRC|Lyricist|Arranger|Producer|Presented\s+By)(\(.+?\))?[：:\s]/i;
     const isCredit = (t) => t && (CREDIT_PAT.test(t) || CREDIT_MULTI_PAT.test(t) || EN_CREDIT_PAT.test(t) || OA_OC_PAT.test(t));
     const isCopyright = (t) => /TME|腾讯|翻译|文曲大模型|著作权|版权/.test(t);
     const isTitle = (t, time) => time < 3 && /[—\-–]\s/.test(t) && t.length < 120;
@@ -285,7 +287,13 @@ function parseLyricText(text) {
         }
     }
 
-    return { lyrics, credits: processedCredits.length > 0 ? processedCredits : null, kanaData, isAiTranslated };
+    // ── Phase 9 (v3.6.4): 创作信息注入为 [00:00.00] 歌词行 ──
+    // 保留原始排版数据，loadLrc 渲染时直接生成完整卡片 HTML，利用歌词滚动/居中机制定位
+    if (processedCredits.length > 0) {
+        lyrics.unshift({ time: 0, isCredits: true, creditsData: processedCredits, isAiTranslated });
+    }
+
+    return { lyrics, credits: null, kanaData, isAiTranslated: false };
 }
 
 // 🚀 v3.1.0: VTT 字幕解析（与 LRC 同一输出格式）
@@ -363,9 +371,7 @@ const loadLrc = async (song) => {
     const isVtt = lrcText.trim().startsWith('WEBVTT');
     const parseResult = isVtt ? parseVttText(lrcText) : parseLyricText(lrcText);
     parsedLyrics = parseResult.lyrics || [];
-    const creditsData = parseResult.credits;
     const kanaData = parseResult.kanaData;
-    const isAiTranslated = !!parseResult.isAiTranslated;
 
     if(parsedLyrics.length) {
         el.lrcPanel.style.display = 'flex'; el.btnToggleLrc.classList.add('active');
@@ -386,48 +392,6 @@ const loadLrc = async (song) => {
         topSpacer.className = 'lrc-spacer-top';
         el.lrcView.appendChild(topSpacer);
 
-        // 🔥 v2.8.10: 渲染创作信息卡片（提取的词曲编曲等元数据）
-        if (creditsData && creditsData.length > 0) {
-            const credDiv = document.createElement('div');
-            credDiv.className = 'lrc-credits';
-            // 🚀 v3.5.4: 标准名单按 /,，、 分隔，保持名字完整；含括号时先保护括号内内容再拆分，避免出版信息（如 Universal/MCA）被误拆
-            const NON_STANDARD_CREDIT = /[()\[\]{}&\-–—:;"']/;
-            const formatCreditValue = (val) => {
-                if (!val || val.length <= 30) return escapeHTML(val);
-                // 非标准创作信息且无有效分隔符：直接返回不拆分
-                if (NON_STANDARD_CREDIT.test(val) && !/\s*[\/,，、]\s*/.test(val)) return escapeHTML(val);
-                // 保护括号内的内容，避免括号内的 / 被当作分隔符
-                const protected = [];
-                let valProtected = val.replace(/\([^)]*\)/g, (m) => {
-                    protected.push(m);
-                    return `\x00${protected.length - 1}\x00`;
-                });
-                // 标准名单：分隔符紧跟前一项，保持每个名字完整
-                const seps = valProtected.match(/\s*[\/,，、]\s*/g) || [];
-                const names = valProtected.split(/\s*[\/,，、]\s*/).map(s => s.trim()).filter(Boolean);
-                if (names.length <= 1) return escapeHTML(val);
-                let html = '';
-                for (let i = 0; i < names.length; i++) {
-                    const sep = (i < names.length - 1 && i < seps.length) ? seps[i] : '';
-                    // 恢复括号内的内容
-                    const name = names[i].replace(/\x00(\d+)\x00/g, (_, idx) => protected[idx]);
-                    html += `<span class="lrc-credits-name">${escapeHTML(name)}${sep ? '<span class="lrc-credits-sep">' + escapeHTML(sep) + '</span>' : ''}</span>`;
-                }
-                return html;
-            };
-            let credHTML = '';
-            for (const cr of creditsData) {
-                if (cr.label && cr.value) {
-                    credHTML += `<span class="lrc-credits-row"><span class="lrc-credits-tag">${escapeHTML(cr.label)}</span><span class="lrc-credits-val">${formatCreditValue(cr.value)}</span></span>`;
-                } else if (cr.label) {
-                    credHTML += `<span class="lrc-credits-row"><span class="lrc-credits-tag">${escapeHTML(cr.label)}</span></span>`;
-                } else if (cr.value) {
-                    credHTML += `<span class="lrc-credits-row"><span class="lrc-credits-val">${formatCreditValue(cr.value)}</span></span>`;
-                }
-            }
-            credDiv.innerHTML = `<div class="lrc-credits-title">${iconSvg('music')} 创作信息${isAiTranslated ? ' <span class="lrc-credits-ai-badge">AI 翻译<span class="lrc-credits-ai-tip">以下歌词翻译由文曲大模型提供</span></span>' : ''}</div>${credHTML}`;
-            el.lrcView.appendChild(credDiv);
-        }
 
         // 🔥 v2.8.10: kana 注音信息提示
         if (kanaData && kanaData.units && kanaData.units.length > 0) {
@@ -436,6 +400,28 @@ const loadLrc = async (song) => {
             kanaDiv.innerHTML = `<div class="lrc-credits-title">🔤 罗马音注音</div><div style="font-size:11px;word-break:break-all;">${escapeHTML(kanaData.units.join(' · '))}</div>`;
             el.lrcView.appendChild(kanaDiv);
         }
+
+        // 🚀 v3.5.4: 创作信息名单分隔（/，,、）复用格式 — 独立函数供 isCredits 行使用
+        const NON_STANDARD_CREDIT = /[()\[\]{}&\-–—:;"']/;
+        const formatCreditValue = (val) => {
+            if (!val || val.length <= 30) return escapeHTML(val);
+            if (NON_STANDARD_CREDIT.test(val) && !/\s*[\/,，、]\s*/.test(val)) return escapeHTML(val);
+            const protected = [];
+            let valProtected = val.replace(/\([^)]*\)/g, (m) => {
+                protected.push(m);
+                return `\x00${protected.length - 1}\x00`;
+            });
+            const seps = valProtected.match(/\s*[\/,，、]\s*/g) || [];
+            const names = valProtected.split(/\s*[\/,，、]\s*/).map(s => s.trim()).filter(Boolean);
+            if (names.length <= 1) return escapeHTML(val);
+            let html = '';
+            for (let i = 0; i < names.length; i++) {
+                const sep = (i < names.length - 1 && i < seps.length) ? seps[i] : '';
+                const name = names[i].replace(/\x00(\d+)\x00/g, (_, idx) => protected[idx]);
+                html += `<span class="lrc-credits-name">${escapeHTML(name)}${sep ? '<span class="lrc-credits-sep">' + escapeHTML(sep) + '</span>' : ''}</span>`;
+            }
+            return html;
+        };
 
         parsedLyrics.forEach((l) => {
             const d = document.createElement('div');
@@ -448,6 +434,20 @@ const loadLrc = async (song) => {
                     <span class="lrc-translation">${escapeHTML(l.translation)}</span>
                 `;
                 d.classList.add('bilingual');
+            } else if (l.isCredits) {
+                // 🚀 v3.6.4: 创作信息作为完整的卡片 HTML 嵌入歌词流
+                d.className = 'lrc-line lrc-credits';
+                let credHTML = '';
+                for (const cr of l.creditsData) {
+                    if (cr.label && cr.value) {
+                        credHTML += `<span class="lrc-credits-row"><span class="lrc-credits-tag">${escapeHTML(cr.label)}</span><span class="lrc-credits-val">${formatCreditValue(cr.value)}</span></span>`;
+                    } else if (cr.label) {
+                        credHTML += `<span class="lrc-credits-row"><span class="lrc-credits-tag">${escapeHTML(cr.label)}</span></span>`;
+                    } else if (cr.value) {
+                        credHTML += `<span class="lrc-credits-row"><span class="lrc-credits-val">${formatCreditValue(cr.value)}</span></span>`;
+                    }
+                }
+                d.innerHTML = `<div class="lrc-credits-title">${iconSvg('music')} 创作信息${l.isAiTranslated ? ' <span class="lrc-credits-ai-badge">AI 翻译<span class="lrc-credits-ai-tip">以下歌词翻译由文曲大模型提供</span></span>' : ''}</div>${credHTML}`;
             } else if (l.isBreak) {
                 // 🔥 v2.8.10p2: verse break — 固定矮高度，无点击
                 d.innerHTML = '';
@@ -459,8 +459,8 @@ const loadLrc = async (song) => {
                 d.textContent = l.text;
             }
 
-            // break/blank 行不设点击跳转
-            if (!l.isBreak && !l.isBlank) {
+            // break/blank/credits 行不设点击跳转
+            if (!l.isBreak && !l.isBlank && !l.isCredits) {
                 d.onclick = () => { getActivePlayAudio().currentTime = l.time + lyricsOffset; syncLyrics(true); };
             }
             el.lrcView.appendChild(d);
