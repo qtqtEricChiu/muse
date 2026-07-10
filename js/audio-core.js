@@ -62,13 +62,14 @@ function parseLyricText(text) {
     // 🔥 v3.6.2: 新增 文案、古筝、古筝编写、小提琴、小提琴编写 角色（长词条在前：古筝编写>古筝、小提琴编写>小提琴，避免被截断）
     // 🔥 v3.6.3: 新增 音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢 角色（音乐制作/MV制作 排在 制作 之前避免截断）
     // 🔥 v3.6.4: 新增 钢琴/吉他编写/吉他录音师/小提琴独奏/弦乐录音室/人声配唱/录音工程师/人声录音棚/混音录音室/母带后期处理工程师/母带后期录音室；并支持「中文角色+英文角色」连写（如 词Lyricist：、钢琴Piano：）通过可选英文后缀分支
-    const CREDIT_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|制作统筹|人声配唱|配唱制作人?|配唱制作|和声|合声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|吉他编写|吉他录音师|贝斯|键盘|钢琴|合成器|鼓|鼓编程|古筝编写|古筝|小提琴编写|小提琴|小提琴独奏|弦乐|弦乐编写|弦乐监制|所有乐器|录音|录音棚|人声录音棚|录音师|录音工程师|录音室|录音工作室|主唱录音|弦乐录音|弦乐录音室|音频编辑|音乐编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|混音录音室|混音母带|缩混|混音及母带后期|母带后期处理工程师|母带后期录音室|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|音乐制作|MV制作|制作|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)(?:[A-Za-z][A-Za-z .&]*[：:]|[：:\\s])', 'i');
+    // 🔥 v3.6.4: 新增 人声制作、封面设计 角色；并支持「中文角色 + 空格 + 英文角色」连写（如 人声制作 Vocal Production：、混音 Mixing：、封面设计 Cover Design：、制作统筹A&R：）通过可选英文后缀分支前导空格 \s?
+    const CREDIT_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|制作人|演唱制作人?|制作\\/版权|演唱|Rap|Rap\\s*flow|音乐统筹|制作统筹|封面设计|人声制作|人声配唱|配唱制作人?|配唱制作|和声|合声|和声&编写|合声演唱|合声编写|和声编写|合音制作|编外合音制作|吉他|吉他演奏|吉他编写|吉他录音师|贝斯|键盘|钢琴|合成器|鼓|鼓编程|古筝编写|古筝|小提琴编写|小提琴|小提琴独奏|弦乐|弦乐编写|弦乐监制|所有乐器|录音|录音棚|人声录音棚|录音师|录音工程师|录音室|录音工作室|主唱录音|弦乐录音|弦乐录音室|音频编辑|音乐编辑|人声编辑|数字编辑|混音|混音师|混音工程师|混音工作室|混音室|混音录音室|混音母带|缩混|混音及母带后期|母带后期处理工程师|母带后期录音室|母带|母带工程师|母带处理|母版制作|母带工作室|音乐监督|音乐设计|艺人及作品管理|监制|出品|发行|词曲|音乐制作|MV制作|制作|粤语歌词协力|粤语指导|企划营销|首席运营|特别感谢|' + EN_ROLES + '|Mixing|Mastering Engineer|Mastering|Music Coordinator|Vocal Producer|Backing Vocal|Guitar Performance|Lyricist|Rap flow|Presented\\s+By|Released\\s+By)(?:\\s?[A-Za-z][A-Za-z .&]*[：:]|[：:\\s])', 'i');
     // 🔥 v2.8.13p5: 新增 混音室、母带处理、音乐设计 词条（CREDIT_PAT 与 CREDIT_MULTI_PAT 同步）
     // 🔥 v3.5.0: 新增 弦乐编写/弦乐监制/主唱录音/弦乐录音/音乐编辑/制作统筹/混音母带
     // 🔥 v2.8.13p2: 多角色合并格式（用/分隔，如"词/曲"、"编曲/混音/制作"、"Lyrics/Composed by"）
     // 🔥 v2.8.13p4: 角色列表扩展，与 CREDIT_PAT 主要角色同步，新增多身份组合支持
     // 🔥 v3.6.3: 新增 音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢（多角色合并组同步，如 作曲/音乐制作）
-    const CREDIT_MULTI_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|音乐制作|MV制作|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + ')(\\/(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|音乐制作|MV制作|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|粤语歌词协力|粤语指导|特别感谢|' + EN_ROLES + '))+[：:\\s]', 'i');
+    const CREDIT_MULTI_PAT = new RegExp('^(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|音乐制作|MV制作|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|人声制作|封面设计|混音母带|OP|SP|ISRC|演唱|粤语歌词协力|粤语指导|企划营销|首席运营|特别感谢|' + EN_ROLES + ')(\\/(文案|词|曲|作词|作曲|编曲|定位制作人|混音|混音师|混音室|录音|录音师|录音室|音乐制作|MV制作|制作|制作人|演唱制作人?|制作\\/版权|吉他|吉他演奏|贝斯|键盘|鼓|古筝编写|古筝|小提琴编写|小提琴|和声|合声|合音制作|配唱|配唱制作|弦乐|弦乐编写|弦乐监制|出品|发行|母版|母带|母带处理|母带工作室|音乐设计|音乐编辑|音乐统筹|制作统筹|混音母带|OP|SP|ISRC|演唱|粤语歌词协力|粤语指导|企划营销|首席运营|特别感谢|' + EN_ROLES + '))+[：:\\s]', 'i');
     const EN_CREDIT_PAT = /^(Lyrics|Composed|Arranged|Produced|Mixed|Recorded|Mastered|Performed|Written)(\s+by)?[：:\s]/i;
     // 🔥 v3.6.3p1: 新增 Lyricist（支持 Lyricist(中文词)： 括号格式，与 Arranger/Producer/Presented By 同走 OA_OC_PAT 的 (\(\.+?\))? 分支）
     const OA_OC_PAT = /^(OA|OC|OP|SP|ISRC|Lyricist|Arranger|Producer|Presented\s+By)(\(.+?\))?[：:\s]/i;
@@ -404,9 +405,28 @@ const loadLrc = async (song) => {
 
         // 🚀 v3.5.4: 创作信息名单分隔（/，,、）复用格式 — 独立函数供 isCredits 行使用
         const NON_STANDARD_CREDIT = /[()\[\]{}&\-–—:;"']/;
+        // 🩹 v3.6.7: 强制断行兜底 —— 单个名字（含括号）超过此字符数时按固定宽度插入软换行（零宽空格 + <wbr> 双兜底，CSS 也可断）
+        const HARD_BREAK_NAME_THRESHOLD = 16;
+        const HARD_BREAK_CHUNK = 12;
+        const insertSoftBreaks = (s) => {
+            // 在长串中每 HARD_BREAK_CHUNK 个字符插入一个 <wbr>（HTML 标准软换行点），CSS 会在容器宽度不足时自动换行；同时插入零宽空格做双重兜底
+            if (!s || s.length <= HARD_BREAK_NAME_THRESHOLD) return s;
+            let out = '';
+            for (let i = 0; i < s.length; i++) {
+                out += s[i];
+                const next = i + 1;
+                if (next < s.length && next % HARD_BREAK_CHUNK === 0) {
+                    out += '\u200B\u003Cwbr\u003E';
+                }
+            }
+            return out;
+        };
         const formatCreditValue = (val) => {
             if (!val || val.length <= 30) return escapeHTML(val);
-            if (NON_STANDARD_CREDIT.test(val) && !/\s*[\/,，、]\s*/.test(val)) return escapeHTML(val);
+            if (NON_STANDARD_CREDIT.test(val) && !/\s*[\/,，、]\s*/.test(val)) {
+                // 🩹 v3.6.7: 无分隔符超长字符串兜底 —— 比如 Ditto&Medjed&Ditto&Medjed、Christopheranthony... 之类，整体长度 > 30 但没有 / 等分隔符走不通 split 分支；也用 insertSoftBreaks 强制断行
+                return escapeHTML(insertSoftBreaks(val)).replace(/&lt;wbr&gt;/g, '<wbr>');
+            }
             const protected = [];
             let valProtected = val.replace(/\([^)]*\)/g, (m) => {
                 protected.push(m);
@@ -414,12 +434,18 @@ const loadLrc = async (song) => {
             });
             const seps = valProtected.match(/\s*[\/,，、]\s*/g) || [];
             const names = valProtected.split(/\s*[\/,，、]\s*/).map(s => s.trim()).filter(Boolean);
-            if (names.length <= 1) return escapeHTML(val);
+            if (names.length <= 1) {
+                // 🩹 v3.6.7: 单段超长字符串兜底（split 后只有一个 name 但总长 > 30）
+                return escapeHTML(insertSoftBreaks(val)).replace(/&lt;wbr&gt;/g, '<wbr>');
+            }
             let html = '';
             for (let i = 0; i < names.length; i++) {
                 const sep = (i < names.length - 1 && i < seps.length) ? seps[i] : '';
                 const name = names[i].replace(/\x00(\d+)\x00/g, (_, idx) => protected[idx]);
-                html += `<span class="lrc-credits-name">${escapeHTML(name)}${sep ? '<span class="lrc-credits-sep">' + escapeHTML(sep) + '</span>' : ''}</span>`;
+                // 🩹 v3.6.7: 强制断行 —— 对超长单名（无论是否带括号/&/空格）插入软换行点（escapeHTML 后还原 \u003Cwbr\u003E 为 <wbr>），避免无空格英文单词硬撑卡片宽度
+                const broken = escapeHTML(insertSoftBreaks(name)).replace(/&lt;wbr&gt;/g, '<wbr>');
+                const sepHtml = sep ? '<span class="lrc-credits-sep">' + escapeHTML(sep) + '</span>' : '';
+                html += `<span class="lrc-credits-name">${broken}${sepHtml}</span>`;
             }
             return html;
         };
@@ -496,12 +522,16 @@ function adjustLyricsOffset(delta) {
 const handleUserScroll = () => {
     isUserScrollingLyrics = true;
     clearTimeout(lyricsScrollTimeout);
+    // 🚀 v3.6.6p2: 手动滚动（滚轮/触摸）时显示歌词栏滚动条
+    el.lrcView.classList.add('lrc-scroll-active');
     // 🚀 v3.0.2: 滚动时移除歌词行高斯模糊
     el.lrcView.classList.add('scrolling');
     lyricsScrollTimeout = setTimeout(() => {
         isUserScrollingLyrics = false;
         syncLyrics();
         el.lrcView.classList.remove('scrolling');
+        // 🚀 v3.6.6p2: 停止滚动后淡出隐藏滚动条
+        el.lrcView.classList.remove('lrc-scroll-active');
     }, 2000);
 };
 el.lrcView.addEventListener('wheel', handleUserScroll, {passive: true}); el.lrcView.addEventListener('touchmove', handleUserScroll, {passive: true});

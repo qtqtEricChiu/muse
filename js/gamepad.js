@@ -516,10 +516,14 @@ function _lrcScrollBlurClear() {
 function _rsLrcMarkScrolling() {
     isUserScrollingLyrics = true;
     el.lrcView.style.scrollBehavior = 'auto';
+    // 🚀 v3.6.6p2: 右摇杆滚动歌词时显示滚动条
+    el.lrcView.classList.add('lrc-scroll-active');
     clearTimeout(_rsLrcStopTimer);
     _rsLrcStopTimer = setTimeout(() => {
         isUserScrollingLyrics = false;
         el.lrcView.style.scrollBehavior = '';
+        // 🚀 v3.6.6p2: 右摇杆停止后淡出隐藏滚动条
+        el.lrcView.classList.remove('lrc-scroll-active');
         syncLyrics();
     }, 1500);
 }

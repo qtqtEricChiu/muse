@@ -2,17 +2,62 @@
 
 ---
 
-## v3.6.6p2 (2026-07-11) — 创作信息卡片居中修复 + 竖屏模式 Spotify 风格布局优化
+## v3.6.6p2 (2026-07-11) — 歌词栏滚动条自动隐藏 + 创作信息卡片居中修复 + 竖屏 Spotify 风格布局 + 沉浸舱底栏重设计 + 横屏 WCO 关闭键左移
 
 ### 一、创作信息卡片居中修复
 **`css/base-layout.css` / `css/style.css`**：
 - 卡片原 `width:100% + margin:0 auto` 因 `width:100%` 撑满导致视觉左对齐失效。改为 `width: max-content; max-width:100%` —— 卡片按内容自然宽度（最长一行决定卡宽）居中，且窄屏不溢出。
 - 移除旧 `margin: 0 -10px 16px`（抵消 `lrc-line` 的 `padding` 撑满全宽）规则，改回 `margin: 0 auto 16px`，配合 `max-content` 实现真正居中。
 
-### 二、竖屏模式全面优化（Spotify 风格）
-**`css/base-layout.css` / `css/wco.css`**：
+### 二、竖屏模式 Spotify 风格布局优化（含封面放大）
+**`css/style.css` 新增 `@media (orientation: portrait)` 大块**（与 UA 无关，任何 PWA / 浏览器竖屏窗口都生效）：
 - `.player-wrapper` 竖屏下 `width:100vw; height:100vh; border-radius:0`；`.content-grid` 更紧凑（`padding:8px 14px 0; gap:6px; overflow:hidden`）。
-- 顶部曲目信息紧凑横排：封面缩至 `56px`、标题 `15px`/歌手 `12px`，隐藏浮动动画与频谱画布以节省纵向空间。
+- 顶部曲目信息紧凑横排：标题 `18px`（原 15px 偏小）、歌手 `13px`，隐藏浮动动画与频谱画布以节省纵向空间。
+- **专辑封面放大**：`.col-album .art-box` 由原先过小的 `56px` 改为 `width: min(70vw, 280px); height: min(70vw, 280px); max-height: 32vh`，即 Spotify 风格大封面，醒目但不大于屏高 1/3。
+- 控制列移到歌词列下方、紧凑底栏（频谱隐藏、`btn-ctrl` 44px / `btn-play` 60px）；歌词列 `flex:1 1 auto` 占主要纵向区域、无 mask 完整可视。
+- 沉浸模式竖屏：track-card 紧凑、`imm-icon-btn` 36px、底栏 `btn-play` 56px、留出 WCO 标题栏高度（`env(titlebar-area-height)`）。
+
+**`js/app.js`**：移除「仅移动端 UA 才自动竖屏进入沉浸模式」的限制，改为任何 PWA / 浏览器在 `matchMedia("(orientation: portrait)")` 匹配时自动进入沉浸、横屏自动退出。
+
+### 三、沉浸舱底部栏两行重设计（前次对话合并入本版）
+**`css/immersive.css`**：`.imm-bottom` 由单行改为 `flex-direction: column; padding:16px 28px; gap:12px`，并拆分为两行：
+- `.imm-bottom-row`（上行：`.progress-area` 进度 + `.time-labels` 时间 + `.btn-mode` 模式，横向紧凑一行）。
+- `.imm-bottom-controls`（下行：`prev / play / next` 居中）。
+- 竖屏 `@media (orientation: portrait)` 同步重排为两行紧凑底栏。
+
+### 四、横屏 WCO 关闭键左移 + 隐藏 .imm-track-card（前次对话合并入本版）
+**`css/wco.css`**：
+- 新增 `body.immersive-mode.wco-active.wco-track-card-hidden .wco-actions-slot { right:auto; left:8px; }`，横屏沉浸 + WCO 启用时，挂到标题栏的按钮（退出等）改到标题栏**最左边**（让出右侧系统金刚键区域）。
+- 新增 `body.immersive-mode.wco-active.wco-track-card-hidden .imm-track-card { display: none; }`，顶部 WCO 标题栏已有曲目标题，原 `.imm-track-card` 冗余，故隐藏。
+- 其它状态（竖屏沉浸 / 横屏无 WCO）保留原状。
+- `.wco-actions-slot` 与内部按钮均显式 `app-region: no-drag`，修复 Windows PWA 上整条标题栏为拖拽区导致挂载按钮「点击无反应 / 退出按钮无法点击」的问题。
+
+**`js/ui-core.js` `toggleImmersiveMode()` / 方向变化监听**：进入沉浸时按 `matchMedia('(orientation: landscape)').matches && WCO.isActive()` 决定是否挂 `wco-track-card-hidden`；并注册 `matchMedia('(orientation: landscape)').change`（双兼容 `addEventListener` / `addListener`），横竖屏切换时实时重评该类。
+
+### 五、歌词栏滚动条自动隐藏（本版新增）
+**`css/base-layout.css` / `css/style.css`**（`.lrc-viewport` 专属滚动条重写为自动隐藏）：
+- 默认态：滚动条拇指数 `background: rgba(255,255,255,0)`（透明=隐藏），Firefox `scrollbar-color: transparent transparent`。
+- 显示触发：`cursor hover` 经纯 CSS `:hover` 即时淡入；`手动滚动（滚轮/触摸）` 与 `手柄右摇杆滚动歌词` 经 JS 在滚动期间挂 `lrc-scroll-active` 类淡入。
+- 隐藏触发：光标离开 hover 且 右摇杆停止（各自由原有 `handleUserScroll` / `_rsLrcMarkScrolling` 计时器复位）后，`lrc-scroll-active` 移除，拇指背景 `transition: background-color 0.3s` 淡出隐藏。
+- 淡入/淡出动画：WebKit 用 `background-color` 过渡（宽度恒定 4px，规避 WebKit 不支持 `scrollbar-width` 过渡的硬跳）；hover/激活态拇指 `rgba(255,255,255,0.28)`，悬停指向上 `var(--primary)`。
+
+**`js/audio-core.js` `handleUserScroll()`**：新增 `el.lrcView.classList.add('lrc-scroll-active')`，并在 2s 复位计时器内 `remove('lrc-scroll-active')`。
+**`js/gamepad.js` `_rsLrcMarkScrolling()`**：右摇杆滚歌词时 `add('lrc-scroll-active')`，1.5s 停止计时器内 `remove('lrc-scroll-active')`。
+
+### 六、保留英文字体开关位置修正（落到信息右侧）
+**`index.html`**（v3.6.6p2 上一步已把 `#oppoKeepEnglishBox` 从 `#oppoSansWeightBox` 内抽出，独立成块）：
+- **根因**：`js/ui-core.js` `updateSettingsUI()` 原先 `keBox.style.display = cfg.useOppoSans ? 'block' : 'none'` —— inline `display:block` 会**覆盖** `.settings-toggle-card` 类上的 `display:flex`，导致卡片变成块级、主体（标题+说明）与 `toggle-switch` 纵向堆叠，开关落到信息**下方**而非右侧。
+- **修复**：改为 `keBox.style.display = cfg.useOppoSans ? 'flex' : 'none'`，恢复类样式既定的 flex 行布局（主体左、开关右）。「启用 OPPO Sans」卡片无 inline display，故一直正常。
+- 逻辑（开关仅在 `useOppoSans` 开启时显示）与开关事件绑定均不变。
+
+### 验证
+- ✅ `node build.js` 通过。
+- ✅ `read_lints` 多文件 0 错误。
+- ✅ 歌词栏滚动条：光标离场 + 右摇杆未操作自动隐藏；hover / 滚轮触摸 / 手柄右摇杆滚动淡入显示，停止后淡出。
+- ✅ 竖屏模式：自动进入沉浸；主界面大封面（≤280px）+ 紧凑曲目信息；歌词列居中当前行、占主要区域。
+- ✅ 沉浸舱底栏：两行重排（进度+时间+模式 / 播放控制居中）。
+- ✅ 横屏 WCO：关闭键移到标题栏最左；原 `.imm-track-card` 隐藏；竖屏 WCO 维持原状。
+- ✅ 金刚键取色仍由 `theme-color.js` 最新逻辑（`toDarkColor` + 封面取色开关）驱动，不受 WCO 状态门控。
 
 ---
 
@@ -317,8 +362,8 @@ $$R_{左} = G_{左} = B_{左} = L$$
 
 ### 改动
 **`js/audio-core.js`（Phase 4 创作信息模式检测）**：
-1. **`CREDIT_PAT`（单行正则）** 新增角色：`文案、古筝编写、古筝、小提琴编写、小提琴、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢、钢琴、吉他编写、吉他录音师、小提琴独奏、弦乐录音室、人声配唱、录音工程师、人声录音棚、混音录音室、母带后期处理工程师、母带后期录音室、合声`。长词条排在前避免截断。
-2. **「中文角色 + 英文角色」连写支持**：`CREDIT_PAT` 末尾由 `[：:\s]` 改为 `(?:[A-Za-z][A-Za-z .&]*[：:]|[：:\s])`，即在角色后允许一个可选的英文角色名（字母/空格/./&）再接冒号。由此 `词Lyricist：`、`曲Composer：`、`编曲Arranger：`、`钢琴Piano：`、`吉他演奏Guitar Player：`、`弦乐编写String Writing：`、`小提琴独奏Violin Solo：`、`人声配唱Vocal Producer：`、`合声Chorus：`、`录音工程师Recording Engineer：`、`混音录音室Mixing Studio：`、`母带后期处理工程师Mastering Engineer：` 等连写行均可命中，标签保留「中文+英文」双语角色名。
+1. **`CREDIT_PAT`（单行正则）** 新增角色：`文案、古筝编写、古筝、小提琴编写、小提琴、音乐制作、MV制作、粤语歌词协力、粤语指导、特别感谢、钢琴、吉他编写、吉他录音师、小提琴独奏、弦乐录音室、人声配唱、录音工程师、人声录音棚、混音录音室、母带后期处理工程师、母带后期录音室、合声、人声制作、封面设计、企划营销、首席运营`。长词条排在前避免截断。
+2. **「中文角色 + 英文角色」连写支持（含空格）**：`CREDIT_PAT` 末尾由 `[：:\s]` 改为 `(?:\s?[A-Za-z][A-Za-z .&]*[：:]|[：:\s])`，即在角色后允许一个**可选的英文角色名**（字母/空格/./&），且中文角色与英文角色之间允许一个**空格**。由此 `词Lyricist：`（无空格）、`钢琴Piano：`、`人声制作 Vocal Production：`、`混音 Mixing：`、`母带 Mastering：`、`封面设计 Cover Design：`、`制作统筹A&R：` 等连写行均可命中，标签保留「中文+英文」双语角色名（如 `人声制作 Vocal Production`、`混音 Mixing`、`封面设计 Cover Design`、`制作统筹A&R`），值仅取冒号之后的内容。
 3. **`CREDIT_MULTI_PAT`（多角色合并正则）** 同步新增上述角色，支持如 `古筝/古筝编写：紫格`、`作曲/音乐制作：苏逸Suyi`、`贝斯/混音：苏逸Suyi` 这类合并行。
 4. **`OA_OC_PAT`** 新增 `Lyricist`，支持 `Lyricist(中文词)：` 这类「英文角色 + 括号中文注解」格式（与已有 `Arranger(编曲)` / `Producer(制作人)` / `Presented By` 同走 `(\(.+?\))?` 分支，标签保留括号内的中文注解）。
 5. 角色清单仅在 `audio-core.js` 一处维护，已与正则同步。
@@ -328,6 +373,37 @@ $$R_{左} = G_{左} = B_{左} = L$$
 - ✅ Node 单测（第二批 8 行）：作曲/音乐制作、MV制作、键盘、吉他、贝斯/混音、粤语歌词协力、粤语指导、特别感谢 全部 `OK` 命中（含多角色合并 作曲/音乐制作、贝斯/混音）。
 - ✅ Node 单测（第三批 4 行）：`Lyricist(中文词)`、`Arranger(编曲)`、`Producer(制作人)`、`Presented By` 全部 `OK` 命中 `OA_OC_PAT`。
 - ✅ Node 单测（第四批 24 行）：词Lyricist、曲Composer、编曲Arranger、制作人Producer、监制、钢琴Piano、吉他编写、吉他演奏Guitar Player、吉他录音师、弦乐编写String Writing、小提琴独奏Violin Solo、弦乐录音室String Recording Studio、人声配唱Vocal Producer、合声编写Chorus Arranger、合声Chorus、音频编辑Audio Editing、录音工程师Recording Engineer、人声录音棚、混音工程师Mixing Engineer、混音录音室Mixing Studio、母带后期处理工程师Mastering Engineer、母带后期录音室Mastering Studio、OP、SP 全部 `OK` 命中（0 失败），含中文+英文连写与值内 `/`、`@`、`()` 特殊字符。
+- ✅ Node 单测（第五批 5 行）：`人声制作 Vocal Production：Jason Gelchen`、`混音 Mixing：Felix Snow`、`母带 Mastering：Chris Gehringer@Sterling Sound`、`封面设计 Cover Design：Ditto&Medjed`、`制作统筹A&R：Tian` 全部 `OK` 命中（0 失败）；标签正确保留双语（`人声制作 Vocal Production` / `混音 Mixing` / `母带 Mastering` / `封面设计 Cover Design` / `制作统筹A&R`），值不含英文角色与冒号（如 `Jason Gelchen` / `Felix Snow` / `Chris Gehringer@Sterling Sound` / `Ditto&Medjed` / `Tian`），`&` 经 `escapeHTML` 转义。
+- ✅ Node 单测（第六批 2 行）：`企划营销：奔跑怪物`、`首席运营：哇唧唧哇` 全部 `OK` 命中（0 失败），纯中文角色无英文后缀。
+
+### 🎨 创作信息卡片换行 + 强制断行兜底（超长英文/无空格串/& 串不再硬撑卡片宽度）
+
+### 背景
+用户截图（`Written by: Priscilla Rene/Mikkel S.Eriksen/Ori Kaplan/Tor Erik Hermansen/Ori Kaplan/Stargate`）反馈：创作信息卡片在一行展示整串长英文名字，超出 `.lrc-credits` 卡片最大宽度。检查发现根因有两层：
+
+1. **CSS 缺陷**：`.lrc-credits` 用 `width: max-content; max-width: 100%` —— `max-content` 会取「不换行」时最长一行的总宽，导致单行超长英文把卡片撑到歌词栏全宽；同时 `.lrc-credits-val` 的 `overflow: hidden + text-overflow: ellipsis` 与 `word-break: break-all` 互斥，把单行变裁切而不是换行。
+2. **JS 缺陷**：`formatCreditValue` 的强制断行只作用于「按 `/,，、` 拆分后的单个 name > 16 字符」一种情况，对**整串无分隔符的超长值**（如 `Ditto&Medjed&Ditto&Medjed`、单个超长英文名）走 `escapeHTML` 早退分支，**完全没有软换行兜底**。
+
+### 改动
+1. **`css/base-layout.css` `.lrc-credits`** — `max-width: 100%` → `max-width: 480px`，给卡片一个明确上限避免被 max-content 撑满；行高保持。
+2. **`css/base-layout.css` `.lrc-credits-val`** — `overflow-wrap: break-word` → `overflow-wrap: anywhere`（更激进的断点位置），移除 `overflow: hidden + text-overflow: ellipsis`（与 `word-break` 互斥），让 CSS 真正断行。
+3. **`css/base-layout.css` `.lrc-credits-name`** — `word-break: keep-all` → `word-break: break-all`（超长英文名也能断，配合卡片 max-width 限制），`overflow-wrap: anywhere` 保留。
+4. **`js/audio-core.js` `formatCreditValue`** — 新增 `insertSoftBreaks(s)`：对长度 > 16 的字符串每 12 字符插入 `\u200B\u003Cwbr\u003E` 软换行点（HTML 标准 `<wbr>` + 零宽空格双兜底）。三处早退/兜底分支全部接入：
+   - `NON_STANDARD_CREDIT && !sep`（如 `Ditto&Medjed&Ditto&Medjed`、`Christopheranthony...`）→ 走 `insertSoftBreaks(val)`。
+   - `names.length <= 1`（拆完只有一段但总长 > 30）→ 走 `insertSoftBreaks(val)`。
+   - 正常 split 循环内对每个 name 也走 `insertSoftBreaks(name)`。
+   - 所有 `escapeHTML` 后追加 `.replace(/&lt;wbr&gt;/g, '<wbr>')` 还原 HTML 标签（escapeHTML 会把 `<wbr>` 实体化，必须还原）。
+
+### 验证（Node 单测 11 个用例）
+- ✅ **screenshot** `Priscilla Rene/Mikkel S.Eriksen/Ori Kaplan/Tor Erik Hermansen/Ori Kaplan/Stargate`（81 字符）：拆 6 个 name + 5 个 sep，`Tor Erik Hermansen`（17字符）插 1 个 wbr。
+- ✅ **regressionParen** `张紫格紫格紫格紫格紫格/Morri3on(喬凡三)紫格紫格紫格紫格`（33字符）：括号保护生效（`(喬凡三)` 完整保留），wbr 1 个。
+- ✅ **longSingle** `Christopheranthonyjohnsonwhitfieldxxxxxxxx`（42字符）：无分隔符走兜底，3 个 wbr 强制断行。
+- ✅ **longAmp** `Ditto&Medjed&Ditto&Medjed&Ditto&Medjed`（38字符）：`&` 走兜底，3 个 wbr，`&` 经 escapeHTML 转义为 `&amp;`（XSS 安全）。
+- ✅ **cnEnSpaces** `徐秉龙Barry Xu/叶琼琳Julia Ye/黎子琨Bruce Lee`（36字符）：拆 3 个 name + 2 个 sep，每个 name ≤ 16 字符不插 wbr，符合预期。
+- ✅ **shortNoOp** `Sihan/林俊杰`（9字符 ≤ 30）：早退 escapeHTML，不操作。
+- ✅ **veryShort** `小驴`（2字符）/ **empty**（0字符）/ **ampersand** `Chris Gehringer@Sterling Sound`（30字符）/ **longZhMix** `Chester Charles Bennington`（26字符）：均在 ≤ 30 阈值内走 escapeHTML 直通，无 wbr。
+- ✅ CSS 限制 `.lrc-credits` 卡片最大 480px 后，任何 > 480px 的单行在 `.lrc-credits-val` + `.lrc-credits-name` 双 `break-all` 兜底下都会换行，不再撑满歌词栏。
+- ⚠️ 提醒：此换行逻辑作用于所有创作信息卡（包括 [00:00.00] 注入的整块创作信息），不影响歌词正文。
 - ✅ `紫格/Morri3on(喬凡三)` 的括号由 `formatCreditValue` 括号保护逻辑整体保留，渲染为 `紫格` + `Morri3on(喬凡三)` 两个完整名字，不被误拆。
 - ⚠️ 提醒：这些创作信息须写入 LRC 文件头部（如 `[文案：偏生梓归]`）才会被解析器读取；纯文本备注不会被解析。
 

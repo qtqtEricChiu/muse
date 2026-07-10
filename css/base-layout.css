@@ -269,11 +269,23 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     scroll-behavior: smooth; 
     width: 100%;
 }
-/* 🩹 v3.5.0: 歌词栏专属自定义滚动条 — 适配玻璃态美学 */
+/* 🚀 v3.6.6p2: 歌词栏滚动条自动隐藏 —— 无 hover / 无手动滚动 / 右摇杆未操作时隐藏；
+   光标 hover 或 手动滚动（滚轮/触摸）/ 手柄右摇杆滚动歌词 时淡入显示（transition 动画） */
+.lrc-viewport { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .lrc-viewport::-webkit-scrollbar { width: 4px; }
 .lrc-viewport::-webkit-scrollbar-track { background: transparent; }
-.lrc-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; transition: background 0.3s; }
-.lrc-viewport::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+.lrc-viewport::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0);
+    border-radius: 3px;
+    transition: background-color 0.3s var(--curve-smooth, cubic-bezier(0.4,0,0.2,1));
+}
+.lrc-viewport:hover::-webkit-scrollbar-thumb,
+.lrc-viewport.lrc-scroll-active::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); }
+.lrc-viewport:hover::-webkit-scrollbar-thumb:hover,
+.lrc-viewport.lrc-scroll-active::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+/* Firefox 回退：hover / 滚动激活时显色（无动画） */
+.lrc-viewport:hover,
+.lrc-viewport.lrc-scroll-active { scrollbar-color: rgba(255,255,255,0.28) transparent; }
 /* 🩹 v3.5.1: 过渡回滚统一 transition:all，入场出场同步丝滑；弹簧曲线/呼吸辉光造成出场抖动/辉光突兀终止已移除 */
 .lrc-line {
     font-size: var(--lrc-font-size);
@@ -442,8 +454,9 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     line-height: 1.7;
     opacity: 0.75;
     /* 🩹 v3.6.6p2: 关键修复 —— 让卡片按内容宽度自适应，`margin: 0 auto` 才能真正居中 */
+    /* 🩹 v3.6.7: 关键修复 —— 给 max-width 一个明确上限（480px），避免单行超长英文把卡片撑满歌词栏；name 仍按 max-content 排版，超出卡片宽度时由 .lrc-credits-val 的 break-all + name 的 overflow-wrap:anywhere 强制换行 */
     width: max-content;
-    max-width: 100%;
+    max-width: 480px;
     box-sizing: border-box;
 }
 /* 🚀 v3.6.4: 作为歌词行嵌入歌词流的创作信息卡片，覆盖 lrc-line 默认样式
@@ -506,19 +519,18 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
 .lrc-credits .lrc-credits-val {
     color: var(--text-sub);
     word-break: break-all; /* 兜底：极长单名仍可断 */
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere; /* 🩹 v3.6.7: 升级 anywhere 让超长英文单词也能在任意位置断行（break-all 只断中文友好、对长单词的断点更激进） */
     min-width: 0;
     flex: 1 1 auto;
     /* 🚀 v3.6.6p1: 值文本始终左对齐 */
     text-align: left;
     line-height: inherit;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* 🩹 v3.6.7: 移除 overflow:hidden + text-overflow:ellipsis —— 之前会与 word-break 互斥导致内容被裁掉；换行由父卡片 max-width 限制 + val break-all 兜底 */
 }
 /* 🚀 v3.6.2: 创作信息名单按分隔符强制换行，保持每个名字/片段完整 */
 .lrc-credits .lrc-credits-name {
     display: inline-block;
-    word-break: keep-all;
+    word-break: break-all; /* 🩹 v3.6.7: 改为 break-all —— 配合卡片 max-width=480px，超长英文名（如 Priscilla Rene/Mikkel S.Eriksen）也能在任意位置断行，不再硬撑卡片宽度 */
     overflow-wrap: anywhere;
     max-width: 100%;
 }

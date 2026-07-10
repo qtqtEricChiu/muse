@@ -482,12 +482,7 @@
             </div>
 
             <div class="imm-bottom">
-                <div class="btn-group-main" style="gap: 16px;">
-                    <button class="btn-ctrl focusable" id="imm-btnPrev" style="width:50px; height:50px; font-size:16px;"><svg class="btn-icon"><use href="#icon-prev"/></svg></button>
-                    <button class="btn-ctrl btn-play focusable" id="imm-btnPlay" style="width:64px; height:64px; font-size:24px;"><svg class="btn-icon"><use href="#icon-play"/></svg></button>
-                    <button class="btn-ctrl focusable" id="imm-btnNext" style="width:50px; height:50px; font-size:16px;"><svg class="btn-icon"><use href="#icon-next"/></svg></button>
-                </div>
-                <div style="flex: 1;">
+                <div class="imm-bottom-row">
                     <div class="progress-area" id="imm-progArea" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
                         <div class="prog-bg"><div class="prog-fill" id="imm-progFill"></div></div>
                         <div class="ab-marker a" id="imm-abMarkerA" style="display:none;"></div>
@@ -497,10 +492,16 @@
                     </div>
                     <!-- 🔥 v3.0.0: 沉浸模式时间显示（与主界面对齐） -->
                     <div class="time-labels">
-                        <span id="immTimeCur">0:00</span><span id="immTimeTot">0:00</span>
+                        <span id="immTimeCur">0:00</span>
+                        <span id="immTimeTot">0:00</span>
                     </div>
+                    <button class="btn-mode focusable" id="imm-btnMode" title="播放模式">⇄</button>
                 </div>
-                <button class="btn-mode focusable" id="imm-btnMode" title="播放模式">⇄</button>
+                <div class="btn-group-main imm-bottom-controls">
+                    <button class="btn-ctrl focusable" id="imm-btnPrev"><svg class="btn-icon"><use href="#icon-prev"/></svg></button>
+                    <button class="btn-ctrl btn-play focusable" id="imm-btnPlay"><svg class="btn-icon"><use href="#icon-play"/></svg></button>
+                    <button class="btn-ctrl focusable" id="imm-btnNext"><svg class="btn-icon"><use href="#icon-next"/></svg></button>
+                </div>
             </div>
         </div>
         <!-- 沉浸模式退出箭头 -->
@@ -664,16 +665,18 @@
                         <button class="btn-glass focusable oppoSansWeightBtn" data-weight="R">R · Regular</button>
                         <button class="btn-glass focusable oppoSansWeightBtn" data-weight="M">M · Medium</button>
                     </div>
-                    <div id="oppoKeepEnglishBox" class="settings-toggle-card" style="display:none;">
-                        <div class="settings-toggle-card-body">
-                            <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-type"/></svg> 保留英文字体</span>
-                            <span class="settings-toggle-card-desc">OPPO Sans 仅替换中文字体，英文使用原有 CDN 字体</span>
-                        </div>
-                        <label class="toggle-switch focusable" tabindex="0">
-                            <input type="checkbox" id="oppoKeepEnglishToggle">
-                            <span class="toggle-slider"></span>
-                        </label>
+                </div>
+                <!-- 🚀 v3.6.6p2: 保留英文字体开关独立成块（与「启用 OPPO Sans + 字重」视觉分离），
+                     仍归入 OPPO Sans 启用时的二级开关（隐藏逻辑由 ui-core.js 维持） -->
+                <div id="oppoKeepEnglishBox" class="settings-toggle-card" style="display:none;">
+                    <div class="settings-toggle-card-body">
+                        <span class="settings-toggle-card-title"><svg class="ui-ico"><use href="#icon-type"/></svg> 保留英文字体</span>
+                        <span class="settings-toggle-card-desc">OPPO Sans 仅替换中文字体，英文使用原有 CDN 字体</span>
                     </div>
+                    <label class="toggle-switch focusable" tabindex="0">
+                        <input type="checkbox" id="oppoKeepEnglishToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
             </div>
             <div class="drawer-box" id="audioOutputBox" style="display:none;">

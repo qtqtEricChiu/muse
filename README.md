@@ -183,7 +183,13 @@
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
 
-### v3.6.6p1 (2026-07-10) — WCO 整窗居中+竖屏靠左 / WCO 沉浸舱按钮挂载槽 / 竖屏模式全面优化 / Spotify 风格歌词 / 创作信息卡片对齐修正（最新）
+### v3.6.6p2 (2026-07-11) — 歌词栏滚动条自动隐藏 + 创作信息卡片居中修复 + 竖屏 Spotify 风格布局 + 沉浸舱底栏重设计 + 横屏 WCO 关闭键左移（最新）
+
+- **创作信息卡片居中修复**：`.lrc-credits` 改 `width: max-content; max-width:100%; margin:0 auto 16px` —— 卡片按内容自然宽度真正居中（此前 `width:100%` 让 `margin:0 auto` 失效）
+- **竖屏模式 Spotify 风格布局**：`.player-wrapper` 竖屏 `100vw/100vh/border-radius:0`，`.content-grid` 更紧凑；顶部曲目信息 56px 封面横排，隐藏频谱画布
+- **歌词栏滚动条自动隐藏** + **沉浸舱底栏重设计** + **横屏 WCO 关闭键左移**（详见 CHANGELOG.md）
+
+### v3.6.6p1 (2026-07-10) — WCO 整窗居中+竖屏靠左 / WCO 沉浸舱按钮挂载槽 / 竖屏模式全面优化 / Spotify 风格歌词 / 创作信息卡片对齐修正
 
 - **WCO 标题整窗居中 + 竖屏靠左**：`.wco-titlebar .wco-track-title` 改为 `left:0; width:100vw; text-align:center`（不减去金刚键宽度，文本始终对整窗 100vw 中线居中；`padding: 0 140px` 留出金刚键/左侧 header 空间）；新增 `@media (max-aspect-ratio: 1/1) { text-align: left; padding: 0 0 0 110px }` —— 竖屏模式允许靠左对齐，让位主界面 header 居中标题
 - **WCO 沉浸舱按钮挂载槽**：`index.html` 新增 `<div id="wcoActionsSlot">`；`js/wco.js` 新增 `WCO.mountActions(node)` / `unmountActions()` —— **移动 DOM**（非 clone，避免 onclick 监听丢失）把 `.imm-topbar .imm-header-actions` 移入 WCO 标题栏右侧；`toggleImmersiveMode()` 进入时 mount，退出时 unmount；WCO 关闭时自动兜底 unmount

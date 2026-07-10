@@ -66,8 +66,16 @@
 .imm-bottom {
     background: rgba(20, 17, 30, 0.85);
     border-radius: 28px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-    padding: 24px 40px; max-width: 850px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 30px;
+    padding: 16px 28px; max-width: 850px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 12px;
 }
+/* 🔥 v3.6.6p3: 沉浸模式底部栏内层布局 —— 上行 进度+时间+模式；下行 播放控制居中 */
+.imm-bottom-row { display: flex; align-items: center; gap: 14px; }
+.imm-bottom-row .progress-area { flex: 1; min-width: 0; padding: 0; }
+.imm-bottom-row .time-labels { flex-shrink: 0; min-width: 96px; display: flex; justify-content: space-between; gap: 4px; font-variant-numeric: tabular-nums; }
+.imm-bottom-row .btn-mode { flex-shrink: 0; min-width: 40px; }
+.imm-bottom .imm-bottom-controls { gap: 22px; justify-content: center; padding: 2px 0 0; }
+.imm-bottom #imm-btnPrev, .imm-bottom #imm-btnNext { width: 50px; height: 50px; font-size: 16px; }
+.imm-bottom #imm-btnPlay { width: 64px; height: 64px; font-size: 24px; }
 
 .imm-exit-hint {
     position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 20;

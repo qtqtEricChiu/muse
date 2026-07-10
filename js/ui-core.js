@@ -347,6 +347,23 @@ el.viewImm.addEventListener('touchend', (e) => {
 });
 el.immExitHint.onclick = toggleImmersiveMode;
 
+// 🔥 v3.6.6p3: 沉浸模式下屏幕方向/WCO 状态变化时，重新评估 wco-track-card-hidden 类
+// （用户在沉浸中横竖屏切换时，actions-slot 位置 + .imm-track-card 显示状态应同步更新）
+if (window.matchMedia) {
+    const mqlLand = window.matchMedia('(orientation: landscape)');
+    const reevalWcoImmersive = () => {
+        if (!isImmersiveMode) return;
+        const isLandscape = mqlLand.matches;
+        const wcoOn = typeof WCO !== 'undefined' && WCO.isActive && WCO.isActive();
+        if (isLandscape && wcoOn) document.body.classList.add('wco-track-card-hidden');
+        else document.body.classList.remove('wco-track-card-hidden');
+    };
+    // 旧浏览器 addListener / 新浏览器 addEventListener 双兼容
+    if (mqlLand.addEventListener) mqlLand.addEventListener('change', reevalWcoImmersive);
+    else if (mqlLand.addListener) mqlLand.addListener(reevalWcoImmersive);
+}
+
+
 function updateModeUI() {
     let icon, label;
     if (isRepeatOne) {
@@ -404,7 +421,8 @@ function updateSettingsUI() {
     const keToggle = document.getElementById('oppoKeepEnglishToggle');
     if (keToggle) keToggle.checked = cfg.oppoKeepEnglish;
     const keBox = document.getElementById('oppoKeepEnglishBox');
-    if (keBox) keBox.style.display = cfg.useOppoSans ? 'block' : 'none';
+    // v3.6.6p2: 必须用 flex（与 .settings-toggle-card 的 display:flex 一致），否则 inline display:block 覆盖类样式，开关会落到信息下方
+    if (keBox) keBox.style.display = cfg.useOppoSans ? 'flex' : 'none';
     applyOppoSans();
 }
 
@@ -1421,9 +1439,18 @@ function toggleImmersiveMode() {
             const actionsNode = document.querySelector('.imm-topbar .imm-header-actions');
             if (actionsNode) WCO.mountActions(actionsNode);
         }
+        // 🔥 v3.6.6p3: 横屏沉浸 + WCO 启用 → actions-slot 改到最左边 + 隐藏 .imm-track-card
+        // （顶部 WCO 标题栏已有曲目标题，原 .imm-track-card 在此处冗余）
+        const isLandscape = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+        const wcoOn = typeof WCO !== 'undefined' && WCO.isActive();
+        if (isLandscape && wcoOn) {
+            document.body.classList.add('wco-track-card-hidden');
+        } else {
+            document.body.classList.remove('wco-track-card-hidden');
+        }
     } else {
         el.viewImm.classList.add('hidden'); el.viewMain.classList.remove('hidden');
-        document.body.classList.remove('immersive-mode');
+        document.body.classList.remove('immersive-mode', 'wco-track-card-hidden');
         document.body.style.background = 'var(--bg-dark)';
         // 清理沉浸canvas - 修复canvas残留
         immCanvasCleared = true;

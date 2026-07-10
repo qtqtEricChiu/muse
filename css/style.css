@@ -261,11 +261,21 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
     scroll-behavior: smooth; 
     width: 100%; /* 限制最大宽度 */
 }
-/* 🩹 v3.5.0: 歌词栏专属自定义滚动条 */
+/* 🚀 v3.6.6p2: 歌词栏滚动条自动隐藏（与 base-layout.css 同步 —— 该文件后加载为权威实现） */
+.lrc-viewport { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .lrc-viewport::-webkit-scrollbar { width: 4px; }
 .lrc-viewport::-webkit-scrollbar-track { background: transparent; }
-.lrc-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; transition: background 0.3s; }
-.lrc-viewport::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+.lrc-viewport::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0);
+    border-radius: 3px;
+    transition: background-color 0.3s var(--curve-smooth, cubic-bezier(0.4,0,0.2,1));
+}
+.lrc-viewport:hover::-webkit-scrollbar-thumb,
+.lrc-viewport.lrc-scroll-active::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); }
+.lrc-viewport:hover::-webkit-scrollbar-thumb:hover,
+.lrc-viewport.lrc-scroll-active::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+.lrc-viewport:hover,
+.lrc-viewport.lrc-scroll-active { scrollbar-color: rgba(255,255,255,0.28) transparent; }
 .lrc-line { 
     font-size: var(--lrc-font-size); 
     line-height: var(--lrc-line-height); 
@@ -860,34 +870,82 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     .cover-album-art { width: 60px; height: 60px; }
 }
 
-/* ================= 🚀 v3.6.6p1 / 🩹 v3.6.6p2: 竖屏模式优化 ================= */
-/* 触发条件：窗口高度 > 宽度（任何视口尺寸，包含 PWA 桌面小窗 / 手机 / 平板） */
+/* ================= 🚀 v3.6.6p1 / 🩹 v3.6.6p2 / 🔥 v3.6.6p3: 竖屏模式优化 ================= */
+/* 触发条件：窗口高度 > 宽度（任何视口尺寸，包含 PWA 桌面小窗 / 手机 / 平板）
+   🔥 v3.6.6p3: 重新设计主界面——Spotify 风格「大封面 + 曲目信息 + 歌词 + 控制」分层 */
 @media (orientation: portrait) {
-    /* === 🩹 v3.6.6p2: 全局竖屏布局调整 —— Spotify 风格 === */
+    /* === 全局竖屏布局 === */
     .player-wrapper { width: 100vw; height: 100vh; border-radius: 0; }
-    .content-grid { flex-direction: column; padding: 8px 14px 0; gap: 6px; align-items: stretch; overflow: hidden; }
-    /* 顶部：紧凑横排的 曲目信息（封面+标题+歌手），隐藏浮动动画 */
-    .col-album { flex-direction: row; align-items: center; gap: 12px; width: 100%; max-width: 100%; justify-content: flex-start; flex: 0 0 auto; padding: 4px 0; }
-    .col-album .art-box { width: 56px; height: 56px; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.4); animation: none; flex-shrink: 0; }
-    .col-album .track-info { text-align: left; flex: 1; min-width: 0; }
-    .col-album .track-title { font-size: 15px; margin-bottom: 2px; -webkit-line-clamp: 1; line-height: 1.2; }
-    .col-album .track-artist { font-size: 12px; opacity: 0.7; }
-    /* 🩹 v3.6.6p2: 隐藏频谱（占纵向大且在窄屏意义不大），点击进入沉浸的 hint 也隐藏 */
+    .content-grid {
+        flex-direction: column;
+        padding: 10px 16px 0;
+        gap: 10px;
+        align-items: stretch;
+        overflow: hidden;
+    }
+    /* 🔥 v3.6.6p3: 专辑列 —— 大封面居中（Spotify 风格）+ 下方曲目信息 */
+    .col-album {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0 4px;
+    }
+    /* 封面：占屏幕宽度 ~70%，最高 280px，最小 180px —— 醒目但不大于手机 1/3 屏高 */
+    .col-album .art-box {
+        width: min(70vw, 280px);
+        height: min(70vw, 280px);
+        max-height: 32vh;
+        border-radius: 18px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+        animation: none;
+        flex-shrink: 0;
+    }
+    .col-album .track-info {
+        text-align: center;
+        width: 100%;
+        max-width: 320px;
+    }
+    .col-album .track-title {
+        font-size: 18px;
+        margin-bottom: 4px;
+        -webkit-line-clamp: 1;
+        line-height: 1.25;
+        font-weight: 700;
+    }
+    .col-album .track-artist {
+        font-size: 13px;
+        opacity: 0.7;
+    }
+    /* 隐藏频谱（占纵向大且在窄屏意义不大），点击进入沉浸的 hint 也隐藏 */
     .col-controls .vis-canvas-container { display: none; }
     .col-controls .vis-hint { display: none; }
-    /* 🩹 v3.6.6p2: 控制列移到歌词列下方、紧凑底栏 */
-    .col-controls { width: 100%; max-width: 100%; gap: 4px; flex: 0 0 auto; order: 3; padding: 0 0 8px; }
-    .col-controls .progress-area { padding: 2px 0; order: 1; }
+    /* 控制列：移到歌词列下方、紧凑底栏 */
+    .col-controls { width: 100%; max-width: 100%; gap: 6px; flex: 0 0 auto; order: 3; padding: 0 0 6px; }
+    .col-controls .progress-area { padding: 2px 4px; order: 1; }
     .col-controls .time-labels { font-size: 10px; margin-top: 2px; }
-    .col-controls .btn-group-main { gap: 10px; order: 2; }
-    .col-controls .btn-group-main .btn-ctrl { width: 40px; height: 40px; font-size: 13px; }
-    .col-controls .btn-group-main .btn-play { width: 56px; height: 56px; font-size: 20px; }
-    .col-controls .btn-group-sub { gap: 6px; order: 3; }
-    .col-controls .vol-control { padding: 4px 8px; margin-left: 0; flex: 1; }
+    .col-controls .btn-group-main { gap: 14px; order: 2; padding: 4px 0; }
+    .col-controls .btn-group-main .btn-ctrl { width: 44px; height: 44px; font-size: 14px; }
+    .col-controls .btn-group-main .btn-play { width: 60px; height: 60px; font-size: 22px; }
+    .col-controls .btn-group-sub { gap: 8px; order: 3; }
+    .col-controls .vol-control { padding: 6px 10px; margin-left: 0; flex: 1; }
     .col-controls .vol-control .btn-icon { width: 14px; height: 14px; }
-    /* 🩹 v3.6.6p2: 歌词列在中间、占主要区域 */
-    .col-lyrics { width: 100%; max-width: 100%; flex: 1 1 auto; min-height: 0; max-height: none; mask-image: none; -webkit-mask-image: none; order: 2; }
-    .lrc-viewport { padding: 8px 8px; }
+    /* 歌词列：中间、占主要区域（当前行 15px、激活行 1.15× 跳变） */
+    .col-lyrics {
+        width: 100%;
+        max-width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+        mask-image: none;
+        -webkit-mask-image: none;
+        order: 2;
+        background: rgba(0, 0, 0, 0.12);
+    }
+    .lrc-viewport { padding: 8px 10px; }
     .lrc-line { font-size: 15px; line-height: 1.6; min-height: 28px; padding: 0 6px; }
     .lrc-line.active { font-size: calc(15px * 1.15); }
     .lrc-spacer-top { height: clamp(80px, 20vh, 160px); }
@@ -903,18 +961,30 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     .imm-lyrics-center { width: 96%; }
     .imm-subtitle-line { font-size: clamp(20px, 4.5vw, 28px) !important; line-height: 1.3; }
     .imm-subtitle-line.next { font-size: clamp(14px, 3vw, 18px) !important; }
-    /* 底部控制：单行紧凑 */
-    .imm-bottom { padding: 12px 16px; gap: 10px; max-width: 100%; border-radius: 20px; }
-    .imm-bottom .btn-ctrl { width: 38px; height: 38px; font-size: 13px; }
-    .imm-bottom .btn-play { width: 50px; height: 50px; font-size: 20px; }
-    .imm-bottom .time-labels { font-size: 10px; }
-    .imm-bottom .btn-mode { width: 34px; height: 34px; min-width: 34px; }
-    .imm-exit-hint { bottom: 6px; font-size: 14px; }
+    /* 🔥 v3.6.6p3: 底部控制紧凑重设计 —— 2 行：上行 进度+时间+模式 紧凑一行；下行 播放控制居中 */
+    .imm-bottom {
+        flex-direction: column;
+        padding: 10px 14px 12px;
+        gap: 6px;
+        max-width: 100%;
+        border-radius: 18px;
+        align-items: stretch;
+    }
+    .imm-bottom .btn-group-main { gap: 18px; justify-content: center; padding: 4px 0 2px; }
+    .imm-bottom .btn-ctrl { width: 42px; height: 42px; font-size: 14px; }
+    .imm-bottom .btn-play { width: 56px; height: 56px; font-size: 22px; }
+    /* 进度条区域：单行布局（进度条 + 时间 + 模式） */
+    .imm-bottom > div[style*="flex: 1"] { display: flex; align-items: center; gap: 8px; }
+    .imm-bottom .progress-area { padding: 0; flex: 1; min-width: 0; }
+    .imm-bottom .time-labels { font-size: 10px; flex-shrink: 0; min-width: 80px; display: flex; justify-content: space-between; gap: 4px; }
+    .imm-bottom .time-labels span { font-variant-numeric: tabular-nums; }
+    .imm-bottom .btn-mode { width: 36px; height: 36px; min-width: 36px; flex-shrink: 0; }
+    .imm-exit-hint { bottom: 4px; font-size: 14px; opacity: 0.35; }
     /* 沉浸模式顶部留出 WCO 标题栏高度（WCO 启用时） */
     body.wco-active.immersive-mode .imm-wrapper { padding-top: env(titlebar-area-height, 0); }
     /* 主页脚：紧凑 */
     .footer { padding: 6px 14px; font-size: 10px; }
-    /* 🩹 v3.6.6p2: 头部紧凑（与曲目行呼应） */
+    /* 头部紧凑（与曲目行呼应） */
     .header { padding: 10px 14px; }
     .brand { font-size: 16px; }
     .nav-actions { gap: 4px; }
