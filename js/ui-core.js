@@ -1412,11 +1412,18 @@ function toggleImmersiveMode() {
 
     if (isImmersiveMode) {
         el.viewMain.classList.add('hidden'); el.viewImm.classList.remove('hidden');
+        document.body.classList.add('immersive-mode');
         document.body.style.background = 'var(--bg-darker)';
         immCanvasCleared = false;
         showToast("已进入沉浸式音乐舱", iconSvg('rocket'));
+        // 🚀 v3.6.6p1: WCO 启用 + 沉浸模式 → 把顶部常用按钮（退出/列表/曲库）挂到标题栏右侧
+        if (typeof WCO !== 'undefined' && WCO.isActive() && typeof WCO.mountActions === 'function') {
+            const actionsNode = document.querySelector('.imm-topbar .imm-header-actions');
+            if (actionsNode) WCO.mountActions(actionsNode);
+        }
     } else {
         el.viewImm.classList.add('hidden'); el.viewMain.classList.remove('hidden');
+        document.body.classList.remove('immersive-mode');
         document.body.style.background = 'var(--bg-dark)';
         // 清理沉浸canvas - 修复canvas残留
         immCanvasCleared = true;
@@ -1427,6 +1434,8 @@ function toggleImmersiveMode() {
         flowField = []; // 🚀 v2.7-preview2 P1: 释放流场大数组
         // 🚀 v3.4.3: 返回主界面立即强制流沙背景重绘，避免「返回后卡顿一秒才显示」
         if (typeof forceMainRedraw === 'function') forceMainRedraw();
+        // 🚀 v3.6.6p1: 退出沉浸模式时卸载 WCO 标题栏挂载的按钮
+        if (typeof WCO !== 'undefined' && typeof WCO.unmountActions === 'function') WCO.unmountActions();
     }
     updateFocusContext();
 

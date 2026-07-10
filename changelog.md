@@ -2,25 +2,68 @@
 
 ---
 
-## v3.6.7 (2026-07-10) — 重新启用 WCO「绝对水平居中歌曲标题」（仅保留此项 Chrome 标题栏状态特性）
+## v3.6.6p1 (2026-07-10) — WCO 整窗居中+竖屏靠左 / WCO 沉浸舱按钮挂载槽 / 竖屏模式全面优化 / Spotify 风格歌词 / 创作信息卡片对齐修正
+
+> 本次合并原 v3.6.7（WCO 绝对水平居中曲目标题）并补充 6 项图示优化，统一为 v3.6.6p1。
 
 ### 背景
-v3.6.6 移除了所有「判断 Chrome 标题栏状态（WCO 是否隐藏原生标题栏）」相关逻辑，连同原本依赖该状态的「WCO 标题栏完全窗口水平居中」也随之失效（v3.6.5 起 `.wco-track-title` 被 `display:none` 隐藏）。用户重新评估后认为该标题居中仍有价值，要求加回「Chrome 标题栏状态」判断，但仅保留「绝对水平居中歌曲标题」这一项；其余两项（导航按钮迁移至标题栏、标题栏伪沉浸顶部取色）维持移除。金刚键取色始终由最新版 `theme-color.js` 逻辑驱动，不受 WCO 状态门控。
+1. WCO 标题栏的曲目标题当前 `left:50% + translateX(-50%)` 配合 `max-width: calc(100vw - 220px)`，在 100vw 减去金刚键宽度后居中——视觉上偏左。改为**对整窗宽度（100vw）的中线绝对居中**，金刚键区仅以 padding 形式避让，标题文本始终位于整窗中点。竖屏模式（高度 > 宽度）允许靠左对齐以避免与主界面 header 居中标题重复。
+2. WCO 启用时（Chrome 隐藏原生标题栏），沉浸模式部分按钮可挂到 WCO 标题栏右侧，腾出底部空间。
+3. 竖屏模式（PWA 窄窗 / 手机）下主界面、歌词页、沉浸模式均需更紧凑的布局。
+4. 竖屏播放页（主界面+歌词）采用 Spotify 风格：当前行默认在视口居中、不下滑即可见，下滑可显示完整歌词。
+5. 创作信息卡片在歌词栏中整体偏左、内容居中——按用户要求改为：卡片在歌词栏内始终**水平居中**；卡片内文（标题/标签/值）始终**左对齐**，不再受 `--lrc-align` 影响。
 
-### 改动
-1. **CSS（`css/wco.css`）**：
-   - 原「`.wco-brand` / `.wco-track-title` / `.wco-nav` 全部 `display:none`」拆分为：仅隐藏 `.wco-brand` 与 `.wco-nav`（主界面 `.header` 既有呈现不变）。
-   - 新增 `.wco-titlebar .wco-track-title`：曲目标题 `position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%)` 于整窗中线**绝对水平（并垂直）居中**；`max-width: calc(100vw - 220px)` 预留右侧系统金刚键空间避免压字；`pointer-events: none` 不阻挡标题栏拖拽，`app-region: drag` 仍使整条可拖。
-   - 更新文件头版本号与注释（v3.6.7），说明仅保留居中标题、其余 WCO 状态特性已移除。
-2. **JS / 取色逻辑（无需改动，仅确认）**：
-   - 金刚键（系统窗口控制按钮）背景始终由 `<meta name="theme-color">` 驱动（v3.6.6 的 `toDarkColor` 算法 + 封面取色开关门控），**不**受 WCO 可见性判断影响 —— 符合「金刚键取色始终遵循最新版本标题栏取色逻辑」。
-   - `js/wco.js` 的 `setTrack` / `_syncTrackTitle` 接线自 v3.6.5 起已保留（`audio-core.js` 切歌调用 `WCO.setTrack`、`app.js` 调用 `WCO.init()`），标题栏标题随切歌即时刷新。
+### 一、WCO 标题整窗居中 + 竖屏靠左
+**`css/wco.css`**：
+- `.wco-titlebar .wco-track-title`：`left: 0; width: 100vw; text-align: center; transform: translateY(-50%)`（**整窗铺满 + 文本中线居中**，不再 `left:50% + translateX(-50%)` 配合 `max-width` 偏左）；`padding: 0 140px` 留出金刚键与左侧 header 空间；`overflow:hidden + text-overflow:ellipsis` 保证超长标题裁切。
+- 新增 `@media (max-aspect-ratio: 1/1) { .wco-titlebar .wco-track-title { text-align: left; padding: 0 0 0 110px; } }` —— 竖屏模式允许靠左对齐。
+- 移除原 v3.6.7 的 `left:50% + translateX(-50%) + max-width: calc(100vw - 220px)` 实现。
+
+### 二、WCO 沉浸舱按钮挂载槽（`WCO.mountActions` / `unmountActions`）
+**`index.html`**：在 `#wco-titlebar` 内新增 `<div class="wco-actions-slot" id="wcoActionsSlot" style="display:none;">`。
+**`js/wco.js`**：
+- 新增 `WCO.mountActions(node)`：把节点从源容器**移动**（非 clone 避免监听丢失）到 `#wcoActionsSlot`；保存 `_moveSource` / `_moveNextSibling` 供卸载时还原位置；WCO 未启用时直接 `return false`。
+- 新增 `WCO.unmountActions()`：把节点**移回**源容器原位置（或兜底移回 `document.body`），隐藏 slot。
+- 关闭 WCO 时（`_disable`）自动 `unmountActions()` 兜底。
+
+**`js/ui-core.js` `toggleImmersiveMode()`**：
+- 进入沉浸模式时，若 `WCO.isActive()` 则 `WCO.mountActions(document.querySelector('.imm-topbar .imm-header-actions'))` —— 把退出按钮等挂到 WCO 标题栏右侧。
+- 退出沉浸模式时 `WCO.unmountActions()` 还原。
+- 进入沉浸模式时 `document.body.classList.add('immersive-mode')`（用于 CSS hook 调整沉浸模式顶部 padding），退出时移除。
+
+**`css/wco.css`**：新增 `.wco-actions-slot` 样式：定位于标题栏右侧（`right: 140px` 让出金刚键）、`pointer-events: auto`、内部按钮 28–30px 紧凑尺寸；竖屏 `@media (max-aspect-ratio: 1/1)` 下 `display: none`（让位给主界面 header）。
+
+### 三、竖屏模式全面优化
+**`css/style.css` 新增 `@media (orientation: portrait)` 大块**（与 UA 无关 —— 任何 PWA / 浏览器竖屏窗口都生效）：
+- **主界面**：3 列垂直堆叠；专辑/曲目信息横排紧凑（88×88 圆角封面 + 左侧 18px 标题）；控制列单列（频谱 44px、按钮 44/60/38px、底栏 8px 间距）；歌词列占主要纵向区域（`flex: 1 1 auto; min-height: 38vh; max-height: 52vh`），**无 mask-image** —— 完整可视。
+- **沉浸模式**：track-card 紧凑（50×50 封面 + 14px padding + 16px 标题）；`imm-icon-btn` 42px；`imm-subtitle-line` 字号 `clamp(22px, 5vw, 30px)`；底栏 56px 播放键、38px 模式键、紧凑 padding。
+- **沉浸模式顶部 WCO 兼容**：`body.wco-active.immersive-mode .imm-wrapper { padding-top: env(titlebar-area-height, 0); }` —— WCO 启用时为沉浸模式让出顶部 WCO 标题栏高度。
+
+**`js/app.js`**：移除「仅移动端 UA 才自动竖屏进入沉浸模式」的限制（`/Android|webOS|.../` 检测），改为**任何 PWA / 浏览器**在 `matchMedia("(orientation: portrait)")` 匹配时自动进入沉浸模式，横屏自动退出。
+
+### 四、Spotify 风格竖屏播放页歌词
+**`js/audio-core.js` `loadLrc`**：在 `el.lrcView.scrollTop = 0` 后新增 `if (el.lrcPanel.style.display !== 'none') syncLyrics(true);` —— 切歌/打开歌词时立即把当前行居中（此前是 `scrollTop=0` 即第一行在顶部，违反 Spotify 风格「不下滑可见当前行」）。
+
+**`css/style.css` 竖屏块内**：
+- `.lrc-viewport { padding: 14px 10px; }`
+- `.lrc-spacer-top { height: clamp(120px, 30vh, 220px); }` 与 `.lrc-spacer-bottom { height: clamp(80px, 22vh, 160px); }` —— 缩短首尾 spacer 高度，让当前行有更大滚动空间但仍能保持居中。
+
+### 五、创作信息卡片对齐修正
+**`css/base-layout.css`**：
+- `.lrc-credits`：`align-self: center; margin: 0 auto 18px; text-align: left` —— 卡片在歌词栏中**始终水平居中**，文字始终左对齐（不再用 `var(--lrc-align)` 跟随歌词对齐方式）。
+- `.lrc-credits .lrc-credits-row`：`justify-content: flex-start` —— 标签+值整体左对齐。
+- `.lrc-credits .lrc-credits-title` / `.lrc-credits .lrc-credits-val`：`text-align: left` —— 标题/值文本左对齐。
+- `.lrc-line.lrc-credits`（嵌入歌词流的卡片形式）：`text-align: center !important` 覆盖歌词行默认对齐，确保卡片在歌词流中也居中（卡片内 `.lrc-credits` 仍左对齐）。
 
 ### 验证
-- ✅ `node build.js` 通过（bundle.min.js 200.8 KB / style.min.css 75.2 KB）。
-- ✅ `read_lints` 0 错误。
-- ✅ WCO 启用（原生标题栏不可见，如 Windows Chrome PWA 开启 WCO）时，标题栏曲目标题对整窗中线绝对水平居中。
-- ✅ 导航按钮迁移、标题栏伪沉浸顶部取色维持移除；金刚键配色始终跟随 `theme-color.js` 最新逻辑。
+- ✅ `node build.js` 通过（bundle.min.js 201.5 KB / style.min.css 78.2 KB）。
+- ✅ `read_lints` 多文件 0 错误。
+- ✅ WCO 启用时：横屏标题对整窗 100vw 中线居中；竖屏标题靠左（让位主界面 header）。
+- ✅ WCO 沉浸模式：退出按钮自动挂到 WCO 标题栏右侧；退出沉浸模式时自动还原到 `.imm-topbar`。
+- ✅ 竖屏模式：自动进入沉浸；主界面 3 列紧凑垂直；歌词列居中当前行、占主要区域。
+- ✅ Spotify 风格：切歌后当前行立即居中（`loadLrc` 末尾 `syncLyrics(true)`），不下滑可见。
+- ✅ 创作信息卡片：歌词栏内水平居中、卡片内文左对齐；不受 `--lrc-align`（歌词对齐方式）影响。
+- ✅ 金刚键取色仍由 `theme-color.js` 最新逻辑（`toDarkColor` + 封面取色开关）驱动，不受 WCO 状态门控。
 
 ## v3.6.6 (2026-07-10) — 合并深色主题取色算法（PWA WCO 标题栏）+ 移除 Chrome 标题栏状态判断 + 沉浸式外观位置调整
 

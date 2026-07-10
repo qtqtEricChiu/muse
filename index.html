@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBolka Player - Ultimate Nexus v3.6.6</title>
+    <title>MBolka Player - Ultimate Nexus v3.6.6p1</title>
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
@@ -351,12 +351,14 @@
 </svg>
 
     <!-- 🚀 v3.5.0: WCO 标题栏 — Windows Chrome PWA 下融入系统标题区域（整窗水平居中 + 跟随封面色沉浸） -->
+    <!-- 🚀 v3.6.6p1: #wcoActionsSlot 用于沉浸模式把常用按钮挂到标题栏右侧（仅 WCO 启用时） -->
     <div id="wco-titlebar" class="wco-titlebar" style="display:none;">
         <div class="wco-drag-region">
             <span class="wco-brand"><svg class="ui-ico"><use href="#icon-music"/></svg></span>
             <span class="wco-track-title" id="wcoTrackTitle">MBolka Player</span>
         </div>
         <div class="wco-nav" id="wcoNav"></div>
+        <div class="wco-actions-slot" id="wcoActionsSlot" style="display:none;"></div>
     </div>
     <!-- 动态背景层 -->
     <div id="bg-layer-img"></div>
@@ -931,7 +933,7 @@
             </div>
                 </div>
                 <div class="settings-footer">
-                    ©MocaBolka 2026 v3.6.6<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
+                    ©MocaBolka 2026 v3.6.6p1<br/>co-created with DeepSeek@Tencent Yuanbao, Gemini 3.1 Pro Preview, CodeBuddy, Marvis, QClaw
                 </div>
             </div>
         </div>

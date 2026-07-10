@@ -295,25 +295,23 @@ async function initApp() {
         }, 150);  // 150ms 防抖
     });
 
-    // 🔥 v2.8.13: 移动端竖屏自动进入沉浸模式
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) {
-        const isPortrait = window.matchMedia("(orientation: portrait)");
-        const handleOrientationChange = (e) => {
-            if (e.matches) {
-                // 竖屏模式，自动进入沉浸模式
-                if (!isImmersiveMode) {
-                    toggleImmersiveMode();
-                }
-            } else {
-                // 横屏模式，退出沉浸模式
-                if (isImmersiveMode) {
-                    toggleImmersiveMode();
-                }
+    // 🔥 v2.8.13: 移动端 / PWA 竖屏自动进入沉浸模式
+    // 🚀 v3.6.6p1: 移除 UA 限制 — 任意 PWA / 浏览器在窗口高度 > 宽度时进入沉浸模式，享受竖屏优化布局
+    const isPortrait = window.matchMedia("(orientation: portrait)");
+    const handleOrientationChange = (e) => {
+        if (e.matches) {
+            // 竖屏模式，自动进入沉浸模式
+            if (!isImmersiveMode) {
+                toggleImmersiveMode();
             }
-        };
-        isPortrait.addEventListener('change', handleOrientationChange);
-        // 初始检查
-        handleOrientationChange(isPortrait);
-    }
+        } else {
+            // 横屏模式，退出沉浸模式
+            if (isImmersiveMode) {
+                toggleImmersiveMode();
+            }
+        }
+    };
+    isPortrait.addEventListener('change', handleOrientationChange);
+    // 初始检查
+    handleOrientationChange(isPortrait);
 }

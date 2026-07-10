@@ -475,6 +475,8 @@ const loadLrc = async (song) => {
         // 🔥 v2.8.10p2: 切歌时歌词滚动归零
         el.lrcView.scrollTop = 0;
         isUserScrollingLyrics = false;
+        // 🚀 v3.6.6p1: 重新触发 syncLyrics 把当前行居中（Spotify 风格 —— 不下滑即可见当前行）
+        if (el.lrcPanel.style.display !== 'none') syncLyrics(true);
     } else {
         el.lrcPanel.style.display = 'none'; el.btnToggleLrc.classList.remove('active');
         el.immLrcCenter.classList.add('hidden');

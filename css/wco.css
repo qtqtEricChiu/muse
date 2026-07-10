@@ -1,11 +1,11 @@
-/* ================= MBolka Player — WCO 标题栏样式 v3.6.7 ================= */
+/* ================= MBolka Player — WCO 标题栏样式 v3.6.6p1 ================= */
 
 /* 🚀 v3.6.5: 左侧自绘标题栏完全透明，直接透出主界面背景，无任何色块背景。
    仅作为拖拽区域（app-region: drag）承载顶部拖拽，并让右侧系统窗口控制按钮（金刚键）
    以 <meta name="theme-color"> 的暗色去饱和版本呈现。
-   🚀 v3.6.7: 重新启用「绝对水平居中歌曲标题」——WCO 标题栏内曲目标题对整窗中线绝对居中；
-   其余 WCO 状态相关特性（导航按钮迁移、标题栏伪沉浸取色）保持移除。金刚键取色始终由
-   js/theme-color.js 的 toDarkColor（封面取色开启时）逻辑驱动，不受 WCO 状态门控。 */
+   🚀 v3.6.6p1: 曲目标题对整窗宽度绝对水平居中（不再减去金刚键宽度）—— 标题文本对整窗中线居中，
+   文字溢出裁切保留；竖屏模式（窗口高度 > 宽度）允许标题靠左对齐以避免与左侧主界面 header 重复。
+   金刚键取色始终由 js/theme-color.js 的 toDarkColor（封面取色开启时）逻辑驱动，不受 WCO 状态门控。 */
 .wco-titlebar {
     position: fixed;
     top: env(titlebar-area-y, 0);
@@ -21,23 +21,23 @@
 }
 
 /* 标题栏内部视觉元素：品牌 / 导航按钮 保持隐藏（由主界面 .header 正常呈现），
-   仅保留「绝对水平居中歌曲标题」——曲目标题对整窗中线绝对居中，作为窗口标题展示。 */
+   仅保留「绝对水平居中歌曲标题」——曲目标题对整窗宽度中线绝对居中。 */
 .wco-titlebar .wco-brand,
 .wco-titlebar .wco-nav {
     display: none;
 }
 
-/* 🚀 v3.6.7: WCO 标题栏「绝对水平居中歌曲标题」——
-   曲目标题对整窗中线绝对居中（left:50% + translateX(-50%)），不进入布局流、不阻挡拖拽。
-   仅作窗口标题展示，提升 WCO 下的信息可读性；右侧系统金刚键背景始终由 <meta name="theme-color"> 驱动。 */
+/* 🚀 v3.6.6p1: WCO 标题栏「整窗绝对水平居中歌曲标题」——
+   标题对整窗宽度的中线绝对居中（不减去金刚键宽度），不进入布局流、不阻挡拖拽。
+   实现方式：整条铺满 + 文字 text-align:center，让标题文本自身居中。
+   overflow:hidden + 单行省略保证超长标题不超出 100vw。 */
 .wco-titlebar .wco-track-title {
     display: block;
     position: absolute;
-    left: 50%;
+    left: 0;
     top: 50%;
-    transform: translate(-50%, -50%);
-    width: max-content;
-    max-width: calc(100vw - 220px);  /* 预留右侧系统金刚键空间，避免长标题压字 */
+    transform: translateY(-50%);
+    width: 100vw;
     text-align: center;
     font-size: 12px;
     font-weight: 600;
@@ -51,6 +51,18 @@
     app-region: drag;
     pointer-events: none;
     z-index: 1;
+    /* 双侧等宽内边距，避免文字在视觉上完全压住金刚键区/左侧 header —— 仅裁切，不影响视觉中线 */
+    padding: 0 140px;
+    box-sizing: border-box;
+}
+
+/* 🚀 v3.6.6p1: 竖屏模式（窗口高度 > 宽度）允许 WCO 标题靠左对齐 —— 与主界面 header 品牌位错开，
+   避免竖屏窄窗下「主界面居中标题 + WCO 居中标题」双重重叠。 */
+@media (max-aspect-ratio: 1/1) {
+    .wco-titlebar .wco-track-title {
+        text-align: left;
+        padding: 0 0 0 110px;  /* 左侧让出主界面 header 品牌位空间 */
+    }
 }
 
 .wco-drag-region {
@@ -69,4 +81,38 @@
    不隐藏、不迁移到标题栏 —— 维持用户原本的界面布局与居中的曲目标题 */
 body.wco-active .player-wrapper {
     padding-top: env(titlebar-area-height, 0);
+}
+
+/* 🚀 v3.6.6p1: WCO 标题栏右侧「沉浸模式按钮挂载槽」
+   沉浸模式（且 WCO 启用）可调用 WCO.mountActions(node) 把常用按钮挂到这里，腾出底部空间。
+   按钮随 WCO 启用而出现，关闭时自动卸载。需让出右侧金刚键约 140px。 */
+.wco-actions-slot {
+    position: absolute;
+    right: 140px;          /* 避开系统金刚键 */
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0 4px;
+    z-index: 2;
+    pointer-events: auto;
+    /* 缩小按钮以适应窄标题栏 */
+}
+.wco-actions-slot .btn-ctrl,
+.wco-actions-slot .btn-mode,
+.wco-actions-slot .imm-icon-btn {
+    width: 28px; height: 28px;
+    font-size: 12px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.wco-actions-slot .imm-icon-btn { width: 30px; height: 30px; }
+.wco-actions-slot .btn-mode { padding: 0 8px; min-width: 32px; }
+.wco-actions-slot .wco-mounted * { pointer-events: auto; }
+
+/* WCO 启用且竖屏时，actions slot 让位给主界面 header，按钮退回沉浸模式底栏 */
+@media (max-aspect-ratio: 1/1) {
+    .wco-actions-slot { display: none !important; }
 }

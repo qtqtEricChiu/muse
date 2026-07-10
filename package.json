@@ -1,6 +1,6 @@
 {
   "name": "mbolka-player",
-  "version": "3.6.6",
+  "version": "3.6.6p1",
   "private": true,
   "scripts": {
     "build": "node build.js"

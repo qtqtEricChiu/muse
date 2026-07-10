@@ -1,8 +1,8 @@
-# MBolka Player - Ultimate Nexus v3.6.6
+# MBolka Player - Ultimate Nexus v3.6.6p1
 
 > 纯前端本地音乐播放器 | 沉浸式视听体验 | 无需后端、无需数据库、打开即用
 
-![Version](https://img.shields.io/badge/version-3.6.6-blue)
+![Version](https://img.shields.io/badge/version-3.6.6p1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20Browser-orange)
 
@@ -183,7 +183,17 @@
 
 > 详细更新日志请参阅 [CHANGELOG.md](./changelog.md)
 
-### v3.6.6 (2026-07-10) — 深色主题取色算法（PWA WCO 标题栏）+ 移除标题栏状态判断 + 沉浸式外观位置调整（最新）
+### v3.6.6p1 (2026-07-10) — WCO 整窗居中+竖屏靠左 / WCO 沉浸舱按钮挂载槽 / 竖屏模式全面优化 / Spotify 风格歌词 / 创作信息卡片对齐修正（最新）
+
+- **WCO 标题整窗居中 + 竖屏靠左**：`.wco-titlebar .wco-track-title` 改为 `left:0; width:100vw; text-align:center`（不减去金刚键宽度，文本始终对整窗 100vw 中线居中；`padding: 0 140px` 留出金刚键/左侧 header 空间）；新增 `@media (max-aspect-ratio: 1/1) { text-align: left; padding: 0 0 0 110px }` —— 竖屏模式允许靠左对齐，让位主界面 header 居中标题
+- **WCO 沉浸舱按钮挂载槽**：`index.html` 新增 `<div id="wcoActionsSlot">`；`js/wco.js` 新增 `WCO.mountActions(node)` / `unmountActions()` —— **移动 DOM**（非 clone，避免 onclick 监听丢失）把 `.imm-topbar .imm-header-actions` 移入 WCO 标题栏右侧；`toggleImmersiveMode()` 进入时 mount，退出时 unmount；WCO 关闭时自动兜底 unmount
+- **竖屏模式全面优化**：`@media (orientation: portrait)` 大块（与 UA 无关，任何 PWA / 浏览器竖窗生效）—— 主界面 3 列紧凑垂直（88×88 圆角封面 + 横排曲目信息、紧凑 44/60/38px 按钮、歌词占主要区域 38–52vh）、沉浸模式 track-card 紧凑（50×50 封面 + 16px 标题 + 42px 退出键 + 56px 播放键）、沉浸模式顶部 WCO 兼容 (`body.wco-active.immersive-mode .imm-wrapper { padding-top: env(titlebar-area-height) }`)
+- **Spotify 风格竖屏播放页歌词**：`loadLrc` 末尾新增 `syncLyrics(true)` —— 切歌/打开歌词时立即把当前行居中（此前 `scrollTop=0` 让第一行在顶部，违反「不下滑可见当前行」）；竖屏 spacer 缩短为 `clamp(120px, 30vh, 220px)` / `clamp(80px, 22vh, 160px)` 留出更大滚动空间
+- **创作信息卡片对齐修正**：`.lrc-credits` 改 `align-self: center; margin: 0 auto 18px; text-align: left` —— 卡片始终在歌词栏水平居中、内容始终左对齐；`.lrc-credits .lrc-credits-row` `justify-content: flex-start`；`.lrc-credits .lrc-credits-title`/`.lrc-credits .lrc-credits-val` `text-align: left`；`.lrc-line.lrc-credits` 嵌入态用 `text-align: center !important` 覆盖歌词行对齐
+- **移除 UA 限制的自动竖屏进入沉浸**：`app.js` 删除 `/Android|webOS|.../` UA 检测，**任何 PWA / 浏览器**在 `matchMedia('(orientation: portrait)')` 匹配时自动进入沉浸模式、横屏自动退出
+- **金刚键取色**仍由 `theme-color.js` 最新逻辑（`toDarkColor` + 封面取色开关）驱动，不受 WCO 状态门控
+
+### v3.6.6 (2026-07-10) — 深色主题取色算法（PWA WCO 标题栏）+ 移除标题栏状态判断 + 沉浸式外观位置调整
 
 - **合并「深色主题取色算法」为 WCO 标题栏取色**：`js/theme-color.js` 引入 `rgbToHsl`/`hslToRgb`/`toDarkColor`（基于 18 组实测拟合，平均通道偏差 4.1/255），将专辑封面亮色 RGB 映射为暗色沉浸底色 `hsl(H,79%,5%)`，粉色区间（H∈[335,360]∪[0,5] 且 S>28%、L>61%）做 −56° 偏移；删除旧的去饱和灰度 `_toGrayscale`
 - **取色逻辑简化**：无论 Chrome 是否隐藏标题栏，只要开启「封面取色」标题栏即运用该算法；关闭则回落主题色（深色 `#0e0c16` / 默认色 / 兜底色）
@@ -763,17 +773,20 @@
 ## 🏗️ 技术架构
 
 ```
-MBolka Player v3.6.6
-├── index.html          - HTML 结构
+MBolka Player v3.6.6p1
+├── index.html          - HTML 结构（含 WCO 标题栏 + #wcoActionsSlot 沉浸模式按钮挂载槽 + 竖屏/横屏响应式布局）
 ├── css/
 │   ├── variables.css   - CSS 自定义属性
-│   ├── base-layout.css - 主界面布局+双语歌词+对齐模式
+│   ├── base-layout.css - 主界面布局 + 双语歌词 + 创作信息卡片（v3.6.6p1 卡片居中+内文左对齐）
 │   ├── components.css  - 通用组件
 │   ├── modals.css      - 弹窗样式
 │   ├── cover-lib.css   - 曲库面板
-│   └── immersive.css   - 沉浸模式+歌词动画
+│   ├── immersive.css   - 沉浸模式 + 歌词动画
+│   └── wco.css         - PWA Window Controls Overlay 标题栏（v3.6.6p1 整窗居中+竖屏靠左+按钮挂载槽）
 ├── js/
-│   ├── app.js          - 主应用（链式双语LRC + 位标志节能机 + LIFO弹窗栈 + Crossfade双轨 + 60fps色相同步）
+│   ├── app.js          - 主应用（链式双语LRC + 位标志节能机 + LIFO弹窗栈 + Crossfade双轨 + 60fps色相同步 + 任意 PWA 竖屏自动进入沉浸）
+│   ├── wco.js          - WCO 标题栏 + 沉浸模式按钮挂载槽 mountActions/unmountActions（v3.6.6p1）
+│   ├── theme-color.js  - PWA 主题色管理（v3.6.6 合并 toDarkColor 深色取色算法）
 │   ├── vibration.js    - 手柄震动反馈引擎（频谱映射 + 自动地板EMA + 双马达独立增益）
 │   └── ...             - 其他辅助模块
 ├── 核心 API
@@ -781,6 +794,7 @@ MBolka Player v3.6.6
 │   ├── Web Audio API 频谱可视化 + EQ/Crossfade 双轨引擎
 │   ├── File System Access API 目录持久化
 │   ├── Document PiP API 画中画
+│   ├── Window Controls Overlay API PWA 标题栏融合（v3.6.6p1 整窗居中+按钮挂载槽）
 │   ├── Canvas 2D 粒子特效系统 + 流沙背景渲染
 │   ├── IndexedDB 元数据缓存 + 目录句柄存储
 │   ├── Web Worker 异步解析
@@ -827,4 +841,4 @@ MIT License
 
 ---
 
-**© MocaBolka 2026 | v3.6.6**
+**© MocaBolka 2026 | v3.6.6p1**

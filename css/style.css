@@ -860,6 +860,57 @@ body.dark-mode .player-wrapper { background: rgba(10,10,22,0.55); }
     .cover-album-art { width: 60px; height: 60px; }
 }
 
+/* ================= 🚀 v3.6.6p1: 竖屏模式优化 ================= */
+/* 触发条件：窗口高度 > 宽度（任何视口尺寸，包含 PWA 桌面小窗 / 手机 / 平板） */
+@media (orientation: portrait) {
+    /* === 主界面：竖屏 3 列 → 垂直紧凑布局 === */
+    .content-grid { flex-direction: column; padding: 12px 14px; gap: 14px; align-items: stretch; }
+    /* 专辑/曲目信息：紧凑横排，节省纵向 */
+    .col-album { flex-direction: row; align-items: center; gap: 16px; width: 100%; max-width: 100%; justify-content: flex-start; }
+    .col-album .art-box { width: 88px; height: 88px; border-radius: 16px; box-shadow: 0 10px 24px rgba(0,0,0,0.4); animation: none; flex-shrink: 0; }
+    .col-album .track-info { text-align: left; flex: 1; }
+    .col-album .track-title { font-size: 18px; margin-bottom: 4px; -webkit-line-clamp: 1; }
+    .col-album .track-artist { font-size: 13px; }
+    /* 控制列：紧凑、单列、Spotify 风格底栏 */
+    .col-controls { width: 100%; max-width: 100%; gap: 12px; flex: 0 0 auto; }
+    .col-controls .vis-canvas-container { height: 44px; margin-bottom: 0; }
+    .col-controls .vis-hint { display: none; }
+    .col-controls .progress-area { padding: 4px 0; }
+    .col-controls .time-labels { font-size: 11px; margin-top: 4px; }
+    .col-controls .btn-group-main { gap: 12px; }
+    .col-controls .btn-group-main .btn-ctrl { width: 44px; height: 44px; font-size: 14px; }
+    .col-controls .btn-group-main .btn-play { width: 60px; height: 60px; font-size: 22px; }
+    .col-controls .btn-group-sub { gap: 8px; }
+    .col-controls .vol-control { padding: 8px 12px; }
+    /* 歌词列：占据主要纵向区域，Spotify 风格——当前行始终居中、下滑可看完整歌词 */
+    .col-lyrics { width: 100%; max-width: 100%; flex: 1 1 auto; min-height: 38vh; max-height: 52vh; mask-image: none; -webkit-mask-image: none; }
+    .lrc-viewport { padding: 14px 10px; }
+    .lrc-spacer-top { height: clamp(120px, 30vh, 220px); }
+    .lrc-spacer-bottom { height: clamp(80px, 22vh, 160px); }
+    /* 沉浸模式：竖屏布局 */
+    .imm-wrapper { padding: 16px 18px; gap: 14px; }
+    .imm-topbar { gap: 12px; align-items: center; }
+    .imm-track-card { padding: 8px 14px; gap: 12px; border-radius: 18px; max-width: 100%; }
+    .imm-track-card .imm-album-art { width: 50px; height: 50px; border-radius: 10px; }
+    .imm-track-card .track-title { font-size: 16px !important; margin-bottom: 2px; -webkit-line-clamp: 1; }
+    .imm-track-card .track-artist { font-size: 13px !important; }
+    .imm-header-actions .imm-icon-btn { width: 42px; height: 42px; font-size: 15px; border-radius: 12px; }
+    .imm-lyrics-center { width: 96%; }
+    .imm-subtitle-line { font-size: clamp(22px, 5vw, 30px) !important; line-height: 1.35; }
+    .imm-subtitle-line.next { font-size: clamp(16px, 3.2vw, 20px) !important; }
+    /* 底部控制：单行紧凑 */
+    .imm-bottom { padding: 14px 18px; gap: 12px; max-width: 100%; border-radius: 22px; }
+    .imm-bottom .btn-ctrl { width: 42px; height: 42px; font-size: 14px; }
+    .imm-bottom .btn-play { width: 56px; height: 56px; font-size: 22px; }
+    .imm-bottom .time-labels { font-size: 11px; }
+    .imm-bottom .btn-mode { width: 38px; height: 38px; min-width: 38px; }
+    .imm-exit-hint { bottom: 8px; font-size: 16px; }
+    /* 沉浸模式顶部留出 WCO 标题栏高度（WCO 启用时） */
+    body.wco-active.immersive-mode .imm-wrapper { padding-top: env(titlebar-area-height, 0); }
+    /* 主页脚：紧凑 */
+    .footer { padding: 8px 16px; font-size: 11px; }
+}
+
 /* ================= 🚀 v2.6: PiP 微待机省电模式 ================= */
 /* 当画中画激活时，主窗口降为"只读状态"，所有动画/Canvas渲染/指针事件休眠 */
 .player-wrapper.pip-standby {
