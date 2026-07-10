@@ -65,7 +65,7 @@ const META_WORKER_TEMPLATE =
 "}\n";
 
 async function build() {
-    console.log('🔨 Building MBolka Player v3.6.6p1...');
+    console.log('🔨 Building MBolka Player v3.6.6p2...');
 
     // Create dist directory
     if (!fs.existsSync(DIST)) fs.mkdirSync(DIST, { recursive: true });

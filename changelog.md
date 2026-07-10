@@ -2,6 +2,20 @@
 
 ---
 
+## v3.6.6p2 (2026-07-11) — 创作信息卡片居中修复 + 竖屏模式 Spotify 风格布局优化
+
+### 一、创作信息卡片居中修复
+**`css/base-layout.css` / `css/style.css`**：
+- 卡片原 `width:100% + margin:0 auto` 因 `width:100%` 撑满导致视觉左对齐失效。改为 `width: max-content; max-width:100%` —— 卡片按内容自然宽度（最长一行决定卡宽）居中，且窄屏不溢出。
+- 移除旧 `margin: 0 -10px 16px`（抵消 `lrc-line` 的 `padding` 撑满全宽）规则，改回 `margin: 0 auto 16px`，配合 `max-content` 实现真正居中。
+
+### 二、竖屏模式全面优化（Spotify 风格）
+**`css/base-layout.css` / `css/wco.css`**：
+- `.player-wrapper` 竖屏下 `width:100vw; height:100vh; border-radius:0`；`.content-grid` 更紧凑（`padding:8px 14px 0; gap:6px; overflow:hidden`）。
+- 顶部曲目信息紧凑横排：封面缩至 `56px`、标题 `15px`/歌手 `12px`，隐藏浮动动画与频谱画布以节省纵向空间。
+
+---
+
 ## v3.6.6p1 (2026-07-10) — WCO 整窗居中+竖屏靠左 / WCO 沉浸舱按钮挂载槽 / 竖屏模式全面优化 / Spotify 风格歌词 / 创作信息卡片对齐修正
 
 > 本次合并原 v3.6.7（WCO 绝对水平居中曲目标题）并补充 6 项图示优化，统一为 v3.6.6p1。

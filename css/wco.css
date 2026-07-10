@@ -85,7 +85,11 @@ body.wco-active .player-wrapper {
 
 /* 🚀 v3.6.6p1: WCO 标题栏右侧「沉浸模式按钮挂载槽」
    沉浸模式（且 WCO 启用）可调用 WCO.mountActions(node) 把常用按钮挂到这里，腾出底部空间。
-   按钮随 WCO 启用而出现，关闭时自动卸载。需让出右侧金刚键约 140px。 */
+   按钮随 WCO 启用而出现，关闭时自动卸载。需让出右侧金刚键约 140px。
+   🩹 v3.6.6p2: 必须显式覆盖父级 .wco-titlebar 的 `app-region: drag` —— 在 Windows PWA
+     上整条标题栏是「窗口拖拽区」，鼠标点击会被 OS 捕获为拖拽手势而非 DOM click，
+     导致 slot 里的按钮（即使 z-index 较高、pointer-events: auto）无法触发 onclick。
+     CSS 标准：子元素设置 `-webkit-app-region: no-drag` 可重新让该子元素接收鼠标事件。 */
 .wco-actions-slot {
     position: absolute;
     right: 140px;          /* 避开系统金刚键 */
@@ -98,6 +102,9 @@ body.wco-active .player-wrapper {
     padding: 0 4px;
     z-index: 2;
     pointer-events: auto;
+    /* 🩹 v3.6.6p2: 关键修复 —— 覆盖父级 .wco-titlebar 的 app-region: drag */
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
     /* 缩小按钮以适应窄标题栏 */
 }
 .wco-actions-slot .btn-ctrl,
@@ -107,6 +114,9 @@ body.wco-active .player-wrapper {
     font-size: 12px;
     border-radius: 8px;
     flex-shrink: 0;
+    /* 🩹 v3.6.6p2: 按钮自身也必须 no-drag，确保 click 能送达 onclick */
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
 }
 .wco-actions-slot .imm-icon-btn { width: 30px; height: 30px; }
 .wco-actions-slot .btn-mode { padding: 0 8px; min-width: 32px; }

@@ -421,14 +421,16 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
 .lyrics-align-top .lrc-spacer-bottom { height: clamp(60px, 20vh, 160px); }
 
 /* 🔥 v2.8.13p4: 创作信息卡片 — 独立成行、超长文本自动换行、不溢出歌词栏
-   🚀 v3.6.6p1: 卡片本身始终在歌词栏中水平居中；卡片内文始终左对齐（不再跟随 --lrc-align） */
+   🚀 v3.6.6p1: 卡片本身始终在歌词栏中水平居中；卡片内文始终左对齐（不再跟随 --lrc-align）
+   🩹 v3.6.6p2: 修复 `width:100%` 让 margin:0 auto 失效导致卡片视觉左对齐——改为
+     `width: max-content; max-width: 100%` 让卡片按内容自然宽度居中（最长一行决定卡宽，
+     不至于拉满整个歌词栏），同时仍不溢出窄屏。 */
 .lrc-credits {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
     /* 🚀 v3.6.6p1: 卡片始终水平居中于歌词栏，内容始终左对齐 */
-    align-self: center;
     text-align: left;
     margin: 0 auto 18px;
     padding: 12px 16px;
@@ -439,12 +441,15 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     color: var(--text-sub);
     line-height: 1.7;
     opacity: 0.75;
-    width: 100%;
-    max-width: 100%; /* 🔥 p4: 不再硬编码600px，由父容器约束 */
+    /* 🩹 v3.6.6p2: 关键修复 —— 让卡片按内容宽度自适应，`margin: 0 auto` 才能真正居中 */
+    width: max-content;
+    max-width: 100%;
     box-sizing: border-box;
 }
 /* 🚀 v3.6.4: 作为歌词行嵌入歌词流的创作信息卡片，覆盖 lrc-line 默认样式
-   🚀 v3.6.6p1: 即使嵌入歌词流，创作信息卡片也始终在歌词栏水平居中显示，内容左对齐 */
+   🚀 v3.6.6p1: 即使嵌入歌词流，创作信息卡片也始终在歌词栏水平居中显示，内容左对齐
+   🩹 v3.6.6p2: 移除 `margin: 0 -10px 16px`（让卡片撑满全宽的旧规则）——
+     现在卡片按 max-content 居中，不再需要抵消 lrc-line 的 10px padding */
 .lrc-line.lrc-credits {
     filter: none !important;
     opacity: 1 !important;
@@ -453,7 +458,7 @@ input[type=range]::-moz-range-track { height: 4px; background: rgba(255,255,255,
     cursor: default;
     font-size: 12px;
     line-height: 1.7;
-    margin: 0 -10px 16px; /* 抵消 lrc-line 的 padding:0 10px，让卡片撑满 */
+    margin: 0 auto 16px; /* 🩹 v3.6.6p2: 改为 auto 居中（width: max-content + margin: 0 auto 即可） */
     /* 🚀 v3.6.6p1: 覆盖歌词行默认对齐为居中（歌词对齐方式不影响卡片位置） */
     text-align: center !important;
 }
